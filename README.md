@@ -1,3 +1,6 @@
+[![Build](https://github.com/cLarson-asbHum/ftc-decode-25-26/actions/workflows/gradle-build.yaml/badge.svg?branch=main)](https://github.com/cLarson-asbHum/ftc-decode-25-26/actions/workflows/gradle-build.yaml)
+[![Unit Tests](https://github.com/cLarson-asbHum/ftc-decode-25-26/actions/workflows/gradle-test.yaml/badge.svg?branch=main)](https://github.com/cLarson-asbHum/ftc-decode-25-26/actions/workflows/gradle-test.yaml)
+
 ## NOTICE
 
 This repository contains the public FTC SDK for the DECODE (2025-2026) competition season.
