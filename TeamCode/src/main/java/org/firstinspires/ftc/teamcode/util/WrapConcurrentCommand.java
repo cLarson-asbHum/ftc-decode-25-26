@@ -5,6 +5,8 @@ import com.arcrobotics.ftclib.command.Subsystem;
 
 import java.util.function.BooleanSupplier;
 
+import org.firstinspires.ftc.teamcode.subsystem.StateSubsystem;
+
 /**
  * Wraps a method that otherwise acts concurrently. For example, 
  * `IntakeSubsytem.pivotToIntake()` normally needs to only be called once, 

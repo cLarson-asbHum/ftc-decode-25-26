@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.util;
+package org.firstinspires.ftc.teamcode.subsystem;
 
 import com.arcrobotics.ftclib.command.Subsystem;
 
