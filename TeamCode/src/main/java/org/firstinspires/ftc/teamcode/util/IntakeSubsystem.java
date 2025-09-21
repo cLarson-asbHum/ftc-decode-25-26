@@ -15,7 +15,7 @@ import com.arcrobotics.ftclib.command.CommandBase;
  * 
  * All active instances of IntakeSubsystem should have their periodic() method called 
  * continually to enusure position is read and held. This is because all methods that
- * set hardware states (e.g. `pivotToIntake()`, but not `getPositioon()`) are async;
+ * set hardware states (e.g. `pivotToIntake()`, but not `getPosition()`) are async;
  * that is, they themselves do not block the thread until their action is finished. 
  * They set only the initial condition to perform the action, but the `periodic()` 
  * method is expected to actually do the updating. 
@@ -26,7 +26,7 @@ import com.arcrobotics.ftclib.command.CommandBase;
  * when an action is completed, which is most useful in autonomous where actions need 
  * to be synchronized.
  */
-public interface IntakeSubsystem extends Subsystem {
+public interface IntakeSubsystem extends StateSubsystem<IntakeSubsystem.Position> {
     /**
      * Represents a type of position the intake is in. Transition states
      * are provided for better Finite State Machine implementation.
@@ -69,47 +69,23 @@ public interface IntakeSubsystem extends Subsystem {
     }
 
     /**
+     * Alias of `getPosition()`.
+     */
+    public default Position getState() {
+        return getPosition();
+    }
+
+    /**
      * Returns the abstract position this intake is in or moving to.
      * To determine whether the position has been reached, check that 
      * `isInTransit()` returns false.
      * 
+     * This is an alias for `getState()`
+     * 
      * @return Which position the intake is in.
+     * @see StateSubsystem.getState()
      */
     public Position getPosition();
-
-    /**
-     * Wraps a method that otherwise acts concurrently. For example, 
-     * `pivotToIntake()` normally needs to only be called once, and the 
-     * `periodic()` method would have to be called to actually get the intake
-     * to the intaking position. This class simplifies the boilerplate for 
-     * that by writing only the initial action and the `Positon` the intake
-     * must be in and waiting for the state to be reached.
-     * 
-     * `periodic()` must be called on the subsystem externally, either directly 
-     * by user code or throught the `CommandScheduler.run()` method.
-     */
-    public static class WrapConcurrentCommand extends CommandBase {
-        private final Runnable initialAction;
-        private final Position endState;
-        private final IntakeSubsystem subsystem;
-        
-        public WrapConcurrentCommand(IntakeSubsystem requirement, Runnable initialAction, Position endState) {
-            this.initialAction = initialAction;
-            this.endState = endState;
-            this.subsystem = requirement;
-            addRequirements(requirement);
-        }
-
-        @Override
-        public void initialize() {
-            initialAction.run();
-        }
-
-        @Override
-        public boolean isFinished() {
-            return subsystem.getPosition() == endState;
-        }
-    }
 
     /**
      * Positions this subsystem for intaking. This sets the current 
@@ -121,7 +97,7 @@ public interface IntakeSubsystem extends Subsystem {
     public boolean pivotToIntake();
 
     public default Command pivotToIntakeCommand() {
-        return new WrapConcurrentCommand(this, () -> pivotToIntake(), Position.INTAKE);
+        return new WrapConcurrentCommand<Position>(this, () -> pivotToIntake(), Position.INTAKE);
     }
 
     /**
@@ -145,7 +121,7 @@ public interface IntakeSubsystem extends Subsystem {
     public boolean pivotToHold();
 
     public default Command pivotToHoldCommand() {
-        return new WrapConcurrentCommand(this, () -> pivotToHold(), Position.HOLD);    
+        return new WrapConcurrentCommand<Position>(this, () -> pivotToHold(), Position.HOLD);    
     }
 
     /**
@@ -167,7 +143,7 @@ public interface IntakeSubsystem extends Subsystem {
     public boolean pivotToEject();
 
     public default Command pivotToEjectCommand() {
-        return new WrapConcurrentCommand(this, () -> pivotToEject(), Position.EJECT);    
+        return new WrapConcurrentCommand<Position>(this, () -> pivotToEject(), Position.EJECT);    
     }
 
     /**
