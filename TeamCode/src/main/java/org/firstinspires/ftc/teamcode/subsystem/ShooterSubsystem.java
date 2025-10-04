@@ -37,7 +37,7 @@ public interface ShooterSubsystem extends StateSubsystem<ShooterSubsystem.Status
          * the shooter after having it denergized. Shooters in this state should 
          * initialize or await input to do some default action.
          */
-        UNKNOWN,
+        UNKNOWN, // Transition state
 
         /**
          * The shooter is currently getting hardware ready to fire. Examples may be
@@ -50,13 +50,13 @@ public interface ShooterSubsystem extends StateSubsystem<ShooterSubsystem.Status
          * example, changing the angle of a shooter while, say, flywheels are 
          * motionless does not mean the shooter will be able to fire. 
          */
-        CHARGING,
+        CHARGING, // Transition state
 
         /**
          * The shooter is in the process of disabling firing. The shooter cannot
          * fire from this state.
          */
-        UNCHARGING,
+        UNCHARGING, // Transition state
 
         /**
          * The shooter is not charged and so is unable to fire. This does not 
@@ -75,7 +75,7 @@ public interface ShooterSubsystem extends StateSubsystem<ShooterSubsystem.Status
          * A projectile is being moved into the shooter. The shooter may not fire at 
          * this time.
          */
-        RELOADING,
+        RELOADING, // Transition state
 
         /**
          * The shooter is completely able to fire. The shot may also be aborted to 
@@ -86,14 +86,14 @@ public interface ShooterSubsystem extends StateSubsystem<ShooterSubsystem.Status
         /**
          * A projectile is in the process of being shot. 
          */
-        FIRING,
+        FIRING, // Transition state
 
         /**
          * A projectile is being removed without being fired. This may be to use some
          * other projectile, or to remove a mistaken projectile. The shooter is unable
          * to fire at this time.
          */
-        ABORTING;
+        ABORTING; // Transition state
 
         /**
          * Whether the shooter can transition to `FIRING` in this status. 
