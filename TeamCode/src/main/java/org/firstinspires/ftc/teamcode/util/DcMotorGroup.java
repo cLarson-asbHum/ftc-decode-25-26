@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.hardware.PIDCoefficients;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.function.Consumer;
 
@@ -205,13 +206,7 @@ public class DcMotorGroup implements DcMotorEx {
      */
     @Override
     public boolean isOverCurrent() {
-        for(final DcMotorEx motor : motors) {
-            if(motor.isOverCurrent()) {
-                return true;
-            }
-        }
-
-        return false;
+        return Util.any(Arrays.asList(motors), (motor) -> motor.isOverCurrent());
     }
 
     /**
@@ -382,17 +377,11 @@ public class DcMotorGroup implements DcMotorEx {
     }
     
     /**
-     * Determines whether **any** motor in the group is busy.
+     * Determines whether **any** motors in the group is busy.
      */
     @Override
     public boolean isBusy() {
-        for(final DcMotor motor : motors) {
-            if(motor.isBusy()) {
-                return true;
-            }
-        }
-
-        return false;
+        return Util.any(Arrays.asList(motors), (motor) -> motor.isBusy());
     }
     
     @Override

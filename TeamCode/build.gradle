@@ -10,6 +10,13 @@
 
 
 // Custom definitions may go here
+plugins {
+    id 'jvm-test-suite'
+}
+
+tasks.withType(Test) {
+    useJUnitPlatform()
+}
 
 // Include common definitions from above.
 apply from: '../build.common.gradle'
@@ -20,6 +27,10 @@ android {
 
     packagingOptions {
         jniLibs.useLegacyPackaging true
+    }
+    
+    testOptions {
+        unitTests.returnDefaultValues = true
     }
 }
 

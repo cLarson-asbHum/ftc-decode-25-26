@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.util;
 
+import java.util.Iterator;
+import java.util.function.Function;
+
 public final class Util {
     public static boolean near(double x, double target, double tolerance) {
         return Math.abs(x - target) < tolerance;
@@ -44,4 +47,32 @@ public final class Util {
     public static String padHeader(String title) {
         return header(" " + title + " ");
     } 
+
+    public static <T> boolean any(Iterable<T> iter, Function<T, Boolean> predicate) {
+        return any(iter.iterator(), predicate);
+    }
+
+    public static <T> boolean any(Iterator<T> iter, Function<T, Boolean> predicate) {
+        while(iter.hasNext()) {
+            if(predicate.apply(iter.next())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static <T> boolean all(Iterable<T> iter, Function<T, Boolean> predicate) {
+        return all(iter.iterator(), predicate);
+    }
+
+    public static <T> boolean all(Iterator<T> iter, Function<T, Boolean> predicate) {
+        while(iter.hasNext()) {
+            if(!predicate.apply(iter.next())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
