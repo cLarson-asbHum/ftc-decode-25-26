@@ -28,7 +28,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         public double powerTolerance = 0.05;
     };
 
-    public FlywheelConst FLYWHEEL_CONST = new FlywheelConst();
+    public static FlywheelConst FLYWHEEL_CONST = new FlywheelConst();
 
     public static final class FeederConst {
         // TODO: Tune these const!
@@ -49,6 +49,17 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     };
 
     public static FeederConst FEEDER_CONST = new FeederConst();
+
+    public static final class Timeout {
+        public double uncharging = 5.0; // seconds
+        public double charging = 5.0; // seconds
+        public double reloading = 2.0; // seconds
+        public double firing = 1.0; // seconds
+        public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
+        public double aborting = 1.0; // seconds
+    }
+
+    public Timeout TIMEOUT = new Timeout();
 
     private final DcMotorEx flywheels;
     private double targetFlyWheelPower = 0; 
@@ -124,6 +135,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean charge() {
         setFeederPower(FEEDER_CONST.chargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.chargedPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.UNCHARGING, TIMEOUT.uncharging);
         return transitionTo(Status.CHARGING);
     }
 
@@ -131,6 +143,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean uncharge() {
         setFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.unchargedPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.CHARGING, TIMEOUT.charging);
         return transitionTo(Status.UNCHARGING);
     }
 
@@ -138,6 +151,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean reload() {
         setFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.RELOADING, TIMEOUT.reloading);
         return transitionTo(Status.RELOADING);
     }
 
@@ -145,13 +159,30 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean fire() {
         setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.firing);
+        return transitionTo(Status.FIRING);
+    }
+
+    /**
+     * Attempts to shoot as many projectiles as possible by using an indeifinite 
+     * timeout length and continually reloading. This means that it only ends multi
+     * fire whe another state is externally transitioned (e.g. the external opmode 
+     * calls `charge()`)
+     * 
+     * Whether the state was successfully transitioned to.
+     */
+    public boolean multiFire() {
+        setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.multiFiring);
         return transitionTo(Status.FIRING);
     }
 
     @Override
     public boolean abort() {
-        setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        setFeederPower(FEEDER_CONST.abortingPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.abortingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.ABORTING, TIMEOUT.aborting);
         return transitionTo(Status.ABORTING);
     }
 
@@ -207,19 +238,17 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             } else {
                 transitionTo(Status.EMPTY_CHARGED);
             }
-        } else if(isTimedOut(Status.UNCHARGING)) {
+        } else if(isTimedOut(Status.CHARGING)) {
             // FIXME: This can get stuck in an infinite loop!
             uncharge();
         }
     }
 
     protected void periodicReloading(Telemetry telemetry) {
-        // TODO: Transition to previous state if timed out?
-        if(checkIsReloaded()) {
-            transitionTo(Status.RELOADED_CHARGED);
-        } else if(isTimedOut(Status.RELOADING)) {
-            transitionTo(Status.EMPTY_CHARGED);
-        }
+        if(checkIsReloaded() || isTimedOut(Status.RELOADING)) {
+            // Whether we go to EMTPTY_CHARGED or RELOADED_CHARGED is determined by charge().
+            charge();
+        } 
     }
 
     protected void periodicFiring(Telemetry telemetry) {
@@ -229,8 +258,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         
         // TODO: Add check for when a projectile leaves to end before timeout
         if(timedOut && isReloaded && isCharged) {
+            charge(); // Just make sure that the correct powers are set
             transitionTo(Status.RELOADED_CHARGED);
         } else if(timedOut && !isReloaded && isCharged) {
+            charge(); // Just make sure that the correct powers are set
             transitionTo(Status.EMPTY_CHARGED);
         } else if(timedOut && checkConsideredUncharged()) {
             // Using uncharge rather than transition to make sure the powers are set.
@@ -248,8 +279,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         
         // TODO: Add check for when a projectile leaves to end before timeout
         if(timedOut && isReloaded && isCharged) {
+            charge(); // Just making sure the powers are correct.
             transitionTo(Status.RELOADED_CHARGED);
         } else if(timedOut && !isReloaded && isCharged) {
+            charge(); // Just making sure the powers are correct.
             transitionTo(Status.EMPTY_CHARGED);
         } else if(timedOut && checkConsideredUncharged()) {
             // Using uncharge rather than transition to make sure the powers are set.
