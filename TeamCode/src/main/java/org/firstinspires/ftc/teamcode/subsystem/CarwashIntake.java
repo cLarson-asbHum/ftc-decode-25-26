@@ -13,7 +13,7 @@ public class CarwashIntake implements IntakeSubsystem {
         public double tolerance = 0.05;
     }
 
-    public Powers POWERS = new Powers();
+    public static Powers POWERS = new Powers();
 
     private final Position position = Position.UNKNOWN;
     private DcMotorEx motor;

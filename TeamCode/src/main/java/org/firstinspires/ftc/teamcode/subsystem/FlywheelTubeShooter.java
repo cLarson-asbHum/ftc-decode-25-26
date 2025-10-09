@@ -48,7 +48,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         public double powerTolerance = 0.05;
     };
 
-    public FeederConst FEEDER_CONST = new FeederConst();
+    public static FeederConst FEEDER_CONST = new FeederConst();
 
     private final DcMotorEx flywheels;
     private double targetFlyWheelPower = 0; 
@@ -61,7 +61,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private Status status = Status.UNKNOWN;
 
     private Telemetry telemetry = null;
-
     public static boolean SUPPRESS_TELEMTERY = false;
 
     /**
