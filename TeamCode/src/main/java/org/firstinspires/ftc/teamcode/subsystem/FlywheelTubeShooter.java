@@ -5,6 +5,9 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
+import com.qualcomm.robotcore.util.ElapsedTime;
+
+import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
@@ -34,8 +37,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     public static final class FeederConst {
         // TODO: Tune these const!
-        public double ticksPerRev = 576.6;
-        public double maxRpm = 312.0;
+        public double ticksPerRev = 1; // Because its a servo
+        public double maxRpm = 120; // FIXME: I think this constant is wrong...
 
         public double ticksPerSec() {
             return maxRpm / 60  * ticksPerRev;
@@ -76,6 +79,11 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private Telemetry telemetry = null;
     public static boolean SUPPRESS_TELEMTERY = false;
 
+    private HashMap<Object, Double> timers = new HashMap<>();
+    // TODO: Make this use an Injectible-Elapsed time instead of a straight ElapsedTime
+    private final ElapsedTime lifetime;
+    private double lastTime = 0;
+
     /**
      * @param flywheels What propels the projectile at high speeds
      * @param feeder What moves balls into the flywheels. Can be null
@@ -83,6 +91,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public FlywheelTubeShooter(DcMotorEx flywheels, CRServo feeder) {
         this.flywheels = flywheels;
         this.feeder = feeder;
+        this.lifetime = new ElapsedTime();
+        this.lifetime.startTime();
 
         // The status is automatically set to UNKNOWN, which transitions to UNCHRAGED.
         // this does our initialization for us.
@@ -204,12 +214,27 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     private void startTimeout(Object label, double durationSec) {
-        // FIXME: Does nothing! We want this to create a new timeout!
+        timers.put(label, durationSec);
     }
 
     public boolean isTimedOut(Object label) {
-        // FIXME: This always is false. We need something that checks for timeout!
-        return false;
+        // Updating all timers
+        final double deltaTime = lifetime.seconds() - lastTime;
+
+        for(final Object foundLabel : timers.keySet()) {
+            timers.put(foundLabel, timers.get(foundLabel) - deltaTime);
+        }
+
+        lastTime += deltaTime;
+
+        // If the timer exists and is above 0, then we are not timed out
+        if(timers.containsKey(label) || timers.get(label) > 0) {
+            return false;
+        }
+
+        // We are timed out; remove the timer
+        timers.remove(label);
+        return true;
     }
 
     protected void periodicUnkown(Telemetry telemetry) {
@@ -222,7 +247,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     protected void periodicUncharging(Telemetry telemetry) {
-        // TODO: Transition to previous state if timed out?
         // Transitioning to UNCHARGED if we are within power
         if(checkConsideredUncharged()) {
             transitionTo(Status.UNCHARGED);
