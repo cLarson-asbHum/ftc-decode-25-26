@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.subsystem;
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
@@ -65,7 +67,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private double targetFlyWheelPower = 0; 
     private boolean hasSetFlywheelPower = false;
     
-    private final DcMotorEx feeder;
+    private final CRServo feeder;
     private double targetFeederPower = 0; 
     private boolean hasSetFeederPower = false;
 
@@ -78,7 +80,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @param flywheels What propels the projectile at high speeds
      * @param feeder What moves balls into the flywheels. Can be null
      */
-    public FlywheelTubeShooter(DcMotorEx flywheels, DcMotorEx feeder) {
+    public FlywheelTubeShooter(DcMotorEx flywheels, CRServo feeder) {
         this.flywheels = flywheels;
         this.feeder = feeder;
 
@@ -212,9 +214,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     protected void periodicUnkown(Telemetry telemetry) {
         // Just go to uncharged and call it a day.
-        if(feeder != null) {
-            feeder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        }
+        // if(feeder != null) {
+        //     feeder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        // }
         flywheels.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         uncharge();
     }
