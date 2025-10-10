@@ -100,8 +100,8 @@ public class CompetitionTeleop extends CommandOpMode {
         final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
-        final DcMotorEx rightShooterMotor = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "rightShooter");
-        final DcMotorEx intakeMotor = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "intake");
+        final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
+        final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
         // If any are not found, an error is thrown stating which.

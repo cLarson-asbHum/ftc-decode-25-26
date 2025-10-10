@@ -107,9 +107,9 @@ public class BasicMecanumDrive implements MecanumSubsystem {
             didChange = hasSetBlTarget = true;
         }
         
-        if(!near(fl, flTarget, POWER.tolerance)) {
-            flTarget = fl;
-            didChange = hasSetFlTarget = true;
+        if(!near(fr, flTarget, POWER.tolerance)) {
+            frTarget = fr;
+            didChange = hasSetFrTarget = true;
         }
         
         if(!near(br, brTarget, POWER.tolerance)) {

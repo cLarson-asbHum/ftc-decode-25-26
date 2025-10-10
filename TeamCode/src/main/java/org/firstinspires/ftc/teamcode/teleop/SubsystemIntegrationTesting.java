@@ -18,13 +18,13 @@ import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
 public class SubsystemIntegrationTesting extends LinearOpMode {
     @Override
     public void runOpMode() {
-        final DcMotorEx frontLeft  = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "frontLeft"); // Null if not found
-        final DcMotorEx backLeft   = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "backLeft"); // Null if not found
-        final DcMotorEx frontRight = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "frontRight"); // Null if not found
-        final DcMotorEx backRight  = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "backRight"); // Null if not found
+        final DcMotorEx frontLeft  = (DcMotorEx) hardwareMap.get(DcMotor.class, "frontLeft"); // Null if not found
+        final DcMotorEx backLeft   = (DcMotorEx) hardwareMap.get(DcMotor.class, "backLeft"); // Null if not found
+        final DcMotorEx frontRight = (DcMotorEx) hardwareMap.get(DcMotor.class, "frontRight"); // Null if not found
+        final DcMotorEx backRight  = (DcMotorEx) hardwareMap.get(DcMotor.class, "backRight"); // Null if not found
 
-        final DcMotorEx rightShooterMotor = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "rightShooter");
-        final DcMotorEx intakeMotor = (DcMotorEx) hardwareMap.tryGet(DcMotor.class, "intake");
+        final DcMotorEx rightShooterMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "rightShooter");
+        final DcMotorEx intakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "intake");
 
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor);
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
@@ -38,7 +38,7 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         boolean wasPressingRightTrigger = false;
 
         while(opModeIsActive()) {
-            drivetrain.mecanumDrive(gamepad1.left_stick_x, -gamepad1.left_stick_y, gamepad1.right_stick_x);
+            drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
 
             if(gamepad2.dpadUpWasPressed() /* && !gamepad2.start */) {
                 rightShooter.multiFire();

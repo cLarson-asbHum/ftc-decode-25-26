@@ -10,7 +10,7 @@ import com.bylazar.configurables.annotations.Configurable;
 @TeleOp(group="B - Testing")
 public class PrototypingIntakeAndShooter extends LinearOpMode {
     public static double FULL_POWER = -1.0;
-    public static double FULL_INTAKE = 1.0;
+    public static double FULL_INTAKE = -1.0;
 
     @Override
     public void runOpMode() {

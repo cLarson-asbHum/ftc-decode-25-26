@@ -212,7 +212,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     protected void periodicUnkown(Telemetry telemetry) {
         // Just go to uncharged and call it a day.
-        feeder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        if(feeder != null) {
+            feeder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
         flywheels.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         uncharge();
     }
@@ -352,7 +354,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             flywheels.setPower(targetFlyWheelPower);
         }
 
-        if(hasSetFeederPower) {
+        if(hasSetFeederPower && feeder != null) {
             feeder.setPower(targetFeederPower);
         }
 
