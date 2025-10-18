@@ -10,6 +10,21 @@
 
 
 // Custom definitions may go here
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url = "https://repo.dairy.foundation/releases"
+        }
+        maven {
+            url = "https://repo.dairy.foundation/snapshots"
+        }
+    }
+    dependencies {
+        classpath "dev.frozenmilk:Load:0.2.4"
+    }
+}
+
 plugins {
     id 'jvm-test-suite'
 }
@@ -21,6 +36,7 @@ tasks.withType(Test) {
 // Include common definitions from above.
 apply from: '../build.common.gradle'
 apply from: '../build.dependencies.gradle'
+apply plugin: 'dev.frozenmilk.sinister.sloth.load'
 
 android {
     namespace = 'org.firstinspires.ftc.teamcode'
@@ -34,12 +50,40 @@ android {
     }
 }
 
+repositories {
+    repositories {
+        // maven { 
+        //     // NOTE: Use if using a local build of Sloth.
+        //     url "file:///C:/Users/absol/Robotics/ftc2526decode/ftc-decode-25-26/libs/repo" 
+        // }
+        maven {
+            url = "https://repo.dairy.foundation/releases"
+        }
+    }
+}
+
 dependencies {
     implementation project(':FtcRobotController')
+    // implementation("dev.frozenmilk.sinister:SlothWithPanels:0.2.4") // Use when a panels-compatibile Sloth is created.
+    implementation("dev.frozenmilk.sinister:Sloth:0.2.4") // FIXME: Doesn't work with Panels
 
-    // Testing. We keep this in the Teamcode folder to be specific that only 
-    // *Teamcode* ought to have these dependencies
-    // Otherwise, we may conflict if we keep the tests in the HardwareFaker project.
+    // NOTE: We use a local, custom build of the Dairy Core library which patches a 
+    //       NullPointerException with Robotcore 11.0.0. 
+    // 
+    //       OpModeInternal attempts to call gamepad1.resetEdgeDetection() on the default 
+    //       opmode (OpModeManagerImpl.DefaultOpMode) when the RobotCore app starts. 
+    //       Ordinarily, the main OpModeManagerImpl sets the opmode's gamepad1 and 2 fields 
+    //       non-null values.
+    //        
+    //       **HOWEVER**, DairyCore *replaces* the currently running opmode with its own 
+    //       OpModeWrapper. This defaults with null gamepads until the initializeThings() 
+    //       method was called, which copied the original OpMode's gamepads. Unfortunately, 
+    //       this method was never called in the case of DefaultOpMode, causing a 
+    //       NullPointerException to be thrown.
+    implementation files("../libs/DairyCore-No-NullPointerException-release.aar") // Use if >= Robotcore 11.0.0
+    // implementation("dev.frozenmilk.dairy:Core:2.2.4") // Use if < Robotcore 11.0.0
+
+    // Testing
     testImplementation project(":HardwareFaker")
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-engine:1.13.4'
