@@ -12,7 +12,7 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 @TeleOp(group="B - Testing")
 public class LittleThingy extends LinearOpMode {
-    public static double FULL_POWER = -0.6;
+    public static double FULL_POWER = -0.3;
     public static double FULL_INTAKE = 1.0;
 
     public static double FEEDER_FULL = 1.0;
@@ -42,15 +42,18 @@ public class LittleThingy extends LinearOpMode {
 
         double intakePower = 0;
         double power = FEEDER_NIL;
+        boolean leftTriggerWasPressed = false;
         while(opModeIsActive()) {
-            if(gamepad2.left_trigger > 0.1f) {
+            if(gamepad2.left_trigger > 0.1f && !leftTriggerWasPressed) {
                 rightShooter.setPower(FULL_POWER);
 
-            } else if(gamepad2.b) {
+            } else if(gamepad2.b && !(gamepad2.left_trigger > 0.1)) {
                 rightShooter.setPower(-FULL_POWER);
-            } else {
+            } else if(!(gamepad2.left_trigger > 0.1)) {
                 rightShooter.setPower(0);
             }
+
+            leftTriggerWasPressed = gamepad2.left_trigger > 0.1f;
 
             if(gamepad2.a || gamepad2.x) {
                 // leftFeeder.setPower(FEEDER_FULL);

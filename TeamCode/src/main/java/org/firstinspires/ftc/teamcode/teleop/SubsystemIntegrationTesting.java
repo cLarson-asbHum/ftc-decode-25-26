@@ -1,9 +1,10 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import com.bylazar.configurables.annotations.Configurable;
 
@@ -11,6 +12,7 @@ import com.arcrobotics.ftclib.command.CommandScheduler;
 
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.util.Util;
 import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
 
 @Configurable
@@ -24,71 +26,149 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         final DcMotorEx backRight  = (DcMotorEx) hardwareMap.get(DcMotor.class, "backRight"); // Null if not found
 
         final DcMotorEx rightShooterMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "rightShooter");
+        final CRServo leftFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
+        final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "intake");
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor);
+        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor, leftFeeder, rightFeeder);
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(frontLeft, backLeft, frontRight, backRight);
 
         CommandScheduler.getInstance().registerSubsystem(rightShooter, intake, drivetrain);
 
+        telemetry.setMsTransmissionInterval(40);
+        rightShooter.setTelemetry(telemetry);
+        // intake.setTelemetry(telemetry);
+        // drivetrain.setTelemtry(telemetry);
 
         waitForStart();
 
         boolean wasPressingRightTrigger = false;
+        boolean wasPressingLeftTrigger = false;
+        String persistent = "";
 
         while(opModeIsActive()) {
+            final boolean gamepad2_dpadUpWasPressed = gamepad2.dpadUpWasPressed();
+            final boolean gamepad2_backWasPressed = gamepad2.backWasPressed();
+            final boolean gamepad2_dpadDownWasPressed = gamepad2.dpadDownWasPressed();
+            final boolean gamepad2_yWasPressed = gamepad2.yWasPressed();
+            final boolean gamepad2_leftBumperWasPressed = gamepad2.leftBumperWasPressed();
+            final boolean gamepad2_rightBumperWasPressed = gamepad2.rightBumperWasPressed();
+            final boolean gamepad2_xWasPressed = gamepad2.xWasPressed();
+            
             drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
 
-            if(gamepad2.dpadUpWasPressed() /* && !gamepad2.start */) {
+            if(gamepad2_dpadUpWasPressed /* && !gamepad2.start */) {
                 rightShooter.multiFire();
-            } else if(gamepad2.dpadUpWasPressed()) {
+            } else if(gamepad2_dpadUpWasPressed) {
                 // CommandScheduler.getInstance().schedule(rightShooter.multiFireCommand());
             }
             
-            if(gamepad2.backWasPressed() && !gamepad2.start) {
+            if(gamepad2_backWasPressed && rightShooter.getStatus() != FlywheelTubeShooter.Status.CHARGING && !gamepad2.start) {
                 rightShooter.charge();
-            } else if(gamepad2.backWasPressed()) {
+                // rightShooterMotor.setPower(FlywheelTubeShooter.FLYWHEEL_CONST.chargedPower);
+                persistent += "Charged with " + FlywheelTubeShooter.FLYWHEEL_CONST.chargedPower + "\n";
+            } else if(gamepad2_backWasPressed && !gamepad2.start) {
+                rightShooter.forceCharged();
+
+                persistent += "Force Charged\n";
+            } else if(gamepad2_backWasPressed) {
                 CommandScheduler.getInstance().schedule(rightShooter.chargeCommand());
+                persistent += "(Command) Charged with " + FlywheelTubeShooter.FLYWHEEL_CONST.chargedPower + "\n";
+
             }
             
-            if(gamepad2.dpadDownWasPressed() && !gamepad2.start) {
+            if(gamepad2_dpadDownWasPressed && !gamepad2.start) {
                 rightShooter.uncharge();
-            } else if(gamepad2.dpadDownWasPressed()) {
+                persistent += "UnCharged\n";
+
+            } else if(gamepad2_dpadDownWasPressed) {
                 CommandScheduler.getInstance().schedule(rightShooter.unchargeCommand());
+                persistent += "(Command) UnCharged\n";
             }
             
-            if(gamepad2.aWasPressed() && !gamepad2.start) {
+            if(gamepad2_yWasPressed && !gamepad2.start) {
                 rightShooter.abort();
-            } else if(gamepad2.aWasPressed()) {
+                persistent += "Aborted\n";
+
+            } else if(gamepad2_yWasPressed) {
                 CommandScheduler.getInstance().schedule(rightShooter.abortCommand());
+                persistent += "(Command) Aborted\n";
             }
 
             if(gamepad2.right_trigger > 0.1 && !wasPressingRightTrigger && !gamepad2.start) {
                 rightShooter.fire();
+                persistent += "Fired\n";
+
             } else if(gamepad2.right_trigger > 0.1 && !wasPressingRightTrigger) {
                 CommandScheduler.getInstance().schedule(rightShooter.fireCommand());
+                persistent += "(Command) Fired\n";
             }
 
+            if(gamepad2.left_trigger > 0.1 && !wasPressingLeftTrigger && !gamepad2.start) {
+                rightShooter.reload();
+                persistent += "Reloaded\n";
+            } else if(gamepad2.left_trigger > 0.1 && !wasPressingLeftTrigger) {
+                CommandScheduler.getInstance().schedule(rightShooter.reloadCommand());
+                persistent += "(Command) Reloaded\n";
+            }
+
+            wasPressingLeftTrigger = gamepad2.left_trigger > 0.1;
             wasPressingRightTrigger = gamepad2.right_trigger > 0.1;
             
-            if(gamepad2.leftBumperWasPressed()/*  && !gamepad2.start */) {
+            if(gamepad2_leftBumperWasPressed/*  && !gamepad2.start */) {
                 intake.holdGamePieces();
-            } else if(gamepad2.leftBumperWasPressed()) {
+                persistent += "Held\n";
+
+            } else if(gamepad2_leftBumperWasPressed) {
                 // intake.holdGamePiecesCommand();
+                persistent += "(Command) Held\n";
             }
 
-            if(gamepad2.rightBumperWasPressed()/*  && !gamepad2.start */) {
+            if(gamepad2_rightBumperWasPressed/*  && !gamepad2.start */) {
                 intake.intakeGamePieces();
-            } else if(gamepad2.rightBumperWasPressed()) {
+                persistent += "Intaked\n";
+
+            } else if(gamepad2_rightBumperWasPressed) {
                 // intake.intakeGamePiecesCommand();
+                persistent += "(Command) Intaked\n";
             }
 
-            if(gamepad2.xWasPressed()/*  && !gamepad2.start */) {
+            if(gamepad2_xWasPressed/*  && !gamepad2.start */) {
                 intake.ejectGamePieces();
-            } else if(gamepad2.xWasPressed()) {
+                persistent += "Ejected\n";
+
+            } else if(gamepad2_xWasPressed) {
                 // intake.ejectGamePiecesCommand();
+                persistent += "(Command) Ejected\n";
             }
+
+            if(gamepad1.left_trigger > 0.1 || gamepad1.right_trigger > 0.1) {
+                drivetrain.engageFastMode();
+            } else if(gamepad1.left_bumper || gamepad1.right_bumper) {
+                drivetrain.engageSlowMode();
+            } else {
+                drivetrain.engageMiddleMode();
+            }
+
+            if(gamepad2_dpadDownWasPressed) {
+                persistent += "adsklfh\n";
+            }
+
+            telemetry.addLine();
+            telemetry.addLine(Util.header("Gamepad"));
+            telemetry.addLine();
+            telemetry.addData("dpadDownWasPressed", gamepad2_dpadDownWasPressed);
+            telemetry.addData("start", gamepad2.start);
+            telemetry.addLine();
+
+            telemetry.addLine();
+            telemetry.addLine(Util.header("Persistent"));
+            telemetry.addLine();
+            telemetry.addLine(persistent);
+            telemetry.update();
 
             CommandScheduler.getInstance().run();
         }

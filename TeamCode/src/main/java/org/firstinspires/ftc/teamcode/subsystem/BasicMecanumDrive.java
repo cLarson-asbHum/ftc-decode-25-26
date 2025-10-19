@@ -5,6 +5,7 @@ import com.bylazar.configurables.annotations.Configurable;
 
 import static org.firstinspires.ftc.teamcode.util.Util.*;
 
+@Configurable
 public class BasicMecanumDrive implements MecanumSubsystem {
     public static final class POWER {
         public double maxForward = 1.0;
@@ -107,7 +108,7 @@ public class BasicMecanumDrive implements MecanumSubsystem {
             didChange = hasSetBlTarget = true;
         }
         
-        if(!near(fr, flTarget, POWER.tolerance)) {
+        if(!near(fr, frTarget, POWER.tolerance)) {
             frTarget = fr;
             didChange = hasSetFrTarget = true;
         }

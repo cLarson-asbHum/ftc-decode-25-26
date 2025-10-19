@@ -2,8 +2,10 @@ package org.firstinspires.ftc.teamcode.temp;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.bylazar.configurables.annotations.Configurable;
 
+@Disabled
 @Configurable
 @TeleOp(group="B - Testing")
 public final class SlothTest extends LinearOpMode {

@@ -25,10 +25,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
 
         public double unchargedPower = 0;
-        public double chargedPower = 1.0;
+        public double chargedPower = 0.6;
         public double reloadingPower = chargedPower;
         public double firingPower = chargedPower;
-        public double abortingPower = 0.3;
+        public double abortingPower = -0.3;
 
         public double powerTolerance = 0.05;
     };
@@ -70,9 +70,13 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private double targetFlyWheelPower = 0; 
     private boolean hasSetFlywheelPower = false;
     
-    private final CRServo feeder;
-    private double targetFeederPower = 0; 
-    private boolean hasSetFeederPower = false;
+    private final CRServo leftFeeder;
+    private double targetLeftFeederPower = 0; 
+    private boolean hasSetLeftFeederPower = false;
+    
+    private final CRServo rightFeeder;
+    private double targetRightFeederPower = 0; 
+    private boolean hasSetRightFeederPower = false;
 
     private Status status = Status.UNKNOWN;
 
@@ -85,12 +89,19 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private double lastTime = 0;
 
     /**
+     * NOTE: What side each feeder is on does not matter semantically; it only
+     * affects what feeder is set with the directional methods, like 
+     * `fireRight()` or `fireLeft()`, for example. Beside the different feeders,
+     * these methods operate identically. 
+     * 
      * @param flywheels What propels the projectile at high speeds
-     * @param feeder What moves balls into the flywheels. Can be null
+     * @param leftFeeder What moves balls into the flywheels. Can be null
+     * @param rightFeeder What moves balls into the flywheels. Can be null
      */
-    public FlywheelTubeShooter(DcMotorEx flywheels, CRServo feeder) {
+    public FlywheelTubeShooter(DcMotorEx flywheels, CRServo leftFeeder, CRServo rightFeeder) {
         this.flywheels = flywheels;
-        this.feeder = feeder;
+        this.rightFeeder = rightFeeder;
+        this.leftFeeder = leftFeeder;
         this.lifetime = new ElapsedTime();
         this.lifetime.startTime();
 
@@ -102,7 +113,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @param flywheels What propells the projectile at high speeds
      */
     public FlywheelTubeShooter(DcMotorEx flywheels) {
-        this(flywheels, null);
+        this(flywheels, null, null);
     }
 
     private boolean setFlywheelPower(double power, double powerTolerance) {
@@ -110,26 +121,44 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             return false;
         }
 
-        if(Math.abs(power - targetFlyWheelPower) < FLYWHEEL_CONST.powerTolerance) {
+        if(Math.abs(power - targetFlyWheelPower) < powerTolerance) {
             return false;
         }
 
         targetFlyWheelPower = power;
-        hasSetFlywheelPower = false;
+        hasSetFlywheelPower = true;
         return true;
     }
 
     private boolean setFeederPower(double power, double powerTolerance) {
-        if(feeder == null) {
+        return setRightFeederPower(power, powerTolerance) || setLeftFeederPower(power, powerTolerance);
+    }
+
+    private boolean setLeftFeederPower(double power, double powerTolerance) {
+        if(leftFeeder == null) {
             return false;
         }
 
-        if(Math.abs(power - targetFeederPower) < FLYWHEEL_CONST.powerTolerance) {
+        if(Math.abs(power - targetLeftFeederPower) < powerTolerance) {
             return false;
         }
 
-        targetFeederPower = power;
-        hasSetFeederPower = false;
+        targetLeftFeederPower = power;
+        hasSetLeftFeederPower = true;
+        return true;
+    }
+    
+    private boolean setRightFeederPower(double power, double powerTolerance) {
+        if(rightFeeder == null) {
+            return false;
+        }
+
+        if(Math.abs(power - targetRightFeederPower) < powerTolerance) {
+            return false;
+        }
+
+        targetRightFeederPower = power;
+        hasSetRightFeederPower = true;
         return true;
     }
 
@@ -147,15 +176,34 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean charge() {
         setFeederPower(FEEDER_CONST.chargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.chargedPower, FLYWHEEL_CONST.powerTolerance);
-        startTimeout(Status.UNCHARGING, TIMEOUT.uncharging);
+        startTimeout(Status.CHARGING, TIMEOUT.charging);
         return transitionTo(Status.CHARGING);
+    }
+
+    /**
+     * Goes to the `CHARGED` state, whether you like it or not. This is in 
+     * contrast to `charge()`, which goes to `CHARGING`, which can fail if 
+     * the velocity is not sensing correctly.
+     * 
+     * NOTE: This does not guarantee that the velocity will be correct!
+     * 
+     * @return Whether the transition to `CHARGED` was successful.
+     */
+    public boolean forceCharged() {
+        charge();
+        removeTimeout(Status.CHARGING);
+        if(checkIsReloaded()) {
+            return transitionTo(Status.RELOADED_CHARGED);
+        } else {
+            return transitionTo(Status.EMPTY_CHARGED);
+        }
     }
 
     @Override
     public boolean uncharge() {
         setFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.unchargedPower, FLYWHEEL_CONST.powerTolerance);
-        startTimeout(Status.CHARGING, TIMEOUT.charging);
+        startTimeout(Status.UNCHARGING, TIMEOUT.uncharging);
         return transitionTo(Status.UNCHARGING);
     }
 
@@ -217,6 +265,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         timers.put(label, durationSec);
     }
 
+    private boolean removeTimeout(Object label) {
+        return timers.remove(label) != null;
+    }
+
     public boolean isTimedOut(Object label) {
         // Updating all timers
         final double deltaTime = lifetime.seconds() - lastTime;
@@ -228,7 +280,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         lastTime += deltaTime;
 
         // If the timer exists and is above 0, then we are not timed out
-        if(timers.containsKey(label) || timers.get(label) > 0) {
+        if(timers.containsKey(label) && timers.get(label) > 0) {
             return false;
         }
 
@@ -242,7 +294,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         // if(feeder != null) {
         //     feeder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         // }
-        flywheels.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        // flywheels.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // FIXME: No encoder connected!
         uncharge();
     }
 
@@ -281,20 +333,20 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     protected void periodicFiring(Telemetry telemetry) {
         final boolean timedOut = isTimedOut(Status.FIRING);
-        final boolean isCharged = checkConsideredCharged();
+        // final boolean isCharged = checkConsideredCharged();
         final boolean isReloaded = checkIsReloaded();
         
         // TODO: Add check for when a projectile leaves to end before timeout
-        if(timedOut && isReloaded && isCharged) {
+        if(timedOut && isReloaded/*  && isCharged */) {
             charge(); // Just make sure that the correct powers are set
             transitionTo(Status.RELOADED_CHARGED);
-        } else if(timedOut && !isReloaded && isCharged) {
+        } else if(timedOut && !isReloaded/*  && isCharged */) {
             charge(); // Just make sure that the correct powers are set
             transitionTo(Status.EMPTY_CHARGED);
-        } else if(timedOut && checkConsideredUncharged()) {
+        }/*  else if(timedOut && checkConsideredUncharged()) {
             // Using uncharge rather than transition to make sure the powers are set.
             uncharge();
-        } else if(timedOut && !isCharged) {
+        } */ else if(timedOut /* && !isCharged */) {
             // The robot is neither charged nor uncharged. It is safer to charge to fire again.
             charge();
         }
@@ -330,9 +382,27 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     protected void logExtraTelemetry(Telemetry telemetry) {
+        // FIXME: This may cause uncessary slowdown
+        telemetry.addData("lifetime", lifetime.seconds());
+        telemetry.addData("Current Timer", timers.get(getStatus()));
+        telemetry.addData("isTimedOut()", isTimedOut(getStatus()));
+        telemetry.addLine();
+
         telemetry.addData("checkConsideredUncharged()", checkConsideredUncharged());
         telemetry.addData("checkConsideredCharged()", checkConsideredCharged());
         telemetry.addData("checkIsReloaded()", checkIsReloaded());
+        telemetry.addLine();
+
+        telemetry.addData("targetFlyWheelPower", targetFlyWheelPower);
+        telemetry.addData("actualFlywheelPower", flywheels.getPower());
+        telemetry.addData("targetLeftFeederPower", targetLeftFeederPower);
+        if(leftFeeder != null) {
+            telemetry.addData("targetFeederPower", leftFeeder.getPower());
+        }
+        telemetry.addData("targetRightFeederPower", targetRightFeederPower);
+        if(rightFeeder != null) {
+            telemetry.addData("targetFeederPower", rightFeeder.getPower());
+        }
         telemetry.addLine();
     }
 
@@ -378,11 +448,19 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         // Updating the motor powers
         if(hasSetFlywheelPower) {
             flywheels.setPower(targetFlyWheelPower);
+            hasSetFlywheelPower = false;
         }
 
-        if(hasSetFeederPower && feeder != null) {
-            feeder.setPower(targetFeederPower);
+        if(hasSetLeftFeederPower && leftFeeder != null) {
+            leftFeeder.setPower(targetLeftFeederPower);
+            hasSetLeftFeederPower = false;
         }
+        
+        if(hasSetRightFeederPower && rightFeeder != null) {
+            rightFeeder.setPower(targetRightFeederPower);
+            hasSetRightFeederPower = false;
+        }
+        
 
         // Adding any other telemetry.
         if(telemetry != null && !SUPPRESS_TELEMTERY) {

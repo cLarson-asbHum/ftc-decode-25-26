@@ -41,8 +41,8 @@ public interface MecanumSubsystem extends Subsystem {
 
         return powerMotors(
             /* frontLeft  */ scaledForward + scaledLateral + scaledYaw,
-            /* backLeft */ scaledForward - scaledLateral - scaledYaw,
-            /* frontRight   */ scaledForward - scaledLateral + scaledYaw,
+            /* backLeft */ scaledForward - scaledLateral + scaledYaw,
+            /* frontRight   */ scaledForward - scaledLateral - scaledYaw,
             /* backRight  */ scaledForward + scaledLateral - scaledYaw
         );
 
