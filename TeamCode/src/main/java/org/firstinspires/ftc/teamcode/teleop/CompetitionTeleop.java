@@ -14,6 +14,7 @@ import com.arcrobotics.ftclib.command.CommandOpMode;
 import com.arcrobotics.ftclib.command.ConditionalCommand;
 import com.arcrobotics.ftclib.command.InstantCommand;
 import com.arcrobotics.ftclib.command.ParallelCommandGroup;
+import com.arcrobotics.ftclib.command.RunCommand;
 import com.arcrobotics.ftclib.command.SelectCommand;
 import com.arcrobotics.ftclib.command.SequentialCommandGroup;
 import com.arcrobotics.ftclib.command.Subsystem;
@@ -26,6 +27,7 @@ import java.util.HashMap;
 
 import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.util.Util;
 
@@ -112,11 +114,18 @@ public class CompetitionTeleop extends CommandOpMode {
         // Subsystems can lead into each other, but they should be able to operate independently 
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor);
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        // final 
+        final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
+            frontLeftMotor, 
+            backLeftMotor,
+            frontRightMotor,
+            backRightMotor
+        );
 
-        register(rightShooter, intake); // This means that no command will use the same subsystem at the same time.
+        // This means that no command will use the same subsystem at the same time.
+        register(rightShooter, intake, drivetrain);
 
-        return new Subsystem[] { rightShooter, intake };
+        // Return a list of every subsystem that we have created
+        return new Subsystem[] { rightShooter, intake, drivetrain };
     }
     
     @Override
@@ -124,6 +133,7 @@ public class CompetitionTeleop extends CommandOpMode {
         final Subsystem[] subsystems = createSubsystems(hardwareMap);
         final FlywheelTubeShooter shooter = (FlywheelTubeShooter) subsystems[0];
         final CarwashIntake intake = (CarwashIntake) subsystems[1];
+        final BasicMecanumDrive drivetrain = (BasicMecanumDrive) subsystems[2];
 
         // Creating GamepadEx's
         // These are special versions of gamepads that have added functionality
@@ -136,7 +146,7 @@ public class CompetitionTeleop extends CommandOpMode {
         // Commands are actions that can be done on button presses
         createShooterCommands(shooterPad, shooterPadEx, shooter, intake);
         createIntakeCommands(shooterPad, shooterPadEx, shooter, intake);
-        // createDriverCommands(driverPad, driverPadEx);
+        createDriverCommands(driverPad, driverPadEx, drivetrain);
 
         // Having the intake hold pieces by default.
         schedule(new InstantCommand(() -> intake.holdGamePieces()));
@@ -216,5 +226,38 @@ public class CompetitionTeleop extends CommandOpMode {
 
         // Transfer any held game pieces with the 
         // TODO: Transfer held pieces to the shooter mover
+    }
+
+    private void createDriverCommands(
+        Gamepad driverPad,
+        GamepadEx drivePadEx,
+        BasicMecanumDrive drivetrain
+    ) {
+        // Settings the default command to be driving with the joysticks
+        // A default command is something that a subsystem does when no other 
+        // command is being done.
+        drivetrain.setDefaultCommand(new RunCommand(
+            // We do mecanumDrive() by default, which is what drives the chasis
+            () -> drivetrain.mecanumDrive(
+                -driverPad.left_stick_y, 
+                driverPad.left_stick_x, 
+                driverPad.right_stick_x
+            ),
+            // We mark drivetrain as the subsystem so no one else uses it
+            drivetrain
+        ));
+
+        // Hold either trigger for fast mode.
+        // Fast mode ends when we let go.
+        new Trigger(() -> driverPad.left_trigger > TRIGGER_PRESSED || driverPad.right_trigger > TRIGGER_PRESSED)
+            .whenActive(new InstantCommand(() -> drivetrain.engageFastMode()))
+            .whenInactive(new InstantCommand(() -> drivetrain.engageMiddleMode()));
+
+            
+        // Hold either trigger for slow mode
+        // Slow mode ends when we let go.
+        new Trigger(() -> driverPad.left_bumper || driverPad.right_bumper)
+            .whenActive(new InstantCommand(() -> drivetrain.engageFastMode()))
+            .whenInactive(new InstantCommand(() -> drivetrain.engageMiddleMode()));
     }
 }
