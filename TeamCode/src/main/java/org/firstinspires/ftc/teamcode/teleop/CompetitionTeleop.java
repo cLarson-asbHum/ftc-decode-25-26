@@ -107,6 +107,16 @@ public class CompetitionTeleop extends CommandOpMode {
         // If any are not found, an error is thrown stating which.
         throwAFitIfAnyHardwareIsNotFound();
 
+        // Setting all necessary hardware properties
+        frontLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
+        backLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
+        frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
+        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
+
+        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
+        leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
+
         // Creating subsystems. 
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 

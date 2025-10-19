@@ -30,6 +30,12 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "intake");
 
+        
+        frontLeft.setDirection(DcMotorEx.Direction.REVERSE);
+        backLeft.setDirection(DcMotorEx.Direction.REVERSE);
+        frontRight.setDirection(DcMotorEx.Direction.FORWARD);
+        backRight.setDirection(DcMotorEx.Direction.FORWARD);
+
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
 
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor, leftFeeder, rightFeeder);
