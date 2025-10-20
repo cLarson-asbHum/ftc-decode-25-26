@@ -22,7 +22,7 @@ public class ColorSensorTest extends LinearOpMode {
         public double purpleMaxHue = 360;
         public double minPurpleSaturation = 0.4;
      
-        public double minDistCm = 0.8;
+        public double minDistCm = 0.00;
         public double maxDistCm = 7;
     }
 

@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.teleop;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -10,6 +11,8 @@ import com.bylazar.configurables.annotations.Configurable;
 
 import com.arcrobotics.ftclib.command.CommandScheduler;
 
+import org.firstinspires.ftc.robotcore.external.JavaUtil;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.util.Util;
@@ -18,6 +21,30 @@ import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
 @Configurable
 @TeleOp(group="B - Testing")
 public class SubsystemIntegrationTesting extends LinearOpMode {
+    public static class ColorSensorConst {
+        public double greenMinHue = 130;
+        public double greenMaxHue = 165;
+        public double minGreenSaturation = 0.55;
+        
+        public double purpleMinHue = 170;
+        public double purpleMaxHue = 360;
+        public double minPurpleSaturation = 0.4;
+     
+        public double minDistCm = 0.00;
+        public double maxDistCm = 7;
+
+        public double gain = 200; // Multiplicative factor. Just bump it WAAAY up. 
+    }
+
+    public static ColorSensorConst COLOR_SENSOR_CONST = new ColorSensorConst();
+
+    public static enum ArtifactColor { 
+        GREEN,
+        PURPLE,
+        UNKNOWN 
+    }
+
+
     @Override
     public void runOpMode() {
         final DcMotorEx frontLeft  = (DcMotorEx) hardwareMap.get(DcMotor.class, "frontLeft"); // Null if not found
@@ -30,7 +57,12 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "intake");
 
+        final ColorRangeSensor rightReloadSensor = hardwareMap.get(ColorRangeSensor.class, "rightReload");
+        final ColorRangeSensor leftReloadSensor = hardwareMap.get(ColorRangeSensor.class, "leftReload");
         
+        rightReloadSensor.setGain((float) COLOR_SENSOR_CONST.gain);
+        leftReloadSensor.setGain((float) COLOR_SENSOR_CONST.gain);
+
         frontLeft.setDirection(DcMotorEx.Direction.REVERSE);
         backLeft.setDirection(DcMotorEx.Direction.REVERSE);
         frontRight.setDirection(DcMotorEx.Direction.FORWARD);
@@ -208,6 +240,13 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             telemetry.addLine();
 
             telemetry.addLine();
+            telemetry.addLine(Util.header("Colors"));
+            telemetry.addLine();
+            telemetry.addData("leftReload Artifact", getArtifactColor(leftReloadSensor));
+            telemetry.addData("rightReload Artifact", getArtifactColor(rightReloadSensor));
+            telemetry.addLine();
+
+            telemetry.addLine();
             telemetry.addLine(Util.header("Persistent"));
             telemetry.addLine();
             telemetry.addLine(persistent);
@@ -218,4 +257,55 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
 
         CommandScheduler.getInstance().reset();
     }
+
+    public ArtifactColor getArtifactColor(ColorRangeSensor sensor) {
+        // Distance is used to verify that the RGB values will be accurate
+        final double dist = sensor.getDistance(DistanceUnit.CM);
+
+        // Getting the components of the current color
+        final int red = sensor.red();
+        final int green = sensor.green();
+        final int blue = sensor.blue();
+        
+        // Convertin the RGB color to something more natural
+        final double hue = JavaUtil.rgbToHue(red, green, blue);
+        final double saturation = JavaUtil.rgbToSaturation(red, green, blue);
+        // final double value = JavaUtil.rgbToValue(red, green, blue);
+
+        return calculateArtifactColor(hue, saturation, dist);
+    }
+
+    public ArtifactColor calculateArtifactColor(double hue, double sat, double distCm) {
+        // If the color cannot be safely determined
+        if(distCm >= COLOR_SENSOR_CONST.maxDistCm || distCm <= COLOR_SENSOR_CONST.minDistCm) {
+            return ArtifactColor.UNKNOWN;
+        } 
+
+        // Checking that the hue is correct
+        boolean isPurple = COLOR_SENSOR_CONST.purpleMinHue <= hue && hue <= COLOR_SENSOR_CONST.purpleMaxHue;
+        boolean isGreen  = COLOR_SENSOR_CONST.greenMinHue  <= hue && hue <= COLOR_SENSOR_CONST.greenMaxHue;
+
+        // Checking that the saturations are also correct
+        isPurple = isPurple && sat > COLOR_SENSOR_CONST.minPurpleSaturation;
+        isGreen  = isGreen  && sat > COLOR_SENSOR_CONST.minGreenSaturation;
+
+        // Check for nonsense and possibly return purple
+        if(isGreen && isPurple) {
+            // Neither color has dominance; the color cannot be determined
+            return ArtifactColor.UNKNOWN;
+        }
+
+        if(isPurple) {
+            return ArtifactColor.PURPLE;
+        }
+        
+        // Check for nonsense and possibly return green
+        if(isGreen) {
+            return ArtifactColor.GREEN;
+        }
+
+        // The color was unrecognized; the color is unknown
+        return ArtifactColor.UNKNOWN;
+    }
+
 }
