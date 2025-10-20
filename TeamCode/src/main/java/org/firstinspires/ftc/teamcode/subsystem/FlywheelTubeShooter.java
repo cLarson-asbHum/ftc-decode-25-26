@@ -176,7 +176,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return Whether either *or* both feeder's power was changed. 
      */
     private boolean setFeederPower(double power, double powerTolerance) {
-        return setRightFeederPower(power, powerTolerance) || setLeftFeederPower(power, powerTolerance);
+        final boolean didRightChange = setRightFeederPower(power, powerTolerance);
+        final boolean didLeftChange = setLeftFeederPower(power, powerTolerance);
+        return didRightChange || didLeftChange;
     }
 
     private boolean setLeftFeederPower(double power, double powerTolerance) {
@@ -288,6 +290,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return transitionTo(Status.RELOADING);
     }
 
+    public boolean reloadRight() {
+        setRightFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.RELOADING, TIMEOUT.reloading);
+        return transitionTo(Status.RELOADING);
+    }
+    
+    public boolean reloadLeft() {
+        setLeftFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.RELOADING, TIMEOUT.reloading);
+        return transitionTo(Status.RELOADING);
+    }
+
     /**
      * Moves any loaded projectiles into the shooter (if necessary) and puts the 
      * shooter at the correct power (if necessary). The shooter may already be 
@@ -300,6 +318,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     @Override
     public boolean fire() {
         setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.firing);
+        return transitionTo(Status.FIRING);
+    }
+
+    public boolean fireRight() {
+        setRightFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.firing);
+        return transitionTo(Status.FIRING);
+    }
+    
+    public boolean fireLeft() {
+        setLeftFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.firing);
         return transitionTo(Status.FIRING);
@@ -320,6 +354,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return transitionTo(Status.FIRING);
     }
 
+    public boolean multiFireRight() {
+        setRightFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.multiFiring);
+        return transitionTo(Status.FIRING);
+    }
+
+    public boolean multiFireLeft() {
+        setLeftFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.multiFiring);
+        return transitionTo(Status.FIRING);
+    }
+
     /**
      * Attempts to remove any mistaken projectiles. The feeders are moved in order
      * to remove the projectile. This is not the same as firing, which attempts to 
@@ -331,6 +381,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     @Override
     public boolean abort() {
         setFeederPower(FEEDER_CONST.abortingPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.abortingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.ABORTING, TIMEOUT.aborting);
+        return transitionTo(Status.ABORTING);
+    }
+
+    public boolean abortLeft() {
+        setLeftFeederPower(FEEDER_CONST.abortingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.abortingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.ABORTING, TIMEOUT.aborting);
+        return transitionTo(Status.ABORTING);
+    }
+
+    public boolean abortRight() {
+        setRightFeederPower(FEEDER_CONST.abortingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.abortingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.ABORTING, TIMEOUT.aborting);
         return transitionTo(Status.ABORTING);
@@ -600,13 +666,13 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         telemetry.addData("targetFlyWheelPower", targetFlyWheelPower);
         telemetry.addData("actualFlywheelPower", flywheels.getPower());
-        telemetry.addData("targetLeftFeederPower", targetLeftFeederPower);
         if(leftFeeder != null) {
-            telemetry.addData("targetFeederPower", leftFeeder.getPower());
+            telemetry.addData("targetLeftFeederPower", targetLeftFeederPower);
+            telemetry.addData("actualLeftFeederPower", leftFeeder.getPower());
         }
-        telemetry.addData("targetRightFeederPower", targetRightFeederPower);
         if(rightFeeder != null) {
-            telemetry.addData("targetFeederPower", rightFeeder.getPower());
+            telemetry.addData("targetRightFeederPower", targetRightFeederPower);
+            telemetry.addData("actualRightFeederPower", rightFeeder.getPower());
         }
         telemetry.addLine();
     }

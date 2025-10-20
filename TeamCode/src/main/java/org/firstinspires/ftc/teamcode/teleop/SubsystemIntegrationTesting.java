@@ -26,7 +26,7 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         final DcMotorEx backRight  = (DcMotorEx) hardwareMap.get(DcMotor.class, "backRight"); // Null if not found
 
         final DcMotorEx rightShooterMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "rightShooter");
-        final CRServo leftFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
+        final CRServo leftFeeder = hardwareMap.get(CRServo.class, "leftFeeder");
         final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "intake");
 
@@ -35,19 +35,26 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         backLeft.setDirection(DcMotorEx.Direction.REVERSE);
         frontRight.setDirection(DcMotorEx.Direction.FORWARD);
         backRight.setDirection(DcMotorEx.Direction.FORWARD);
-
+        
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        rightFeeder.setDirection(DcMotor.Direction.REVERSE);
+        leftFeeder.setDirection(DcMotor.Direction.FORWARD);
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor, leftFeeder, rightFeeder);
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(
+            rightShooterMotor, 
+            leftFeeder, 
+            rightFeeder
+        );
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(frontLeft, backLeft, frontRight, backRight);
 
         CommandScheduler.getInstance().registerSubsystem(rightShooter, intake, drivetrain);
 
-        telemetry.setMsTransmissionInterval(40);
         rightShooter.setTelemetry(telemetry);
         // intake.setTelemetry(telemetry);
         // drivetrain.setTelemtry(telemetry);
+        
+        telemetry.setMsTransmissionInterval(40);
 
         waitForStart();
 
@@ -67,7 +74,13 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
 
             if(gamepad2_dpadUpWasPressed /* && !gamepad2.start */) {
-                rightShooter.multiFire();
+                if(gamepad2.dpad_left) {
+                    rightShooter.multiFireLeft();
+                } else if(gamepad2.dpad_right) {
+                    rightShooter.multiFireRight();
+                } else {
+                    rightShooter.multiFire();
+                }
             } else if(gamepad2_dpadUpWasPressed) {
                 // CommandScheduler.getInstance().schedule(rightShooter.multiFireCommand());
             }
@@ -96,8 +109,16 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             }
             
             if(gamepad2_yWasPressed && !gamepad2.start) {
-                rightShooter.abort();
-                persistent += "Aborted\n";
+                if(gamepad2.dpad_left) {
+                    rightShooter.abortLeft();
+                    persistent += "Aborted (Left)\n";
+                } else if(gamepad2.dpad_right) {
+                    rightShooter.abortRight();
+                    persistent += "Aborted (Right)\n";
+                } else {
+                    rightShooter.abort();
+                    persistent += "Aborted\n";
+                }
 
             } else if(gamepad2_yWasPressed) {
                 CommandScheduler.getInstance().schedule(rightShooter.abortCommand());
@@ -105,8 +126,16 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             }
 
             if(gamepad2.right_trigger > 0.1 && !wasPressingRightTrigger && !gamepad2.start) {
-                rightShooter.fire();
-                persistent += "Fired\n";
+                if(gamepad2.dpad_left) {
+                    rightShooter.fireLeft();
+                    persistent += "Fired (Left)\n";
+                } else if(gamepad2.dpad_right) {
+                    rightShooter.fireRight();
+                    persistent += "Fired (Right)\n";
+                } else {
+                    rightShooter.fire();
+                    persistent += "Fired\n";
+                }
 
             } else if(gamepad2.right_trigger > 0.1 && !wasPressingRightTrigger) {
                 CommandScheduler.getInstance().schedule(rightShooter.fireCommand());
@@ -114,8 +143,16 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             }
 
             if(gamepad2.left_trigger > 0.1 && !wasPressingLeftTrigger && !gamepad2.start) {
-                rightShooter.reload();
-                persistent += "Reloaded\n";
+                if(gamepad2.dpad_left) {
+                    rightShooter.reloadLeft();
+                    persistent += "Reloaded (Left)\n";
+                } else if(gamepad2.dpad_right) {
+                    rightShooter.reloadRight();
+                    persistent += "Reloaded (Right)\n";
+                } else {
+                    rightShooter.reload();
+                    persistent += "Reloaded\n";
+                }
             } else if(gamepad2.left_trigger > 0.1 && !wasPressingLeftTrigger) {
                 CommandScheduler.getInstance().schedule(rightShooter.reloadCommand());
                 persistent += "(Command) Reloaded\n";
@@ -159,9 +196,9 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
                 drivetrain.engageMiddleMode();
             }
 
-            if(gamepad2_dpadDownWasPressed) {
-                persistent += "adsklfh\n";
-            }
+            // if(gamepad2_dpadDownWasPressed) {
+            //     persistent += "adsklfh\n";
+            // }
 
             telemetry.addLine();
             telemetry.addLine(Util.header("Gamepad"));

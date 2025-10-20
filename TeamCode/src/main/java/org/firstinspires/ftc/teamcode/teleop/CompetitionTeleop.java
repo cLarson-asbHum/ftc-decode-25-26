@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
@@ -101,6 +102,8 @@ public class CompetitionTeleop extends CommandOpMode {
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
+        final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
+        final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
@@ -120,7 +123,11 @@ public class CompetitionTeleop extends CommandOpMode {
         // Creating subsystems. 
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor);
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(
+            rightShooterMotor, 
+            leftFeederServo, 
+            rightFeederServo
+        );
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         // final 
 
