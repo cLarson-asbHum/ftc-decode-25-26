@@ -10,6 +10,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
+import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter.ArtifactColor;
 
 import static org.firstinspires.ftc.teamcode.util.Util.padHeader;
 
@@ -104,6 +106,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private double targetRightFeederPower = 0; 
     private boolean hasSetRightFeederPower = false;
 
+    private final ArtifactColorGetter rightReloadClassifier;
+    private final ArtifactColorGetter leftReloadClassifier;
+
     private Status status = Status.UNKNOWN;
 
     /**
@@ -127,15 +132,16 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         this.flywheels = builder.flywheels;
         this.rightFeeder = builder.rightFeeder;
         this.leftFeeder = builder.leftFeeder;
-
-        // The status is automatically set to UNKNOWN, which transitions to UNCHRAGED.
-        // this does our initialization for us.
+        this.rightReloadClassifier = builder.rightReloadClassifier;
+        this.leftReloadClassifier = builder.leftReloadClassifier;
     }
 
     public static final class Builder {
         public final DcMotorEx flywheels;
         public CRServo rightFeeder = null;
         public CRServo leftFeeder = null;
+        public ArtifactColorGetter rightReloadClassifier = null;
+        public ArtifactColorGetter leftReloadClassifier = null;
         
         public Builder(DcMotorEx flywheels) {
             this.flywheels = flywheels;
@@ -148,6 +154,16 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         
         public Builder setLeftFeeder(CRServo newLeftFeeder) {
             this.leftFeeder = newLeftFeeder;
+            return this;
+        }
+
+        public Builder setRightReloadClassifier(ArtifactColorGetter rightReloadClassifier) {
+            this.rightReloadClassifier = rightReloadClassifier;
+            return this;
+        }
+
+        public Builder setLeftReloadClassifier(ArtifactColorGetter leftReloadClassifier) {
+            this.leftReloadClassifier = leftReloadClassifier;
             return this;
         }
 
@@ -348,6 +364,74 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     /**
+     * Attempts to shoot the sepecific side so that a green artifact is fired. 
+     * If no side has a green artifact, then this does nothing and returns 
+     * false. If there are two greens, only the right side is fired.
+     * 
+     * If both artifact color getters are null, then this method acts identical 
+     * to `fire()` except that it always returns true.
+     * 
+     * @return Whether any firing was done. Also returns true even if already in
+     * the `FIRING` state.
+     */
+    public boolean fireGreen() {
+        // Firing if both sides cannot sense artifacts
+        // This is to prevent not being able to fire because we sense nothing
+        if(rightReloadClassifier == null && leftReloadClassifier == null) {
+            fire();
+            return true;
+        }
+
+        // Doing the regular color checks
+        if(rightReloadClassifier.getColor() == ArtifactColor.GREEN) {
+            fireRight();
+            return true;
+        }
+
+        if(leftReloadClassifier.getColor() == ArtifactColor.GREEN) {
+            fireLeft();
+            return true;
+        }
+
+        // No side is loaded with the correct color.; do nothing
+        return false;
+    }
+
+    /**
+     * Attempts to shoot the sepecific side so that a purple artifact is fired.
+     * If no side has a purple artifact, then this does nothing and returns 
+     * false. If there are two purple, only the right side is fired.
+     * 
+     * If both artifact color getters are null, then this method acts identical 
+     * to `fire()` except that it always returns true.
+     * 
+     * @return Whether any firing was done. Also returns true even if already in
+     * the `FIRING` state.
+     */
+    public boolean firePurple() {
+        // Firing if both sides cannot sense artifacts
+        // This is to prevent not being able to fire because we sense nothing
+        if(rightReloadClassifier == null && leftReloadClassifier == null) {
+            fire();
+            return true;
+        }
+
+        // Checking that either barrel has purple
+        if(rightReloadClassifier.getColor() == ArtifactColor.PURPLE) {
+            fireRight();
+            return true;
+        }
+
+        if(leftReloadClassifier.getColor() == ArtifactColor.PURPLE) {
+            fireLeft();
+            return true;
+        }
+
+        // No side is loaded with the correct color.; do nothing
+        return false;
+    }
+
+    /**
      * Attempts to shoot as many projectiles as possible by using an indeifinite 
      * timeout length and continually reloading. This means that it only ends multi
      * fire whe another state is externally transitioned (e.g. the external opmode 
@@ -425,7 +509,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return Math.abs(currentPower - FLYWHEEL_CONST.unchargedPower) < FLYWHEEL_CONST.powerTolerance;
     }
 
-    
     /**
      * Determines whether the shooter is fully charged. This is determined solely
      * based on whether the current shooter velocity is within tolerance of the 
@@ -451,8 +534,23 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return Whether at least one projectile is immediately ready.
      */
     public boolean checkIsReloaded() {
-        // FIXME: We always assume the shooter is reloaded (even though it isn't!)
-        return true;
+        return checkIsRightReloaded() || checkIsLeftReloaded();
+    }
+
+    public boolean checkIsRightReloaded() {
+        if(rightReloadClassifier == null) {
+            return true; // Assume loaded to avoid falling into an unfirable state
+        }
+
+        return rightReloadClassifier.getColor() != ArtifactColor.UNKNOWN;
+    }
+    
+    public boolean checkIsLeftReloaded() {
+        if(leftReloadClassifier == null) {
+            return true; // Assume loaded to avoid falling into an unfirable state
+        }
+
+        return leftReloadClassifier.getColor() != ArtifactColor.UNKNOWN;
     }
 
     /**

@@ -19,7 +19,6 @@ import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.Util;
 import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
 
-@Configurable
 @TeleOp(group="B - Testing")
 public class SubsystemIntegrationTesting extends LinearOpMode {
     @Override
@@ -51,6 +50,8 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
             .setLeftFeeder(leftFeeder) 
             .setRightFeeder(rightFeeder)
+            .setRightReloadClassifier(rightReload)
+            .setLeftReloadClassifier(leftReload)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(frontLeft, backLeft, frontRight, backRight);
@@ -147,6 +148,17 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             } else if(gamepad2.right_trigger > 0.1 && !wasPressingRightTrigger) {
                 CommandScheduler.getInstance().schedule(rightShooter.fireCommand());
                 persistent += "(Command) Fired\n";
+            }
+
+            
+            if(gamepad2_leftStickWasPressed) {
+                rightShooter.firePurple();
+                persistent += "Fired (Purple)\n";
+            }
+
+            if(gamepad2_rightStickWasPressed) {
+                rightShooter.fireGreen();
+                persistent += "Fired (Green)\n";
             }
 
             if(gamepad2.left_trigger > 0.1 && !wasPressingLeftTrigger && !gamepad2.start) {
