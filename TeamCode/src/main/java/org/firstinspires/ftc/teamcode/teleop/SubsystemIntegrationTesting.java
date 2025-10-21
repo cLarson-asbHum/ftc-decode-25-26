@@ -11,7 +11,6 @@ import com.bylazar.configurables.annotations.Configurable;
 
 import com.arcrobotics.ftclib.command.CommandScheduler;
 
-import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
@@ -70,6 +69,7 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         boolean wasPressingLeftTrigger = false;
         String persistent = "";
 
+        
         while(opModeIsActive()) {
             final boolean gamepad2_dpadUpWasPressed = gamepad2.dpadUpWasPressed();
             final boolean gamepad2_backWasPressed = gamepad2.backWasPressed();
@@ -78,6 +78,8 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             final boolean gamepad2_leftBumperWasPressed = gamepad2.leftBumperWasPressed();
             final boolean gamepad2_rightBumperWasPressed = gamepad2.rightBumperWasPressed();
             final boolean gamepad2_xWasPressed = gamepad2.xWasPressed();
+            final boolean gamepad2_leftStickWasPressed = gamepad2.leftStickWasPressed();
+            final boolean gamepad2_rightStickWasPressed = gamepad2.rightStickWasPressed();
             
             drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
 
