@@ -72,11 +72,10 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         rightFeeder.setDirection(DcMotor.Direction.REVERSE);
         leftFeeder.setDirection(DcMotor.Direction.FORWARD);
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(
-            rightShooterMotor, 
-            leftFeeder, 
-            rightFeeder
-        );
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
+            .setLeftFeeder(leftFeeder) 
+            .setRightFeeder(rightFeeder)
+            .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(frontLeft, backLeft, frontRight, backRight);
 

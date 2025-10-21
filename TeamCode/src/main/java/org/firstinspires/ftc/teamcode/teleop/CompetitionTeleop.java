@@ -123,11 +123,10 @@ public class CompetitionTeleop extends CommandOpMode {
         // Creating subsystems. 
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(
-            rightShooterMotor, 
-            leftFeederServo, 
-            rightFeederServo
-        );
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
+            .setLeftFeeder(leftFeederServo) 
+            .setRightFeeder(rightFeederServo)
+            .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         // final 
 

@@ -120,32 +120,40 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private double lastTime = 0;        // NOTE: Use deltaTime for any implementations, not this!!!
     private double deltaTime = 0;
 
-    /**
-     * NOTE: What side each feeder is on does not matter semantically; it only
-     * affects what feeder is set with the directional methods, like 
-     * `fireRight()` or `fireLeft()`, for example. Beside the different feeders,
-     * these methods operate identically. 
-     * 
-     * @param flywheels What propels the projectile at high speeds
-     * @param leftFeeder What moves balls into the flywheels. Can be null
-     * @param rightFeeder What moves balls into the flywheels. Can be null
-     */
-    public FlywheelTubeShooter(DcMotorEx flywheels, CRServo leftFeeder, CRServo rightFeeder) {
-        this.flywheels = flywheels;
-        this.rightFeeder = rightFeeder;
-        this.leftFeeder = leftFeeder;
+    private FlywheelTubeShooter() {
         this.lifetime = new ElapsedTime();
         this.lifetime.startTime();
 
         // The status is automatically set to UNKNOWN, which transitions to UNCHRAGED.
         // this does our initialization for us.
     }
-    
-    /**
-     * @param flywheels What propells the projectile at high speeds
-     */
-    public FlywheelTubeShooter(DcMotorEx flywheels) {
-        this(flywheels, null, null);
+
+    public static final class Builder {
+        private final DcMotorEx flywheels;
+        private CRServo rightFeeder = null;
+        private CRServo leftFeeder = null;
+        
+        public Builder(DcMotorEx flywheels) {
+            this.flywheels = flywheels;
+        }
+
+        public Builder setRightFeeder(CRServo newRightFeeder) {
+            this.rightFeeder = newRightFeeder;
+            return this;
+        }
+        
+        public Builder setLeftFeeder(CRServo newLeftFeeder) {
+            this.leftFeeder = newLeftFeeder;
+            return this;
+        }
+
+        public FlywheelTubeShooter build() {
+            final FlywheelTubeShooter result = new FlywheelTubeShooter();
+            result.flywheels = flywheels;
+            result.rightFeeder = rightFeeder;
+            result.leftFeeder = leftFeeder;
+            return result;
+        }
     }
 
     private boolean setFlywheelPower(double power, double powerTolerance) {
