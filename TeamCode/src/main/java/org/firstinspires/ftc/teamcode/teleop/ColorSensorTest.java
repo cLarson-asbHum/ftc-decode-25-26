@@ -10,6 +10,8 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
+import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
+
 @Configurable
 @TeleOp(group="B - Testing")
 public class ColorSensorTest extends LinearOpMode {
@@ -56,6 +58,7 @@ public class ColorSensorTest extends LinearOpMode {
         telemetry.setDisplayFormat(Telemetry.DisplayFormat.HTML);
 
         final ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
+        final ArtifactColorRangeSensor wrapper = new ArtifactColorRangeSensor(sensor);
 
         // Getting the color
         boolean isPaused = false;
@@ -143,8 +146,12 @@ public class ColorSensorTest extends LinearOpMode {
                 "<br/>" + 
 
                 "<h2>Misc</h2>" +
-                "<p>Is Paused: %b</p>"
-                ;
+                "<p>Is Paused: %b</p>" +
+
+                "<h2>ArtifactColorRangeSensor Color</h2>" + 
+                "<p>Color: %s</p>" +
+
+                "";
 
             previousLog = String.format(
                 format, 
@@ -171,7 +178,8 @@ public class ColorSensorTest extends LinearOpMode {
                 value,
 
                 // MISC
-                isPaused
+                isPaused,
+                wrapper.getColor()
             );
 
             // Logging the data
