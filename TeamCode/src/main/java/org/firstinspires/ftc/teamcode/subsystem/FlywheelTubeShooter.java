@@ -120,18 +120,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private double lastTime = 0;        // NOTE: Use deltaTime for any implementations, not this!!!
     private double deltaTime = 0;
 
-    private FlywheelTubeShooter() {
+    private FlywheelTubeShooter(Builder builder) {
         this.lifetime = new ElapsedTime();
         this.lifetime.startTime();
+
+        this.flywheels = builder.flywheels;
+        this.rightFeeder = builder.rightFeeder;
+        this.leftFeeder = builder.leftFeeder;
 
         // The status is automatically set to UNKNOWN, which transitions to UNCHRAGED.
         // this does our initialization for us.
     }
 
     public static final class Builder {
-        private final DcMotorEx flywheels;
-        private CRServo rightFeeder = null;
-        private CRServo leftFeeder = null;
+        public final DcMotorEx flywheels;
+        public CRServo rightFeeder = null;
+        public CRServo leftFeeder = null;
         
         public Builder(DcMotorEx flywheels) {
             this.flywheels = flywheels;
@@ -148,11 +152,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
 
         public FlywheelTubeShooter build() {
-            final FlywheelTubeShooter result = new FlywheelTubeShooter();
-            result.flywheels = flywheels;
-            result.rightFeeder = rightFeeder;
-            result.leftFeeder = leftFeeder;
-            return result;
+            return new FlywheelTubeShooter(this);
         }
     }
 
