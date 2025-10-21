@@ -5,12 +5,6 @@ package org.firstinspires.ftc.teamcode.util;
  * also state a color as unknown, stating it is no single artifact color.
  */
 public interface ArtifactColorGetter {
-    public enum ArtifactColor {
-        GREEN,
-        PURPLE,
-        UNKNOWN
-    }
-
     /**
      * Gets the most accurate color for the current sensor readings
      */

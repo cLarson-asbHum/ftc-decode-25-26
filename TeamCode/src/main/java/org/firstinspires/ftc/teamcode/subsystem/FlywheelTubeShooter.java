@@ -10,8 +10,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
-import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter.ArtifactColor;
 
 import static org.firstinspires.ftc.teamcode.util.Util.padHeader;
 
