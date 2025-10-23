@@ -124,11 +124,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private final ElapsedTime lifetime; // NOTE: Use deltaTime for any implementations, not this!!!
     private double lastTime = 0;        // NOTE: Use deltaTime for any implementations, not this!!!
     private double deltaTime = 0;
+    private boolean isReadyToStartLifetime = true;
 
     private FlywheelTubeShooter(Builder builder) {
         this.lifetime = new ElapsedTime();
-        this.lifetime.startTime();
-
         this.flywheels = builder.flywheels;
         this.rightFeeder = builder.rightFeeder;
         this.leftFeeder = builder.leftFeeder;
@@ -590,11 +589,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return
      */
     public boolean isTimedOut(Object label) {
-        // Updating all timers
-        for(final Object foundLabel : timers.keySet()) {
-            timers.put(foundLabel, timers.get(foundLabel) - deltaTime);
-        }
-
         // If the timer exists and is above 0, then we are not timed out
         if(timers.containsKey(label) && timers.get(label) > 0) {
             return false;
@@ -785,10 +779,21 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     @Override
     public void periodic() {
+        // Starting lifetime if necessary
+        if(isReadyToStartLifetime) {
+            lifetime.startTime();
+            isReadyToStartLifetime = false;
+        }
+
         // Keeping record of time
         final double currentTime = lifetime.seconds();
         deltaTime = currentTime - lastTime; 
         lastTime = currentTime;
+        
+        // Updating all timers
+        for(final Object foundLabel : timers.keySet()) {
+            timers.put(foundLabel, timers.get(foundLabel) - deltaTime);
+        }
 
         if(telemetry != null && !SUPPRESS_TELEMTERY) {
             telemetry.addLine(padHeader("FlywheelTubeShooter"));
