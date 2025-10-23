@@ -40,7 +40,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
 
         public double unchargedPower = 0;
-        public double chargedPower = 0.6;
+        public double chargedPower = 0.55 * ticksPerSec();
         public double reloadingPower = chargedPower;
         public double firingPower = chargedPower;
         public double abortingPower = -0.3;
@@ -505,8 +505,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return Whether the current velocity is close enough to fully uncharged.
      */
     public boolean checkConsideredUncharged() {
-        final double currentPower = flywheels.getVelocity() / FLYWHEEL_CONST.ticksPerSec();
-        return Math.abs(currentPower - FLYWHEEL_CONST.unchargedPower) < FLYWHEEL_CONST.powerTolerance;
+        // final double currentPower = flywheels.getVelocity() / FLYWHEEL_CONST.ticksPerSec();
+        return Math.abs(flywheels.getVelocity() - FLYWHEEL_CONST.unchargedPower) < FLYWHEEL_CONST.powerTolerance;
     }
 
     /**
@@ -520,8 +520,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return Whether the current velocity is close enough to fully uncharged.
      */
     public boolean checkConsideredCharged() {
-        final double currentPower = flywheels.getVelocity() / FLYWHEEL_CONST.ticksPerSec();
-        return Math.abs(currentPower - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
+        // final double currentPower = flywheels.getVelocity() / FLYWHEEL_CONST.ticksPerSec();
+        return Math.abs(flywheels.getVelocity() - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
     }
 
     /**

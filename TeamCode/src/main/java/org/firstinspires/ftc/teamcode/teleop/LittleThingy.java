@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.temp;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 // import com.qualcomm.robotcore.hardware
@@ -12,7 +13,7 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 @TeleOp(group="B - Testing")
 public class LittleThingy extends LinearOpMode {
-    public static double FULL_POWER = -0.3;
+    public static double FULL_POWER = -1.0;
     public static double FULL_INTAKE = 1.0;
 
     public static double FEEDER_FULL = 1.0;
@@ -22,7 +23,7 @@ public class LittleThingy extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        final DcMotor rightShooter = hardwareMap.get(DcMotor.class, "rightShooter");
+        final DcMotorEx rightShooter = (DcMotorEx) hardwareMap.get(DcMotor.class, "rightShooter");
         final DcMotor intake = hardwareMap.get(DcMotor.class, "intake");
         final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
         final CRServo leftFeeder = hardwareMap.get(CRServo.class, "leftFeeder");
@@ -105,6 +106,9 @@ public class LittleThingy extends LinearOpMode {
             rightFront.setPower(rightFrontPower);
             leftBack.setPower(leftBackPower);
             rightBack.setPower(rightBackPower);
+
+            telemetry.addData("velocity", rightShooter.getVelocity());
+            telemetry.update();
         }
     }
 }
