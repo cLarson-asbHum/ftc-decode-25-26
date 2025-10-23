@@ -10,8 +10,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter.ArtifactColor;
+import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
 
 import static org.firstinspires.ftc.teamcode.util.Util.padHeader;
 
@@ -32,20 +32,20 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public static final class FlywheelConst {
         // TODO: Tune these const!
-        public double ticksPerRev = 576.6;
-        public double rpm = 312.0;
+        public double ticksPerRev = 28;
+        public double rpm = 5400;
 
         public double ticksPerSec() {
             return rpm / 60  * ticksPerRev;
         }
 
         public double unchargedPower = 0;
-        public double chargedPower = 0.6;
+        public double chargedPower = 0.6 * ticksPerSec();
         public double reloadingPower = chargedPower;
         public double firingPower = chargedPower;
-        public double abortingPower = -0.3;
+        public double abortingPower = -0.3 * ticksPerSec();
 
-        public double powerTolerance = 0.05;
+        public double powerTolerance = 0.05 * ticksPerSec();
     };
 
     /**
@@ -75,9 +75,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public static final class Timeout {
         public double uncharging = 5.0; // seconds
-        public double charging = 5.0; // seconds
+        public double charging = Double.POSITIVE_INFINITY; // seconds
         public double reloading = 2.0; // seconds
-        public double firing = 1.0; // seconds
+        public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
         public double aborting = 1.0; // seconds
     }
@@ -764,6 +764,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         telemetry.addData("checkIsReloaded()", checkIsReloaded());
         telemetry.addLine();
 
+        telemetry.addData("flywheel velocity", flywheels.getVelocity());
         telemetry.addData("targetFlyWheelPower", targetFlyWheelPower);
         telemetry.addData("actualFlywheelPower", flywheels.getPower());
         if(leftFeeder != null) {
@@ -834,7 +835,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         // Updating the motor powers
         if(hasSetFlywheelPower) {
-            flywheels.setPower(targetFlyWheelPower);
+            flywheels.setVelocity(targetFlyWheelPower);
             hasSetFlywheelPower = false;
         }
 

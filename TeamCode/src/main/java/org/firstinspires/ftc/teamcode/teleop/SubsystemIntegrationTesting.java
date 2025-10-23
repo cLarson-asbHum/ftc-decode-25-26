@@ -44,6 +44,8 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         rightFeeder.setDirection(DcMotor.Direction.REVERSE);
         leftFeeder.setDirection(DcMotor.Direction.FORWARD);
 
+        rightShooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
         final ArtifactColorRangeSensor rightReload = new ArtifactColorRangeSensor(rightReloadSensor);
         final ArtifactColorRangeSensor leftReload = new ArtifactColorRangeSensor(leftReloadSensor);
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
@@ -78,8 +80,8 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
             final boolean gamepad2_leftBumperWasPressed = gamepad2.leftBumperWasPressed();
             final boolean gamepad2_rightBumperWasPressed = gamepad2.rightBumperWasPressed();
             final boolean gamepad2_xWasPressed = gamepad2.xWasPressed();
-            final boolean gamepad2_leftStickWasPressed = gamepad2.leftStickWasPressed();
-            final boolean gamepad2_rightStickWasPressed = gamepad2.rightStickWasPressed();
+            final boolean gamepad2_leftStickWasPressed = gamepad2.leftStickButtonWasPressed();
+            final boolean gamepad2_rightStickWasPressed = gamepad2.rightStickButtonWasPressed();
             
             drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
 
