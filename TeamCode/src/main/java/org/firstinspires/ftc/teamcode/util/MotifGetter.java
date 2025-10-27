@@ -5,6 +5,8 @@ import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import static org.firstinspires.ftc.teamcode.util.ArtifactColor.GREEN;
 import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
+import java.util.Iterator;
+
 /**
  * Uses a sensor or more to determine what the motif the obelisk indicates. 
  */
@@ -13,7 +15,7 @@ public interface MotifGetter {
      * A triplet of artifacts color, as inidcated by the obelisk. Motifs score
      * 
      */
-    public static enum Motif {
+    public static enum Motif implements Iterable<ArtifactColor> {
         /**
          * The first color (closest to the gate) is green; all others are purple.
          * AprilTag id 21
@@ -64,6 +66,23 @@ public interface MotifGetter {
 
             final ArtifactColor[] colors = new ArtifactColor[]{firstColor, middleColor, lastColor};
             return colors[index];
+        }
+
+        @Override
+        public Iterator<ArtifactColor> iterator() {
+            return new Iterator<ArtifactColor>() {
+                private int i = 0;
+
+                @Override
+                public boolean hasNext() {
+                    return i < 3;
+                }
+
+                @Override
+                public ArtifactColor next() {
+                    return getColor(i++); // Get the current color and increment
+                }
+            };
         }
     }
 
