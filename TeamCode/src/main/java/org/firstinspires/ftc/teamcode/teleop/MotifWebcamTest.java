@@ -34,11 +34,8 @@ public class MotifWebcamTest extends LinearOpMode {
         double lastSetGain = GAIN;
         double lastSetExposureMs = EXPOSURE_MS;
 
-        final MotifWebcamWrapper motifGetter = new MotifWebcamWrapper(
-            obeliskViewer, 
-            new YawPitchRollAngles(AngleUnit.RADIANS, 0, 0, 0, -1)
-        );
-        motifGetter.setGlobalRobotOrientation(yprFromYaw());
+        final MotifWebcamWrapper motifGetter = new MotifWebcamWrapper(obeliskViewer, 0);
+        motifGetter.setGlobalRobotYaw(yprFromYaw());
 
         // Waiting for the camera to open
         if (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING) {
@@ -67,7 +64,7 @@ public class MotifWebcamTest extends LinearOpMode {
 
             // Updating the YAW if it is changed in Panels (or Dashboard)
             if(lastSetYaw != YAW || lastSetYawIsInRadians != YAW_IN_RADIANS) {
-                motifGetter.setGlobalRobotOrientation(yprFromYaw());
+                motifGetter.setGlobalRobotYaw(yprFromYaw());
                 lastSetYaw = YAW;
                 lastSetYawIsInRadians = YAW_IN_RADIANS;
             }
@@ -144,18 +141,16 @@ public class MotifWebcamTest extends LinearOpMode {
         }
     }
 
-    private YawPitchRollAngles yprFromYaw() {
-        return new YawPitchRollAngles(
-            YAW_IN_RADIANS ? AngleUnit.RADIANS : AngleUnit.DEGREES,
-            YAW,
-            0,
-            0,
-            -1 // TODO: Does this timestamp really matter?
-        );
+    private double yprFromYaw() {
+        if(!YAW_IN_RADIANS) {
+            return AngleUnit.RADIANS.fromDegrees(YAW);
+        }
+
+        return YAW;
     }
 
     private static class MotifWebcamWrapper extends MotifWebcam {
-        public MotifWebcamWrapper(WebcamName name, YawPitchRollAngles stuff) {
+        public MotifWebcamWrapper(WebcamName name, double stuff) {
             super(name, stuff);
         }
 

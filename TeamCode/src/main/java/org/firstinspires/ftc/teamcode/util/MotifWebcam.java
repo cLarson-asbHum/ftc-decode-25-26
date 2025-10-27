@@ -7,7 +7,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import java.util.ArrayList;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
+// import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -24,15 +24,17 @@ public class MotifWebcam implements MotifGetter {
     public static int MIN_TAG_ID = 21;
     public static int MAX_TAG_ID = 23;
 
-    public static double DESIRED_YAW = 0; // In radians 
+    public static double DESIRED_YAW = -Math.PI / 2; // In radians 
 
     // public static Motif DEFAULT_MOTIF = Motif.MIDDLE_GREEN;
 
     protected final VisionPortal stream;
     protected final AprilTagProcessor processor;
 
-    private YawPitchRollAngles globalRot = new YawPitchRollAngles(AngleUnit.RADIANS, 0, 0, 0, -1);
-    private YawPitchRollAngles cameraAngle = new YawPitchRollAngles(AngleUnit.RADIANS, 0, 0, 0, -1);
+    // private YawPitchRollAngles globalRot = new YawPitchRollAngles(AngleUnit.RADIANS, 0, 0, 0, -1);
+    // private YawPitchRollAngles cameraOffsetYaw = new YawPitchRollAngles(AngleUnit.RADIANS, 0, 0, 0, -1);
+    private double globalRobotYaw = 0;
+    private double cameraOffsetYaw = 0;
 
     /**
      * Creates a MotifGetteer that uses the given webcam to determine what april 
@@ -41,16 +43,16 @@ public class MotifWebcam implements MotifGetter {
      * Tags, we can choose the one that is closest to facing towards the audience
      * 
      * @param webcam The webcam (from the hardwareMap) used to detect april tags
-     * @param cameraAngle Angle offset from the robot's forward-pointing axis
+     * @param cameraOffsetYaw Angle offset from the robot's forward-pointing axis
      */
-    public MotifWebcam(CameraName stream, YawPitchRollAngles cameraAngle) {
-        setCameraAngle(cameraAngle);
+    public MotifWebcam(CameraName stream, double cameraOffsetYaw) {
+        setCameraOffsetYaw(cameraOffsetYaw);
 
         // Creating the April Tag Processor
         this.processor = new AprilTagProcessor.Builder()         
             // ---------- LOCALIZATION ---------- 
             // .setLensIntrinsics(, , , ,) // We use a C270, which is automatically supported by the SDK
-            // .setCameraPose(cameraPosition, cameraAngle) // This is only used if you are deriving the global robot pose from the tag
+            // .setCameraPose(cameraPosition, cameraOffsetYaw) // This is only used if you are deriving the global robot pose from the tag
             .setOutputUnits(DistanceUnit.INCH, AngleUnit.RADIANS) // PredoPathing uses Inches, and Radians are better for math
             
             // ---------- TAGS TO DETECT ---------- 
@@ -101,10 +103,10 @@ public class MotifWebcam implements MotifGetter {
      * The global orientation defaults to Yaw 0, Pitch 0, Roll 0 if this method 
      * is not called.
      * 
-     * @param angles Yaw, pitch, and roll offset from the field's positive x axis
+     * @param robotYaw Yaw relative to the the field's positive x axis, in radians
      */
-    public void setGlobalRobotOrientation(YawPitchRollAngles angles) {
-        this.globalRot = angles;
+    public void setGlobalRobotYaw(double robotYaw) {
+        this.globalRobotYaw = robotYaw;
     }
 
     /**
@@ -112,10 +114,10 @@ public class MotifWebcam implements MotifGetter {
      * axis. This is identical to setting the camera angle in the 
      * constructor. The previous value is overridden.
      * 
-     * @param cameraAngle offset from the robot's forward-pointing axis
+     * @param cameraOffsetYaw offset from the robot's forward-pointing axis, in radians
      */
-    public void setCameraAngle(YawPitchRollAngles cameraAngle) {
-        this.cameraAngle = cameraAngle;
+    public void setCameraOffsetYaw(double cameraOffsetYaw) {
+        this.cameraOffsetYaw = cameraOffsetYaw;
     }
 
     public void disable() {
@@ -147,8 +149,8 @@ public class MotifWebcam implements MotifGetter {
     protected double getTagGlobalYaw(AprilTagDetection tag) {
         return AngleUnit.normalizeRadians(
             tag.ftcPose.yaw 
-            + globalRot.getYaw(AngleUnit.RADIANS) 
-            + cameraAngle.getYaw(AngleUnit.RADIANS) 
+            + globalRobotYaw 
+            + cameraOffsetYaw
             - Math.PI
         );
     }
@@ -157,7 +159,7 @@ public class MotifWebcam implements MotifGetter {
      * Gets the tag that is facin the audience the most, based off of the 
      * robot's current global position. This requires that the camera position 
      * and angle provided at construction time as well as 
-     * `setGlobalRobotOrientation()` having been called to be accurate
+     * `setGlobalRobotYaw()` having been called to be accurate
      * 
      * Returns null if the provided tags list is empty. Throws if the list or any 
      * tag in it is null.
