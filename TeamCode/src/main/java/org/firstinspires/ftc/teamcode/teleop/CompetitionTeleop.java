@@ -14,6 +14,7 @@ import com.arcrobotics.ftclib.gamepad.GamepadEx;
 import com.arcrobotics.ftclib.gamepad.GamepadKeys;
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
@@ -101,17 +102,32 @@ public class CompetitionTeleop extends CommandOpMode {
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
+        final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
+        final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
         // If any are not found, an error is thrown stating which.
         throwAFitIfAnyHardwareIsNotFound();
 
+        // Setting all necessary hardware properties
+        frontLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
+        backLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
+        frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
+        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
+
+        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
+        leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
+
         // Creating subsystems. 
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
         // (even if nothing is achieved, per se).
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor);
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
+            .setLeftFeeder(leftFeederServo) 
+            .setRightFeeder(rightFeederServo)
+            .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
             frontLeftMotor, 

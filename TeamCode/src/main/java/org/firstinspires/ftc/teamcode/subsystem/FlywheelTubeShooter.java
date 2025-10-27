@@ -10,6 +10,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter.ArtifactColor;
+import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
 
 import static org.firstinspires.ftc.teamcode.util.Util.padHeader;
 
@@ -30,20 +32,20 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public static final class FlywheelConst {
         // TODO: Tune these const!
-        public double ticksPerRev = 576.6;
-        public double rpm = 312.0;
+        public double ticksPerRev = 28;
+        public double rpm = 5400;
 
         public double ticksPerSec() {
             return rpm / 60  * ticksPerRev;
         }
 
         public double unchargedPower = 0;
-        public double chargedPower = 0.6;
+        public double chargedPower = 0.6 * ticksPerSec();
         public double reloadingPower = chargedPower;
         public double firingPower = chargedPower;
-        public double abortingPower = -0.3;
+        public double abortingPower = -0.3 * ticksPerSec();
 
-        public double powerTolerance = 0.05;
+        public double powerTolerance = 0.05 * ticksPerSec();
     };
 
     /**
@@ -73,9 +75,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public static final class Timeout {
         public double uncharging = 5.0; // seconds
-        public double charging = 5.0; // seconds
+        public double charging = Double.POSITIVE_INFINITY; // seconds
         public double reloading = 2.0; // seconds
-        public double firing = 1.0; // seconds
+        public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
         public double aborting = 1.0; // seconds
     }
@@ -104,6 +106,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private double targetRightFeederPower = 0; 
     private boolean hasSetRightFeederPower = false;
 
+    private final ArtifactColorGetter rightReloadClassifier;
+    private final ArtifactColorGetter leftReloadClassifier;
+
     private Status status = Status.UNKNOWN;
 
     /**
@@ -119,33 +124,51 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private final ElapsedTime lifetime; // NOTE: Use deltaTime for any implementations, not this!!!
     private double lastTime = 0;        // NOTE: Use deltaTime for any implementations, not this!!!
     private double deltaTime = 0;
+    private boolean isReadyToStartLifetime = true;
 
-    /**
-     * NOTE: What side each feeder is on does not matter semantically; it only
-     * affects what feeder is set with the directional methods, like 
-     * `fireRight()` or `fireLeft()`, for example. Beside the different feeders,
-     * these methods operate identically. 
-     * 
-     * @param flywheels What propels the projectile at high speeds
-     * @param leftFeeder What moves balls into the flywheels. Can be null
-     * @param rightFeeder What moves balls into the flywheels. Can be null
-     */
-    public FlywheelTubeShooter(DcMotorEx flywheels, CRServo leftFeeder, CRServo rightFeeder) {
-        this.flywheels = flywheels;
-        this.rightFeeder = rightFeeder;
-        this.leftFeeder = leftFeeder;
+    private FlywheelTubeShooter(Builder builder) {
         this.lifetime = new ElapsedTime();
-        this.lifetime.startTime();
-
-        // The status is automatically set to UNKNOWN, which transitions to UNCHRAGED.
-        // this does our initialization for us.
+        this.flywheels = builder.flywheels;
+        this.rightFeeder = builder.rightFeeder;
+        this.leftFeeder = builder.leftFeeder;
+        this.rightReloadClassifier = builder.rightReloadClassifier;
+        this.leftReloadClassifier = builder.leftReloadClassifier;
     }
-    
-    /**
-     * @param flywheels What propells the projectile at high speeds
-     */
-    public FlywheelTubeShooter(DcMotorEx flywheels) {
-        this(flywheels, null, null);
+
+    public static final class Builder {
+        public final DcMotorEx flywheels;
+        public CRServo rightFeeder = null;
+        public CRServo leftFeeder = null;
+        public ArtifactColorGetter rightReloadClassifier = null;
+        public ArtifactColorGetter leftReloadClassifier = null;
+        
+        public Builder(DcMotorEx flywheels) {
+            this.flywheels = flywheels;
+        }
+
+        public Builder setRightFeeder(CRServo newRightFeeder) {
+            this.rightFeeder = newRightFeeder;
+            return this;
+        }
+        
+        public Builder setLeftFeeder(CRServo newLeftFeeder) {
+            this.leftFeeder = newLeftFeeder;
+            return this;
+        }
+
+        public Builder setRightReloadClassifier(ArtifactColorGetter rightReloadClassifier) {
+            this.rightReloadClassifier = rightReloadClassifier;
+            return this;
+        }
+
+        public Builder setLeftReloadClassifier(ArtifactColorGetter leftReloadClassifier) {
+            this.leftReloadClassifier = leftReloadClassifier;
+            return this;
+        }
+
+        public FlywheelTubeShooter build() {
+            return new FlywheelTubeShooter(this);
+        }
     }
 
     private boolean setFlywheelPower(double power, double powerTolerance) {
@@ -176,7 +199,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return Whether either *or* both feeder's power was changed. 
      */
     private boolean setFeederPower(double power, double powerTolerance) {
-        return setRightFeederPower(power, powerTolerance) || setLeftFeederPower(power, powerTolerance);
+        final boolean didRightChange = setRightFeederPower(power, powerTolerance);
+        final boolean didLeftChange = setLeftFeederPower(power, powerTolerance);
+        return didRightChange || didLeftChange;
     }
 
     private boolean setLeftFeederPower(double power, double powerTolerance) {
@@ -288,6 +313,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return transitionTo(Status.RELOADING);
     }
 
+    public boolean reloadRight() {
+        setRightFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.RELOADING, TIMEOUT.reloading);
+        return transitionTo(Status.RELOADING);
+    }
+    
+    public boolean reloadLeft() {
+        setLeftFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.RELOADING, TIMEOUT.reloading);
+        return transitionTo(Status.RELOADING);
+    }
+
     /**
      * Moves any loaded projectiles into the shooter (if necessary) and puts the 
      * shooter at the correct power (if necessary). The shooter may already be 
@@ -305,6 +346,90 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return transitionTo(Status.FIRING);
     }
 
+    public boolean fireRight() {
+        setRightFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.firing);
+        return transitionTo(Status.FIRING);
+    }
+    
+    public boolean fireLeft() {
+        setLeftFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.firing);
+        return transitionTo(Status.FIRING);
+    }
+
+    /**
+     * Attempts to shoot the sepecific side so that a green artifact is fired. 
+     * If no side has a green artifact, then this does nothing and returns 
+     * false. If there are two greens, only the right side is fired.
+     * 
+     * If both artifact color getters are null, then this method acts identical 
+     * to `fire()` except that it always returns true.
+     * 
+     * @return Whether any firing was done. Also returns true even if already in
+     * the `FIRING` state.
+     */
+    public boolean fireGreen() {
+        // Firing if both sides cannot sense artifacts
+        // This is to prevent not being able to fire because we sense nothing
+        if(rightReloadClassifier == null && leftReloadClassifier == null) {
+            fire();
+            return true;
+        }
+
+        // Doing the regular color checks
+        if(rightReloadClassifier.getColor() == ArtifactColor.GREEN) {
+            fireRight();
+            return true;
+        }
+
+        if(leftReloadClassifier.getColor() == ArtifactColor.GREEN) {
+            fireLeft();
+            return true;
+        }
+
+        // No side is loaded with the correct color.; do nothing
+        return false;
+    }
+
+    /**
+     * Attempts to shoot the sepecific side so that a purple artifact is fired.
+     * If no side has a purple artifact, then this does nothing and returns 
+     * false. If there are two purple, only the right side is fired.
+     * 
+     * If both artifact color getters are null, then this method acts identical 
+     * to `fire()` except that it always returns true.
+     * 
+     * @return Whether any firing was done. Also returns true even if already in
+     * the `FIRING` state.
+     */
+    public boolean firePurple() {
+        // Firing if both sides cannot sense artifacts
+        // This is to prevent not being able to fire because we sense nothing
+        if(rightReloadClassifier == null && leftReloadClassifier == null) {
+            fire();
+            return true;
+        }
+
+        // Checking that either barrel has purple
+        if(rightReloadClassifier.getColor() == ArtifactColor.PURPLE) {
+            fireRight();
+            return true;
+        }
+
+        if(leftReloadClassifier.getColor() == ArtifactColor.PURPLE) {
+            fireLeft();
+            return true;
+        }
+
+        // No side is loaded with the correct color.; do nothing
+        return false;
+    }
+
     /**
      * Attempts to shoot as many projectiles as possible by using an indeifinite 
      * timeout length and continually reloading. This means that it only ends multi
@@ -315,6 +440,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public boolean multiFire() {
         setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.multiFiring);
+        return transitionTo(Status.FIRING);
+    }
+
+    public boolean multiFireRight() {
+        setRightFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.FIRING, TIMEOUT.multiFiring);
+        return transitionTo(Status.FIRING);
+    }
+
+    public boolean multiFireLeft() {
+        setLeftFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.multiFiring);
         return transitionTo(Status.FIRING);
@@ -336,6 +477,22 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return transitionTo(Status.ABORTING);
     }
 
+    public boolean abortLeft() {
+        setLeftFeederPower(FEEDER_CONST.abortingPower, FEEDER_CONST.powerTolerance);
+        setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.abortingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.ABORTING, TIMEOUT.aborting);
+        return transitionTo(Status.ABORTING);
+    }
+
+    public boolean abortRight() {
+        setRightFeederPower(FEEDER_CONST.abortingPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.abortingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.ABORTING, TIMEOUT.aborting);
+        return transitionTo(Status.ABORTING);
+    }
+
     /**
      * Determines whether the shooter is fully uncharged. This is determined solely
      * based on whether the current shooter velocity is within tolerance of the 
@@ -351,7 +508,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return Math.abs(currentPower - FLYWHEEL_CONST.unchargedPower) < FLYWHEEL_CONST.powerTolerance;
     }
 
-    
     /**
      * Determines whether the shooter is fully charged. This is determined solely
      * based on whether the current shooter velocity is within tolerance of the 
@@ -377,8 +533,23 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return Whether at least one projectile is immediately ready.
      */
     public boolean checkIsReloaded() {
-        // FIXME: We always assume the shooter is reloaded (even though it isn't!)
-        return true;
+        return checkIsRightReloaded() || checkIsLeftReloaded();
+    }
+
+    public boolean checkIsRightReloaded() {
+        if(rightReloadClassifier == null) {
+            return true; // Assume loaded to avoid falling into an unfirable state
+        }
+
+        return rightReloadClassifier.getColor() != ArtifactColor.UNKNOWN;
+    }
+    
+    public boolean checkIsLeftReloaded() {
+        if(leftReloadClassifier == null) {
+            return true; // Assume loaded to avoid falling into an unfirable state
+        }
+
+        return leftReloadClassifier.getColor() != ArtifactColor.UNKNOWN;
     }
 
     /**
@@ -418,11 +589,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return
      */
     public boolean isTimedOut(Object label) {
-        // Updating all timers
-        for(final Object foundLabel : timers.keySet()) {
-            timers.put(foundLabel, timers.get(foundLabel) - deltaTime);
-        }
-
         // If the timer exists and is above 0, then we are not timed out
         if(timers.containsKey(label) && timers.get(label) > 0) {
             return false;
@@ -598,25 +764,37 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         telemetry.addData("checkIsReloaded()", checkIsReloaded());
         telemetry.addLine();
 
+        telemetry.addData("flywheel velocity", flywheels.getVelocity());
         telemetry.addData("targetFlyWheelPower", targetFlyWheelPower);
         telemetry.addData("actualFlywheelPower", flywheels.getPower());
-        telemetry.addData("targetLeftFeederPower", targetLeftFeederPower);
         if(leftFeeder != null) {
-            telemetry.addData("targetFeederPower", leftFeeder.getPower());
+            telemetry.addData("targetLeftFeederPower", targetLeftFeederPower);
+            telemetry.addData("actualLeftFeederPower", leftFeeder.getPower());
         }
-        telemetry.addData("targetRightFeederPower", targetRightFeederPower);
         if(rightFeeder != null) {
-            telemetry.addData("targetFeederPower", rightFeeder.getPower());
+            telemetry.addData("targetRightFeederPower", targetRightFeederPower);
+            telemetry.addData("actualRightFeederPower", rightFeeder.getPower());
         }
         telemetry.addLine();
     }
 
     @Override
     public void periodic() {
+        // Starting lifetime if necessary
+        if(isReadyToStartLifetime) {
+            lifetime.startTime();
+            isReadyToStartLifetime = false;
+        }
+
         // Keeping record of time
         final double currentTime = lifetime.seconds();
         deltaTime = currentTime - lastTime; 
         lastTime = currentTime;
+        
+        // Updating all timers
+        for(final Object foundLabel : timers.keySet()) {
+            timers.put(foundLabel, timers.get(foundLabel) - deltaTime);
+        }
 
         if(telemetry != null && !SUPPRESS_TELEMTERY) {
             telemetry.addLine(padHeader("FlywheelTubeShooter"));
@@ -657,7 +835,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         // Updating the motor powers
         if(hasSetFlywheelPower) {
-            flywheels.setPower(targetFlyWheelPower);
+            flywheels.setVelocity(targetFlyWheelPower);
             hasSetFlywheelPower = false;
         }
 

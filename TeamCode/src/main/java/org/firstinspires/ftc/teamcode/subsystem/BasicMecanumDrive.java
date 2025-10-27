@@ -50,11 +50,6 @@ public class BasicMecanumDrive implements MecanumSubsystem {
         this.bl = bl;
         this.fr = fr;
         this.br = br;
-
-        fl.setDirection(DcMotorEx.Direction.REVERSE);
-        bl.setDirection(DcMotorEx.Direction.REVERSE);
-        fr.setDirection(DcMotorEx.Direction.FORWARD);
-        br.setDirection(DcMotorEx.Direction.FORWARD);
         stop();
     }
 
