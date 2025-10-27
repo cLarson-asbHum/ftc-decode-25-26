@@ -1,14 +1,6 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.HardwareDevice;
-import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.Gamepad;
-
-import com.bylazar.configurables.annotations.Configurable;
-
+import com.arcrobotics.ftclib.command.button.Trigger;
 import com.arcrobotics.ftclib.command.Command;
 import com.arcrobotics.ftclib.command.CommandOpMode;
 import com.arcrobotics.ftclib.command.ConditionalCommand;
@@ -18,21 +10,27 @@ import com.arcrobotics.ftclib.command.RunCommand;
 import com.arcrobotics.ftclib.command.SelectCommand;
 import com.arcrobotics.ftclib.command.SequentialCommandGroup;
 import com.arcrobotics.ftclib.command.Subsystem;
-import com.arcrobotics.ftclib.command.button.Trigger;
 import com.arcrobotics.ftclib.gamepad.GamepadEx;
 import com.arcrobotics.ftclib.gamepad.GamepadKeys;
+import com.bylazar.configurables.annotations.Configurable;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.HardwareDevice;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem;
-import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
+import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 @Configurable
-@TeleOp(group="A") // Used for the main opmodes
+@TeleOp(group="A - Main") // Used for the main opmodes
 public class CompetitionTeleop extends CommandOpMode {
     public static double TRIGGER_PRESSED = 0.1f;
 
@@ -112,6 +110,7 @@ public class CompetitionTeleop extends CommandOpMode {
         // Creating subsystems. 
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
+        // (even if nothing is achieved, per se).
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter(rightShooterMotor);
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
@@ -158,7 +157,7 @@ public class CompetitionTeleop extends CommandOpMode {
         FlywheelTubeShooter shooter,
         CarwashIntake intake
     ) {
-        // UpgradeShootingState transitions from UNCAHRGED to CHARGED TO FIRING 
+        // UpgradeShootingState transitions from UNCAHRGED to CHARGED to FIRING 
         final Command upgradeShootingState = new SelectCommand(
             new HashMap<Object, Command>() {{
                 put(ShooterSubsystem.Status.UNCHARGED, shooter.chargeCommand());
