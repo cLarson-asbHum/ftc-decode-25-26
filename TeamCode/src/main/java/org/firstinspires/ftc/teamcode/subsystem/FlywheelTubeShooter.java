@@ -32,8 +32,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public static final class FlywheelConst {
         // TODO: Tune these const!
-        public double ticksPerRev = 576.6;
-        public double rpm = 312.0;
+        public double ticksPerRev = 28;
+        public double rpm = 5400;
 
         public double ticksPerSec() {
             return rpm / 60  * ticksPerRev;
@@ -43,9 +43,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         public double chargedPower = 0.55 * ticksPerSec();
         public double reloadingPower = chargedPower;
         public double firingPower = chargedPower;
-        public double abortingPower = -0.3;
+        public double abortingPower = -0.3 * ticksPerSec();
 
-        public double powerTolerance = 0.05;
+        public double powerTolerance = 0.05 * ticksPerSec();
     };
 
     /**
@@ -75,9 +75,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public static final class Timeout {
         public double uncharging = 5.0; // seconds
-        public double charging = 5.0; // seconds
+        public double charging = Double.POSITIVE_INFINITY; // seconds
         public double reloading = 2.0; // seconds
-        public double firing = 1.0; // seconds
+        public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
         public double aborting = 1.0; // seconds
     }
@@ -124,11 +124,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private final ElapsedTime lifetime; // NOTE: Use deltaTime for any implementations, not this!!!
     private double lastTime = 0;        // NOTE: Use deltaTime for any implementations, not this!!!
     private double deltaTime = 0;
+    private boolean isReadyToStartLifetime = true;
 
     private FlywheelTubeShooter(Builder builder) {
         this.lifetime = new ElapsedTime();
-        this.lifetime.startTime();
-
         this.flywheels = builder.flywheels;
         this.rightFeeder = builder.rightFeeder;
         this.leftFeeder = builder.leftFeeder;
@@ -590,11 +589,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @return
      */
     public boolean isTimedOut(Object label) {
-        // Updating all timers
-        for(final Object foundLabel : timers.keySet()) {
-            timers.put(foundLabel, timers.get(foundLabel) - deltaTime);
-        }
-
         // If the timer exists and is above 0, then we are not timed out
         if(timers.containsKey(label) && timers.get(label) > 0) {
             return false;
@@ -770,6 +764,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         telemetry.addData("checkIsReloaded()", checkIsReloaded());
         telemetry.addLine();
 
+        telemetry.addData("flywheel velocity", flywheels.getVelocity());
         telemetry.addData("targetFlyWheelPower", targetFlyWheelPower);
         telemetry.addData("actualFlywheelPower", flywheels.getPower());
         if(leftFeeder != null) {
@@ -785,10 +780,21 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     @Override
     public void periodic() {
+        // Starting lifetime if necessary
+        if(isReadyToStartLifetime) {
+            lifetime.startTime();
+            isReadyToStartLifetime = false;
+        }
+
         // Keeping record of time
         final double currentTime = lifetime.seconds();
         deltaTime = currentTime - lastTime; 
         lastTime = currentTime;
+        
+        // Updating all timers
+        for(final Object foundLabel : timers.keySet()) {
+            timers.put(foundLabel, timers.get(foundLabel) - deltaTime);
+        }
 
         if(telemetry != null && !SUPPRESS_TELEMTERY) {
             telemetry.addLine(padHeader("FlywheelTubeShooter"));
@@ -829,7 +835,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         // Updating the motor powers
         if(hasSetFlywheelPower) {
-            flywheels.setPower(targetFlyWheelPower);
+            flywheels.setVelocity(targetFlyWheelPower);
             hasSetFlywheelPower = false;
         }
 

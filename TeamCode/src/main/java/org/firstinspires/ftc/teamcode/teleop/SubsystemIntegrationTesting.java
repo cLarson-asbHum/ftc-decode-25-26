@@ -44,6 +44,8 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         rightFeeder.setDirection(DcMotor.Direction.REVERSE);
         leftFeeder.setDirection(DcMotor.Direction.FORWARD);
 
+        rightShooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
         final ArtifactColorRangeSensor rightReload = new ArtifactColorRangeSensor(rightReloadSensor);
         final ArtifactColorRangeSensor leftReload = new ArtifactColorRangeSensor(leftReloadSensor);
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
