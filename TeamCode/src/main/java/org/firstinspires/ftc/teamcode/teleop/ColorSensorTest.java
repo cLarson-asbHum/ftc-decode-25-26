@@ -11,31 +11,12 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
+import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 
 @Configurable
 @TeleOp(group="B - Testing")
 public class ColorSensorTest extends LinearOpMode {
-    public static class ColorSensorConst {
-        public double greenMinHue = 130;
-        public double greenMaxHue = 165;
-        public double minGreenSaturation = 0.55;
-        
-        public double purpleMinHue = 170;
-        public double purpleMaxHue = 360;
-        public double minPurpleSaturation = 0.4;
-     
-        public double minDistCm = 0.00;
-        public double maxDistCm = 7;
-    }
-
-    public static ColorSensorConst COLOR_SENSOR_CONST = new ColorSensorConst();
-
-    public static enum ArtifactColor { 
-        GREEN,
-        PURPLE,
-        UNKNOWN 
-    }
 
     public static int TRANSMISSION_MS_INTERVAL = 33;
     public static int SLEEP_TIME = 33;
@@ -66,14 +47,17 @@ public class ColorSensorTest extends LinearOpMode {
 
         // final ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
         final String rightColorSensorName = "Right";
-        final ArtifactColorRangeSensor rightWrapper = new ArtifactColorRangeSensor(rightReloadSensor);
+        final ArtifactColorRangeSensor rightWrapper = new ArtifactColorRangeSensor(
+            rightReloadSensor, 
+            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst()
+        );
 
         // final ColorRangeSensor leftSensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
         final String leftColorSensorName = "Left";
         final ArtifactColorRangeSensor leftWrapper = new ArtifactColorRangeSensor(leftReloadSensor);
 
         ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
-        ArtifactColorRangeSensor wrapper = new ArtifactColorRangeSensor(sensor);
+        ArtifactColorRangeSensor wrapper = rightReloadSensor == null ? leftWrapper : rightWrapper;
         String sensorName = rightReloadSensor == null ? leftColorSensorName : rightColorSensorName;
 
         // Getting the color
@@ -140,7 +124,7 @@ public class ColorSensorTest extends LinearOpMode {
             final double saturation = JavaUtil.rgbToSaturation(red, green, blue);
             final double value = JavaUtil.rgbToValue(red, green, blue);
             
-            final ArtifactColor artifactcolor = determineArtifactColor(hue, saturation, dist);
+            final ArtifactColor artifactcolor = wrapper.getColor();
 
             // Formatting the data
             final String format = 
@@ -246,38 +230,5 @@ public class ColorSensorTest extends LinearOpMode {
                 }
             }
         }
-    }
-
-    protected ArtifactColor determineArtifactColor(double hue, double sat, double distCm) {
-        // If the color cannot be safely determined
-        if(distCm >= COLOR_SENSOR_CONST.maxDistCm || distCm <= COLOR_SENSOR_CONST.minDistCm) {
-            return ArtifactColor.UNKNOWN;
-        } 
-
-        // Checking that the hue is correct
-        boolean isPurple = COLOR_SENSOR_CONST.purpleMinHue <= hue && hue <= COLOR_SENSOR_CONST.purpleMaxHue;
-        boolean isGreen  = COLOR_SENSOR_CONST.greenMinHue  <= hue && hue <= COLOR_SENSOR_CONST.greenMaxHue;
-
-        // Checking that the saturations are also correct
-        isPurple = isPurple && sat > COLOR_SENSOR_CONST.minPurpleSaturation;
-        isGreen  = isGreen  && sat > COLOR_SENSOR_CONST.minGreenSaturation;
-
-        // Check for nonsense and possibly return purple
-        if(isGreen && isPurple) {
-            // Neither color has dominance; the color cannot be determined
-            return ArtifactColor.UNKNOWN;
-        }
-
-        if(isPurple) {
-            return ArtifactColor.PURPLE;
-        }
-        
-        // Check for nonsense and possibly return green
-        if(isGreen) {
-            return ArtifactColor.GREEN;
-        }
-
-        // The color was unrecognized; the color is unknown
-        return ArtifactColor.UNKNOWN;
     }
 }

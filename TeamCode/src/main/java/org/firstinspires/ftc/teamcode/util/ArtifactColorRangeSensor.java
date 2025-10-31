@@ -22,15 +22,45 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
     public static class ColorSensorConst {
         public double greenMinHue = 130;
         public double greenMaxHue = 165;
-        public double minGreenSaturation = 0.55;
+        public double minGreenSaturation = 0.50;
         
         public double purpleMinHue = 170;
         public double purpleMaxHue = 360;
-        public double minPurpleSaturation = 0.4;
+        public double minPurpleSaturation = 0.30;
      
         public double minDistCm = 0.00;
-        public double maxDistCm = 7;
+        public double maxDistCm = 8;
     }
+
+    /**
+     * Alternate to ColorSensorConost. Useful for bad color sensors
+     */
+    public static class AlternateColorSensorConst extends ColorSensorConst {
+        public double greenMinHue = 130;
+        public double greenMaxHue = 165;
+        public double minGreenSaturation = 0.45;
+        
+        public double purpleMinHue = 170;
+        public double purpleMaxHue = 360;
+        public double minPurpleSaturation = 0.28;
+     
+        public double minDistCm = 0.00;
+        public double maxDistCm = 12;
+
+        public ColorSensorConst asColorSensorConst() {
+            final ColorSensorConst result = new ColorSensorConst();
+            result.greenMinHue = this.greenMinHue;
+            result.greenMaxHue = this.greenMaxHue;
+            result.minGreenSaturation = this.minGreenSaturation;
+            result.purpleMinHue = this.purpleMinHue;
+            result.purpleMaxHue = this.purpleMaxHue;
+            result.minPurpleSaturation = this.minPurpleSaturation;
+            result.minDistCm = this.minDistCm;
+            result.maxDistCm = this.maxDistCm;
+            return result;
+        }
+    }
+
 
     /**
      * Constants that define the bounds of what each color is. Saturation is 
@@ -39,6 +69,8 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
      * 120 is green/lime, 180 is cyan, 240 is blue, and 300 is magenta.
      */
     public static ColorSensorConst COLOR_SENSOR_CONST = new ColorSensorConst();
+
+    public final ColorSensorConst colorConst; // So that we can use a local copy if provided at construction
 
     /**
      * How much the sensor readings are amplified. Determined experimentally.
@@ -54,8 +86,13 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
     private double saturation = 0;
 
     public ArtifactColorRangeSensor(ColorRangeSensor sensor) {
+        this(sensor, COLOR_SENSOR_CONST);
+    }
+    
+    public ArtifactColorRangeSensor(ColorRangeSensor sensor, ColorSensorConst colorConst) {
         this.sensor = sensor;
         this.sensor.setGain((float) GAIN);
+        this.colorConst = colorConst;
     }
 
     @Override
@@ -105,17 +142,17 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
 
     protected ArtifactColor calculateArtifactColor(double hue, double sat, double distCm) {
         // If the color cannot be safely determined
-        if(distCm >= COLOR_SENSOR_CONST.maxDistCm || distCm <= COLOR_SENSOR_CONST.minDistCm) {
+        if(distCm >= colorConst.maxDistCm || distCm <= colorConst.minDistCm) {
             return ArtifactColor.UNKNOWN;
         } 
 
         // Checking that the hue is correct
-        boolean isPurple = COLOR_SENSOR_CONST.purpleMinHue <= hue && hue <= COLOR_SENSOR_CONST.purpleMaxHue;
-        boolean isGreen  = COLOR_SENSOR_CONST.greenMinHue  <= hue && hue <= COLOR_SENSOR_CONST.greenMaxHue;
+        boolean isPurple = colorConst.purpleMinHue <= hue && hue <= colorConst.purpleMaxHue;
+        boolean isGreen  = colorConst.greenMinHue  <= hue && hue <= colorConst.greenMaxHue;
 
         // Checking that the saturations are also correct
-        isPurple = isPurple && sat > COLOR_SENSOR_CONST.minPurpleSaturation;
-        isGreen  = isGreen  && sat > COLOR_SENSOR_CONST.minGreenSaturation;
+        isPurple = isPurple && sat > colorConst.minPurpleSaturation;
+        isGreen  = isGreen  && sat > colorConst.minGreenSaturation;
 
         // Check for nonsense and possibly return purple
         if(isGreen && isPurple) {
