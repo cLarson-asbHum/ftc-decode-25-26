@@ -5,6 +5,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
+import com.qualcomm.robotcore.hardware.LED;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
@@ -48,6 +49,12 @@ public class ColorSensorTest extends LinearOpMode {
         final ColorRangeSensor rightReloadSensor = hardwareMap.tryGet(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = hardwareMap.tryGet(ColorRangeSensor.class, "leftReload");
 
+        final LED rightRed = hardwareMap.tryGet(LED.class, "rightRed");
+        final LED rightGreen = hardwareMap.tryGet(LED.class, "rightGreen");
+        
+        final LED leftRed = hardwareMap.tryGet(LED.class, "leftRed");
+        final LED leftGreen = hardwareMap.tryGet(LED.class, "leftGreen");
+
         // Getting a non-null color sensor
         if(rightReloadSensor == null && leftReloadSensor == null) {
             // Both are null; throw an exception
@@ -57,8 +64,17 @@ public class ColorSensorTest extends LinearOpMode {
         telemetry.setMsTransmissionInterval(40);
         telemetry.setDisplayFormat(Telemetry.DisplayFormat.HTML);
 
-        final ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
-        final ArtifactColorRangeSensor wrapper = new ArtifactColorRangeSensor(sensor);
+        // final ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
+        final String rightColorSensorName = "Right";
+        final ArtifactColorRangeSensor rightWrapper = new ArtifactColorRangeSensor(rightReloadSensor);
+
+        // final ColorRangeSensor leftSensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
+        final String leftColorSensorName = "Left";
+        final ArtifactColorRangeSensor leftWrapper = new ArtifactColorRangeSensor(leftReloadSensor);
+
+        ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
+        ArtifactColorRangeSensor wrapper = new ArtifactColorRangeSensor(sensor);
+        String sensorName = rightReloadSensor == null ? leftColorSensorName : rightColorSensorName;
 
         // Getting the color
         boolean isPaused = false;
@@ -71,6 +87,19 @@ public class ColorSensorTest extends LinearOpMode {
         while(opModeIsActive() || opModeInInit()) {
             if(gamepad1.aWasPressed() || gamepad2.aWasPressed()) {
                 isPaused = !isPaused;
+            }
+
+            // Swapping the color sensor upon the x button 
+            if(gamepad1.xWasPressed() || gamepad2.xWasPressed()) {
+                if(sensor == rightReloadSensor && leftReloadSensor != null) {
+                    sensorName = leftColorSensorName;
+                    sensor = leftReloadSensor;
+                    wrapper = leftWrapper;
+                } else if(sensor == leftReloadSensor && rightReloadSensor != null) {
+                    sensorName = rightColorSensorName;
+                    sensor = rightReloadSensor;
+                    wrapper = rightWrapper;
+                }   
             }
 
             // if(gamepad1.bWasPressed() || gamepad2.bWasPressed) {}
@@ -118,7 +147,7 @@ public class ColorSensorTest extends LinearOpMode {
                 "<p>Distance (cm): %.2f</p>" + 
                 "<br/>" + 
 
-                "<h2>ArtifactColor</h2>" +
+                "<h2>ArtifactColor (%s)</h2>" +
                 "<p style=\"font-family:monospace;\">ArtifactColor: %s</p>" + 
                 "<br/>" + 
 
@@ -159,6 +188,7 @@ public class ColorSensorTest extends LinearOpMode {
                 dist,
 
                 // ARTIFACTCOLOR
+                sensorName,
                 artifactcolor.name(),
 
                 // RGB
@@ -185,6 +215,36 @@ public class ColorSensorTest extends LinearOpMode {
             // Logging the data
             telemetry.addLine(previousLog);
             telemetry.update();
+            // Coloring the LEDs if at all possible
+            if(sensor == rightReloadSensor) {
+                if(rightRed != null && artifactcolor == ArtifactColor.PURPLE) {
+                    rightRed.on();
+                } else if(rightRed != null) {
+                    rightRed.off();
+                }
+                
+                // Coloring the LEDs if at all possible
+                if(rightGreen != null && artifactcolor == ArtifactColor.GREEN) {
+                    rightGreen.on();
+                } else if(rightGreen != null) {
+                    rightGreen.off();
+                }
+            }
+
+            if(sensor == leftReloadSensor) {
+                if(leftRed != null && artifactcolor == ArtifactColor.PURPLE) {
+                    leftRed.on();
+                } else if(leftRed != null) {
+                    leftRed.off();
+                }
+                
+                // Coloring the LEDs if at all possible
+                if(leftGreen != null && artifactcolor == ArtifactColor.GREEN) {
+                    leftGreen.on();
+                } else if(leftGreen != null) {
+                    leftGreen.off();
+                }
+            }
         }
     }
 
