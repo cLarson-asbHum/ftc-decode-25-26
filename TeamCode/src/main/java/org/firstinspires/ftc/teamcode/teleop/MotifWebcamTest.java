@@ -22,8 +22,8 @@ public class MotifWebcamTest extends LinearOpMode {
     public static double YAW = 180;
     public static boolean YAW_IN_RADIANS = false; // Determines wheter YAW is in radians
 
-    public static int GAIN = 1;
-    public static int EXPOSURE_MS = 33;
+    public static int GAIN = 255;
+    public static int EXPOSURE_MS = 1;
 
     @Override
     public void runOpMode() {
@@ -87,7 +87,8 @@ public class MotifWebcamTest extends LinearOpMode {
 
 
             // Getting the observed motif
-            telemetry.addData("Current Motif", motifGetter.getMotif().name());
+            final MotifGetter.Motif tempMotif = motifGetter.getMotif();
+            telemetry.addData("Current Motif", tempMotif == null ? "null" : tempMotif.name());
             if(YAW_IN_RADIANS) {
                 telemetry.addData("Current Yaw (deg)", AngleUnit.DEGREES.fromRadians(YAW));
             } else {
@@ -97,7 +98,7 @@ public class MotifWebcamTest extends LinearOpMode {
             telemetry.addData("Stream FPS", motifGetter.getStream().getFps());
             telemetry.addData("Processor Time (ms)", motifGetter.getProcessor().getPerTagAvgPoseSolveTime());
             telemetry.addData("Found Tags", motifGetter.getProcessor().getDetections());
-            telemetry.addData("Found Motifs", motifGetter.getMotif().name());
+            // telemetry.addData("Found Motifs", motifGetter.getMotif().name());
             telemetry.update();
         }
     }

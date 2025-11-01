@@ -196,8 +196,13 @@ public class Rippley extends LinearOpMode {
 
         // Get the motif 
         motifGetter.setGlobalRobotYaw(START_POSITION.yaw);
-        final Motif motif = motifGetter.getMotif();
+        Motif motif = motifGetter.getMotif();
         motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+
+        // If the motif coul dnt be found, use a default
+        if(motif == null) {
+            motif = Motif.FIRST_GREEN;
+        }
 
         // MoveForward(6);
 

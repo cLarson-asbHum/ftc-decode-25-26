@@ -191,7 +191,7 @@ public class MotifWebcam implements MotifGetter {
         final ArrayList<AprilTagDetection> obeliskTags = processor.getFreshDetections(); 
 
         // No tags were detected! Return null to signal to the opmode such event 
-        if(obeliskTags.size() == 0) {
+        if(obeliskTags == null || obeliskTags.size() == 0) {
             return null;
         }
 
