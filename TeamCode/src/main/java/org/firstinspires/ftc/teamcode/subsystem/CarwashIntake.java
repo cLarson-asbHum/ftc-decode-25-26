@@ -9,7 +9,7 @@ public class CarwashIntake implements IntakeSubsystem {
     public static class Powers {
         public double intake = 1.0;
         public double eject = -1.0;
-        public double hold = 0.2;
+        public double hold = 0.0;
         public double tolerance = 0.05;
     }
 
@@ -78,6 +78,7 @@ public class CarwashIntake implements IntakeSubsystem {
             motor.setPower(targetPower);
         }
 
+        
         // TODO: Implement time-based power check.
     }
 

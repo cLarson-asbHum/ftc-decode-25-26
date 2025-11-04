@@ -40,7 +40,7 @@ public class SubsystemIntegrationTesting extends LinearOpMode {
         frontRight.setDirection(DcMotorEx.Direction.FORWARD);
         backRight.setDirection(DcMotorEx.Direction.FORWARD);
         
-        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        // rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeeder.setDirection(DcMotor.Direction.REVERSE);
         leftFeeder.setDirection(DcMotor.Direction.FORWARD);
 

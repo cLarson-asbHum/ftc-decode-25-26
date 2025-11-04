@@ -39,13 +39,13 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             return rpm / 60  * ticksPerRev;
         }
 
-        public double unchargedPower = 0;
-        public double chargedPower = 0.55 * ticksPerSec();
-        public double reloadingPower = chargedPower;
-        public double firingPower = chargedPower;
-        public double abortingPower = -0.3 * ticksPerSec();
+        public double unchargedPower = 0; // Ticks / sec
+        public double chargedPower = 1600; // Ticks / sec
+        public double reloadingPower = chargedPower; // Ticks / sec
+        public double firingPower = chargedPower; // Ticks / sec
+        public double abortingPower = 0.3 * ticksPerSec(); // Ticks / sec
 
-        public double powerTolerance = 0.05 * ticksPerSec();
+        public double powerTolerance = 200; // Ticks / sec
     };
 
     /**
@@ -176,9 +176,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             return false;
         }
 
-        if(Math.abs(power - targetFlyWheelPower) < powerTolerance) {
-            return false;
-        }
+        // if(Math.abs(power - targetFlyWheelPower) < powerTolerance) {
+        //     return false;
+        // }
 
         targetFlyWheelPower = power;
         hasSetFlywheelPower = true;

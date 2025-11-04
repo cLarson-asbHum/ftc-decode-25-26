@@ -22,7 +22,7 @@ public class MotifWebcamTest extends LinearOpMode {
     public static double YAW = 180;
     public static boolean YAW_IN_RADIANS = false; // Determines wheter YAW is in radians
 
-    public static int GAIN = 255;
+    public static int GAIN = 200;
     public static int EXPOSURE_MS = 1;
 
     @Override

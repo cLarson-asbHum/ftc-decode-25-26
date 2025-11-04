@@ -18,8 +18,8 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
 @Configurable
 public class MotifWebcam implements MotifGetter {
-    public static int PORTAL_WIDTH_PX = 320; // Only works at construction time
-    public static int PORTAL_HEIGHT_PX = 240; // Only works at construction time
+    public static int PORTAL_WIDTH_PX = 640; // Only works at construction time
+    public static int PORTAL_HEIGHT_PX = 480; // Only works at construction time
 
     public static int MIN_TAG_ID = 21;
     public static int MAX_TAG_ID = 23;
