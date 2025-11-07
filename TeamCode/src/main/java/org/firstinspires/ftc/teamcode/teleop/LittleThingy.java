@@ -49,8 +49,8 @@ public class LittleThingy extends OpMode {
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
 
-    private boolean wasPressingIntake = false;
-    private boolean leftTriggerWasPressed = false;
+    private boolean wasPressingLeftBumper = false;
+    private boolean wasPressingLeftTrigger = false;
 
     private LED rightRed;
     private LED rightGreen;
@@ -127,11 +127,11 @@ public class LittleThingy extends OpMode {
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
         
-        rightRed = hardwareMap.tryGet(LED.class, "rightRed");
-        rightGreen = hardwareMap.tryGet(LED.class, "rightGreen");
+        rightRed = hardwareMap.tryGet(LED.class, "rightRed");     // Intentionaly not caring if we don't find this
+        rightGreen = hardwareMap.tryGet(LED.class, "rightGreen"); // Intentionaly not caring if we don't find this
         
-        leftRed = hardwareMap.tryGet(LED.class, "leftRed");
-        leftGreen = hardwareMap.tryGet(LED.class, "leftGreen");
+        leftRed = hardwareMap.tryGet(LED.class, "leftRed");     // Intentionaly not caring if we don't find this
+        leftGreen = hardwareMap.tryGet(LED.class, "leftGreen"); // Intentionaly not caring if we don't find this
 
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
         // If any are not found, an error is thrown stating which.
@@ -150,6 +150,7 @@ public class LittleThingy extends OpMode {
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
         // );
+        intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
 
@@ -256,22 +257,17 @@ public class LittleThingy extends OpMode {
         }
 
         // INATKE (hold)
-        if(gamepad2.right_bumper) {
+        if(gamepad2.left_trigger > TRIGGER_PRESSED && !wasPressingLeftTrigger) {
             intake.intakeGamePieces();
-        } else if (!gamepad2.right_bumper) {
+        } else if(!(gamepad2.left_trigger > TRIGGER_PRESSED) && wasPressingLeftTrigger) {
             intake.holdGamePieces();
         }
 
-        // EJECT From the intake (HOLD)
-        if(gamepad2.left_trigger > TRIGGER_PRESSED) {
+        if(gamepad2.left_bumper && !wasPressingLeftBumper) {
             intake.ejectGamePieces();
-            wasPressingIntake = true;
-        } else if(!(gamepad2.left_trigger > TRIGGER_PRESSED)) {
+        } else if(!gamepad2.left_bumper && wasPressingLeftBumper) {
             intake.holdGamePieces();
-            wasPressingIntake = false;
         }
-
-        leftTriggerWasPressed = gamepad2.left_trigger > TRIGGER_PRESSED;
 
         // LED
         final ArtifactColor artifactcolorL = leftReload.getColor();
@@ -301,6 +297,11 @@ public class LittleThingy extends OpMode {
         } else if(leftGreen != null) {
             leftGreen.off();
         }
+        
+
+        // BUTTON PRESSES
+        wasPressingLeftBumper = gamepad2.left_bumper;
+        wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
 
         // TELELEMETRY
         telemetry.addLine();
@@ -311,6 +312,7 @@ public class LittleThingy extends OpMode {
         telemetry.addLine();
         // telemetry.update();
 
+        // COMMAND SCHEDULER
         CommandScheduler.getInstance().run();
 
     }
