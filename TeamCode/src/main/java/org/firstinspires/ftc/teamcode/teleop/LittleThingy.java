@@ -1,28 +1,26 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import com.qualcomm.robotcore.hardware.LED;
+// import com.qualcomm.robotcore.hardware
+import com.arcrobotics.ftclib.command.Command;
+import com.arcrobotics.ftclib.command.CommandScheduler;
+import com.arcrobotics.ftclib.command.Subsystem;
+import com.bylazar.configurables.annotations.Configurable;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.ColorRangeSensor;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.ColorRangeSensor;
-// import com.qualcomm.robotcore.hardware
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
-
-import com.arcrobotics.ftclib.command.Subsystem;
-import com.arcrobotics.ftclib.command.CommandScheduler;
-import com.arcrobotics.ftclib.command.Command;
-
-import com.bylazar.configurables.annotations.Configurable;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.SwitchableLight;
 
 import java.util.ArrayList;
 
 import org.firstinspires.ftc.teamcode.subsystem.*;
-import org.firstinspires.ftc.teamcode.util.Util;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.util.Util;
 
 @Configurable
 @TeleOp(group="B - Testing")
@@ -39,10 +37,10 @@ public class LittleThingy extends OpMode {
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
 
-    private LED rightRed;
-    private LED rightGreen;
-    private LED leftRed;
-    private LED leftGreen;
+    private SwitchableLight rightRed;
+    private SwitchableLight rightGreen;
+    private SwitchableLight leftRed;
+    private SwitchableLight leftGreen;
 
     private boolean autoReloadEnabled = false;
 
@@ -122,11 +120,11 @@ public class LittleThingy extends OpMode {
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
         
-        rightRed = hardwareMap.tryGet(LED.class, "rightRed");     // Intentionaly not caring if we don't find this
-        rightGreen = hardwareMap.tryGet(LED.class, "rightGreen"); // Intentionaly not caring if we don't find this
+        rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
+        rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
         
-        leftRed = hardwareMap.tryGet(LED.class, "leftRed");     // Intentionaly not caring if we don't find this
-        leftGreen = hardwareMap.tryGet(LED.class, "leftGreen"); // Intentionaly not caring if we don't find this
+        leftRed = hardwareMap.tryGet(SwitchableLight.class, "leftRed");     // Intentionaly not caring if we don't find this
+        leftGreen = hardwareMap.tryGet(SwitchableLight.class, "leftGreen"); // Intentionaly not caring if we don't find this
 
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
         // If any are not found, an error is thrown stating which.
@@ -183,6 +181,10 @@ public class LittleThingy extends OpMode {
         return new Subsystem[] { rightShooter, intake, drivetrain };
     }
 
+    /**
+     * Initializing the opmode. This is not expected to be HardwareFaker 
+     * compatible.
+     */
     @Override
     public void init() {
         final Subsystem[] subsystems = createSubsystems(hardwareMap);
@@ -256,7 +258,7 @@ public class LittleThingy extends OpMode {
             !gamepad2.left_bumper && wasPressingLeftBumper // End
         );
 
-        // LED
+        // LEDs
         final ArtifactColor artifactcolorL = leftReload.getColor();
         final ArtifactColor artifactcolorR = rightReload.getColor();
 
@@ -449,7 +451,7 @@ public class LittleThingy extends OpMode {
         return false;
     }
 
-    public boolean colorLed(LED greenLed, LED redLed, ArtifactColor color) {
+    public boolean colorLed(SwitchableLight greenLed, SwitchableLight redLed, ArtifactColor color) {
         if(greenLed == null && redLed == null) {
             return false;
         }
@@ -473,12 +475,12 @@ public class LittleThingy extends OpMode {
         }
     }
 
-    public boolean nullSafeLedEnable(LED led, boolean enable) {
+    public boolean nullSafeLedEnable(SwitchableLight led, boolean enable) {
         if(led == null) {
             return false;
         }
 
-        led.enable(enable);
+        led.enableLight(enable);
         return true;
     }
 
