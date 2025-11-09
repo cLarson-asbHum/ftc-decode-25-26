@@ -1,5 +1,6 @@
-package org.firstinspires.ftc.teamcode.temp;
+package org.firstinspires.ftc.teamcode.teleop;
 
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -13,7 +14,7 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
     public static double FULL_POWER = -1.0;
     public static double FULL_INTAKE = -1.0;
 
-    public static double FEEDER_FULL = 1.0;
+    public static double FEEDER_FULL = -1.0;
     public static double FEEDER_HOLD = 0.1;
     public static double FEEDER_NIL = 0.0;
 
@@ -21,8 +22,8 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
     public void runOpMode() {
         final DcMotor rightShooter = hardwareMap.get(DcMotor.class, "rightShooter");
         final DcMotor intake = hardwareMap.get(DcMotor.class, "intake");
-        final DcMotor rightFeeder = hardwareMap.get(DcMotor.class, "rightFeeder");
-        final DcMotor leftFeeder = hardwareMap.get(DcMotor.class, "leftFeeder");
+        final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
+        final CRServo leftFeeder = hardwareMap.get(CRServo.class, "leftFeeder");
 
         rightFeeder.setDirection(DcMotorSimple.Direction.FORWARD);
         leftFeeder.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -38,12 +39,17 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
                 rightShooter.setPower(0);
             }
 
-            if(gamepad2.y) {
-                leftFeeder.setPower(FEEDER_FULL);
+            if(gamepad2.dpad_left) {
                 rightFeeder.setPower(FEEDER_FULL);
             } else {
-                leftFeeder.setPower(FEEDER_NIL);
-                rightFeeder.setPower(FEEDER_NIL);
+                rightFeeder.setPower(0.0);
+            }
+            
+
+            if(gamepad2.dpad_right) {
+                leftFeeder.setPower(FEEDER_FULL);
+            } else {
+                leftFeeder.setPower(0.0);
             }
 
             if(gamepad2.left_bumper) {
@@ -52,9 +58,6 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
 
             if(gamepad2.right_bumper) {
                 intakePower = FULL_INTAKE;
-            } else {
-                leftFeeder.setPower(FEEDER_HOLD);
-                rightFeeder.setPower(FEEDER_HOLD);
             }
 
             intake.setPower(intakePower);
