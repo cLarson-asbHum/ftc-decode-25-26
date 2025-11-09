@@ -51,6 +51,7 @@ public class LittleThingy extends OpMode {
 
     private boolean wasPressingLeftBumper = false;
     private boolean wasPressingLeftTrigger = false;
+    private boolean wasPressingRightTrigger = false;
 
     private LED rightRed;
     private LED rightGreen;
@@ -235,10 +236,23 @@ public class LittleThingy extends OpMode {
             shooter.fireLeft();
         }
 
+        // MULTIFIRE (hold)
+        if(gamepad2.right_trigger > TRIGGER_PRESSED && !wasPressingRightTrigger) {
+            shooter.multiFire();
+        } else if(!(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger) {
+            shooter.charge();
+        }
+
+        // TODO: Fire pattern
+
         // RELOAD
         if(gamepad2.yWasPressed()) {
             shooter.reload();
         }
+
+        // TODO: Auto reload
+        //       Perhaps make it check that we are in a charged state before going into
+        //       RELOADING? This is so that we don't break out of any state we don't want to 
 
         // CHARGE
         if(gamepad2.dpadUpWasPressed()) {
@@ -262,7 +276,7 @@ public class LittleThingy extends OpMode {
         } else if(!(gamepad2.left_trigger > TRIGGER_PRESSED) && wasPressingLeftTrigger) {
             intake.holdGamePieces();
         }
-
+        
         if(gamepad2.left_bumper && !wasPressingLeftBumper) {
             intake.ejectGamePieces();
         } else if(!gamepad2.left_bumper && wasPressingLeftBumper) {
@@ -302,6 +316,7 @@ public class LittleThingy extends OpMode {
         // BUTTON PRESSES
         wasPressingLeftBumper = gamepad2.left_bumper;
         wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
+        wasPressingRightTrigger = gamepad2.right_trigger > TRIGGER_PRESSED;
 
         // TELELEMETRY
         telemetry.addLine();
