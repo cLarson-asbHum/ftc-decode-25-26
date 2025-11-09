@@ -28,17 +28,7 @@ import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 @TeleOp(group="B - Testing")
 public class LittleThingy extends OpMode {
     public static double TRIGGER_PRESSED = 0.1;
-
-    public static double FULL_POWER = -1.0;
-    public static double FULL_INTAKE = 1.0;
-
-    public static double FEEDER_FULL = 1.0;
-    public static double FEEDER_HOLD = 0.1;
-    public static double FEEDER_NIL = 0.0;
-    public static double FEEDER_BACK = -1.0;
-
     
-    private boolean wasInjected = false;
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
 
@@ -49,14 +39,18 @@ public class LittleThingy extends OpMode {
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
 
-    private boolean wasPressingLeftBumper = false;
-    private boolean wasPressingLeftTrigger = false;
-    private boolean wasPressingRightTrigger = false;
-
     private LED rightRed;
     private LED rightGreen;
     private LED leftRed;
     private LED leftGreen;
+
+    private boolean autoReloadEnabled = false;
+
+    private boolean wasPressingRightTrigger = false;
+    private boolean wasPressingLeftTrigger = false;
+    private boolean wasPressingLeftBumper = false;
+    private boolean wasTogglingAutoReload = false;
+
 
     /**
      * Attempts to get the given hardware from the hardwareMap. If it cannot be 
@@ -208,117 +202,78 @@ public class LittleThingy extends OpMode {
 
         // Driving the drivetrain            
         drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
-
-        // Speed change for the drivetrain
-        if(gamepad1.left_trigger > 0.1 || gamepad1.right_trigger > 0.1) {
-            drivetrain.engageFastMode();
-        } else if(gamepad1.left_bumper || gamepad1.right_bumper) {
-            drivetrain.engageSlowMode();
-        } else {
-            drivetrain.engageMiddleMode();
-        }
+        changeDrivetrainSpeed(
+            gamepad1.left_trigger > TRIGGER_PRESSED || gamepad1.right_trigger > TRIGGER_PRESSED, // Fast
+            gamepad1.left_bumper || gamepad1.right_bumper // Slow
+        );        
 
         // Shooting the given color of artifact
-        // PUPLE
-        if(gamepad2.aWasPressed()) {
-            shooter.fireGreen();
-        }
-        
-        if(gamepad2.xWasPressed()) {
-            shooter.firePurple();
-        }
+        fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
 
         // Firing the given side if anything goes wrong
-        if(gamepad2.rightStickButtonWasPressed()) {
-            shooter.fireRight();
-        }
-        if(gamepad2.leftStickButtonWasPressed()) {
-            shooter.fireLeft();
-        }
+        fireBasedOffSide(
+            gamepad2.rightStickButtonWasPressed(), // Right
+            gamepad2.leftStickButtonWasPressed() // Left
+        );
 
-        // MULTIFIRE (hold)
-        if(gamepad2.right_trigger > TRIGGER_PRESSED && !wasPressingRightTrigger) {
-            shooter.multiFire();
-        } else if(!(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger) {
-            shooter.charge();
-        }
+        // MULTIFIRE (hold right trigger)
+        fireIndiscriminantly(
+            gamepad2.right_trigger > TRIGGER_PRESSED && !wasPressingRightTrigger, // Begin
+            !(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger // Cancel
+        );
 
         // TODO: Fire pattern
 
         // RELOAD
-        if(gamepad2.yWasPressed()) {
-            shooter.reload();
-        }
+        reloadBothSides(gamepad2.yWasPressed());
 
-        // TODO: Auto reload
-        //       Perhaps make it check that we are in a charged state before going into
-        //       RELOADING? This is so that we don't break out of any state we don't want to 
+        // AUTO RELOAD
+        // Performing the auto reload if allowed to AND we are fully charged
+        // We check that we are charged so that we don't automaticcally exit, say, 
+        // `UNCHARGING` and cause the shooter to instantly speed up again.
+        reloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
+
+        // Toggling auto reload upon p
+        toggleAutoReload(gamepad2.back && gamepad2.y && !wasTogglingAutoReload);
 
         // CHARGE
-        if(gamepad2.dpadUpWasPressed()) {
-            shooter.charge();
-        }
-
-
+        chargeShooter(gamepad2.dpadUpWasPressed());
+        
         // UNCHARGE
-        if(gamepad2.dpadDownWasPressed()) {
-            shooter.uncharge();
-        } 
+        unchargeShooter(gamepad2.dpadDownWasPressed());
 
-        // EJECT
-        if(gamepad2.bWasPressed()) {
-            shooter.abort();
-        }
+        // ABORT
+        bringArtifactsOutOfShooter(gamepad2.bWasPressed());
 
         // INATKE (hold)
-        if(gamepad2.left_trigger > TRIGGER_PRESSED && !wasPressingLeftTrigger) {
-            intake.intakeGamePieces();
-        } else if(!(gamepad2.left_trigger > TRIGGER_PRESSED) && wasPressingLeftTrigger) {
-            intake.holdGamePieces();
-        }
+        intakeFromFloor(
+            gamepad2.left_trigger > TRIGGER_PRESSED && !wasPressingLeftTrigger, // Begin
+            !(gamepad2.left_trigger > TRIGGER_PRESSED) && wasPressingLeftTrigger // End
+        );
         
-        if(gamepad2.left_bumper && !wasPressingLeftBumper) {
-            intake.ejectGamePieces();
-        } else if(!gamepad2.left_bumper && wasPressingLeftBumper) {
-            intake.holdGamePieces();
-        }
+        ejectToFloor(
+            gamepad2.left_bumper && !wasPressingLeftBumper, // Begin
+            !gamepad2.left_bumper && wasPressingLeftBumper // End
+        );
 
         // LED
         final ArtifactColor artifactcolorL = leftReload.getColor();
         final ArtifactColor artifactcolorR = rightReload.getColor();
-        if(rightRed != null && artifactcolorR == ArtifactColor.PURPLE) {
-            rightRed.on();
-        } else if(rightRed != null) {
-            rightRed.off();
-        }
-        
-        // Coloring the LEDs if at all possible
-        if(rightGreen != null && artifactcolorR == ArtifactColor.GREEN) {
-            rightGreen.on();
-        } else if(rightGreen != null) {
-            rightGreen.off();
-        }
 
-        if(leftRed != null && artifactcolorL == ArtifactColor.PURPLE) {
-            leftRed.on();
-        } else if(leftRed != null) {
-            leftRed.off();
-        }
-        
-        // Coloring the LEDs if at all possible
-        if(leftGreen != null && artifactcolorL == ArtifactColor.GREEN) {
-            leftGreen.on();
-        } else if(leftGreen != null) {
-            leftGreen.off();
-        }
-        
+        colorLed(rightRed, rightGreen, artifactcolorR);
+        colorLed(leftRed, leftGreen, artifactcolorL);
 
         // BUTTON PRESSES
-        wasPressingLeftBumper = gamepad2.left_bumper;
-        wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
         wasPressingRightTrigger = gamepad2.right_trigger > TRIGGER_PRESSED;
+        wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
+        wasPressingLeftBumper = gamepad2.left_bumper;
+        wasTogglingAutoReload = gamepad2.back && gamepad2.y;
 
         // TELELEMETRY
+        telemetry.addLine();
+        telemetry.addLine(Util.header("Settings"));
+        telemetry.addLine();
+        telemetry.addData("autoReloadEnabled (Back + Y)", autoReloadEnabled);
         telemetry.addLine();
         telemetry.addLine(Util.header("Colors"));
         telemetry.addLine();
@@ -330,6 +285,201 @@ public class LittleThingy extends OpMode {
         // COMMAND SCHEDULER
         CommandScheduler.getInstance().run();
 
+    }
+
+    /**
+     * Sets the drivetrain speed to be abnormal when eithe of the 
+     * parameters are true. If both `goFast` and `goSlow` are true, this 
+     * goes fast. This goes at normal speed if ano only if both `goFast` and 
+     * `goSlow` are false.
+     * 
+     * @param goFast The drivetrain goes fast only when this is true
+     * @param goSlow The drivetrain goes fast only when this is false
+     * @return Whether the drivetrain speed was not at middle (normal) speed
+     */
+    public boolean changeDrivetrainSpeed(boolean goFast, boolean goSlow) {
+        if(goFast) {
+            drivetrain.engageFastMode();
+            return false;
+        }
+        
+        if(goSlow) {
+            drivetrain.engageSlowMode();
+            return false;
+        }
+        
+        // Normal Speed
+        drivetrain.engageMiddleMode();
+        return true;
+    }
+
+    public boolean fireBasedOffColor(boolean fireGreen, boolean firePurple) {
+        if(fireGreen) {
+            shooter.fireGreen();
+            return true;
+        }
+        
+        if(firePurple) {
+            shooter.firePurple();
+            return true;
+        }
+
+        // Nothing was fired
+        return false;
+    }
+
+    public boolean fireBasedOffSide(boolean fireRight, boolean fireLeft) {
+        if(gamepad2.rightStickButtonWasPressed()) {
+            shooter.fireRight();
+            return true;
+        }
+        if(gamepad2.leftStickButtonWasPressed()) {
+            shooter.fireLeft();
+            return true;
+        }
+
+        // Nothing was fired
+        return false;
+    }
+
+    public boolean fireIndiscriminantly(boolean startFiring, boolean cancelFiring) {
+        if(startFiring) {
+            shooter.multiFire();
+            return true;
+        }
+
+        if(cancelFiring) {
+            shooter.charge();
+        } 
+
+        return false;
+    }
+
+    public boolean reloadBothSides(boolean doReload) {
+        if(doReload) {
+            shooter.reload();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean reloadEmptySides(boolean doReload) {
+        if(doReload) {
+            // Checking which sides are loaded or not
+            final boolean leftReloaded = shooter.checkIsLeftReloaded();
+            final boolean rightReloaded = shooter.checkIsRightReloaded();
+
+            if(leftReloaded && rightReloaded) {
+                shooter.reload();
+            } 
+
+            if(!leftReloaded && rightReloaded) {
+                shooter.reloadLeft();
+            }
+
+            if(leftReloaded && !rightReloaded) {
+                shooter.reloadRight();
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean toggleAutoReload(boolean doToggle) {
+        if(doToggle) {
+            autoReloadEnabled = !autoReloadEnabled;
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean chargeShooter(boolean doCharge) {
+        if(doCharge) {
+            shooter.charge();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean unchargeShooter(boolean doUncharge) {
+        if(doUncharge) {
+            shooter.uncharge();
+            return true;
+        } 
+
+        return false;
+    }
+
+    public boolean bringArtifactsOutOfShooter(boolean doBringBack) {
+        if(doBringBack) {
+            shooter.abort();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean intakeFromFloor(boolean startIntake, boolean cancelIntake) {
+        if(startIntake) {
+            intake.intakeGamePieces();
+            return true;
+        }
+        
+        if(cancelIntake) {
+            intake.holdGamePieces();
+        } 
+
+        return false;
+    }
+
+    public boolean ejectToFloor(boolean startEject, boolean cancelEject) {
+        if(startEject) {
+            intake.ejectGamePieces();
+            return true;
+        } 
+        
+        if(cancelEject) {
+            intake.holdGamePieces();
+        }
+
+        return false;
+    }
+
+    public boolean colorLed(LED greenLed, LED redLed, ArtifactColor color) {
+        if(greenLed == null && redLed == null) {
+            return false;
+        }
+
+        switch (color) {
+            case PURPLE:
+                nullSafeLedEnable(greenLed, false);
+                nullSafeLedEnable(redLed, true);
+                return true;
+
+            case GREEN:
+                nullSafeLedEnable(greenLed, true);
+                nullSafeLedEnable(redLed, false);
+                return true;
+
+            case UNKNOWN:
+            default:
+                nullSafeLedEnable(greenLed, false);
+                nullSafeLedEnable(redLed, false);
+                return false;
+        }
+    }
+
+    public boolean nullSafeLedEnable(LED led, boolean enable) {
+        if(led == null) {
+            return false;
+        }
+
+        led.enable(enable);
+        return true;
     }
 
     @Override
