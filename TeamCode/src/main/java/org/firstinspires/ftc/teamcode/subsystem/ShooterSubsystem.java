@@ -65,23 +65,16 @@ public interface ShooterSubsystem extends StateSubsystem<ShooterSubsystem.Status
         UNCHARGED,
 
         /**
-         * The shooter would be able to shoot if it had a projectile ready. 
-         * A shooter can dry fire from this state, although this is **not**
-         * recommended.
+         * The shooter is able to shoot if it has a projectile ready. The shooter 
+         * is expected to fire from this state.
          */
-        EMPTY_CHARGED(true), // Allowed to dry fire (for some unfathomable reason)
+        CHARGED(true), // Allowed to fire (or even dry fire, perhaps)
 
         /**
          * A projectile is being moved into the shooter. The shooter may not fire at 
          * this time.
          */
         RELOADING, // Transition state
-
-        /**
-         * The shooter is completely able to fire. The shot may also be aborted to 
-         * remove the projectile by transitioning to the `ABORTING` state.
-         */
-        RELOADED_CHARGED(true), // Allowed to fire the current projectile(s)
 
         /**
          * A projectile is in the process of being shot. 

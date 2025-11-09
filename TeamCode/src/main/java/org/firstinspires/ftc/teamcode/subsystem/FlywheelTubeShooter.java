@@ -247,8 +247,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * 
      * The shooter becomes charged asyncrhonously; to wait for the shooter to 
      * become charged, wait for the state (from `getStatus()` or `getState()`)
-     * to become `EMPTY_CHARGED` or `RELOADED_CHARGED`. Note that this may fail
-     * and become `UNCHARGING` or `UNCHARGED` if the shooter cannot get up to speed.
+     * to become `CHARGED`. Note that this may fail and become `UNCHARGING` 
+     * or `UNCHARGED` if the shooter cannot get up to speed.
      */
     @Override
     public boolean charge() {
@@ -264,7 +264,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * the velocity is not sensing correctly.
      * 
      * The state change happens upon invocation, and the shooter is 
-     * guaranteed to be either in `EMPTY_CHARGED` or `RELOADED_CHARGED`.
+     * guaranteed to be either in `CHARGED`.
      * 
      * NOTE: This does not guarantee that the velocity will be correct!
      * 
@@ -273,11 +273,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean forceCharged() {
         charge();
         removeTimeout(Status.CHARGING);
-        if(checkIsReloaded()) {
-            return transitionTo(Status.RELOADED_CHARGED);
-        } else {
-            return transitionTo(Status.EMPTY_CHARGED);
-        }
+        return transitionTo(Status.CHARGED);
     }
 
     /**
@@ -302,8 +298,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * 
      * A projectile is reloaded asynchronously; to wait for the reloading to 
      * finish, wait for the state (from `getStatus()` or `getState()`) to become 
-     * `RELOADED_CHARGED`. Note that this may fail and become `EMPTY_CHARGED`
-     * if a projectile is not detected.
+     * `CHARGED`. This does not guarantee that a projectile will be successfully 
+     * loaded, as the reloading may time out before anything could be processed.
      */
     @Override
     public boolean reload() {
@@ -640,13 +636,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     protected void periodicCharging(Telemetry telemetry) {
         // TODO: Transition to previous state if timed out?
-        // Transitioning to EMPTY_CHARGED or RELOADED_CHARGED if we are within power
+        // Transitioning to CHARGED if we are within power
         if(checkConsideredCharged()) {
-            if(checkIsReloaded()) {
-                transitionTo(Status.RELOADED_CHARGED);
-            } else {
-                transitionTo(Status.EMPTY_CHARGED);
-            }
+            transitionTo(Status.CHARGED);
         } else if(isTimedOut(Status.CHARGING)) {
             // FIXME: This can get stuck in an infinite loop!
             uncharge();
@@ -671,23 +663,18 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     /**
      * Keeps the shooter at firing speed and feeders reloading until the time
-     * has elapsed. Goes to `RELOADED_CHARGED`, `EMPTY_CHARGED`, or `CHARGING` 
-     * afterwards.
+     * has elapsed. Goes to `CHARGED` or `CHARGING` afterwards.
      * 
      * @param telemetry Unused
      */
     protected void periodicFiring(Telemetry telemetry) {
         final boolean timedOut = isTimedOut(Status.FIRING);
         final boolean isCharged = checkConsideredCharged();
-        final boolean isReloaded = checkIsReloaded();
         
         // TODO: Add check for when a projectile leaves to end before timeout
-        if(timedOut && isReloaded && isCharged) {
+        if(timedOut && isCharged) {
             charge(); // Just make sure that the correct powers are set
-            transitionTo(Status.RELOADED_CHARGED);
-        } else if(timedOut && !isReloaded && isCharged) {
-            charge(); // Just make sure that the correct powers are set
-            transitionTo(Status.EMPTY_CHARGED);
+            transitionTo(Status.CHARGED);
         }
         //  else if(timedOut && checkConsideredUncharged()) {
         //     // Using uncharge rather than transition to make sure the powers are set.
@@ -704,8 +691,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * misplaced. This ends after a specified amount of time. The shooter
      * can go to the following afterwards:
      * 
-     *   - `RELOADED_CHARGED`, if the shooter is charged and a projectile is ready;
-     *   - `EMPTY_CHARGED`, if the shooter is charged but there's no projectile;
+     *   - `CHARGED`, if the shooter is charged;
      *   - `UNCHARGING`, if the shooter is not already charged
      * 
      * @param telemetry Unused. 
@@ -713,15 +699,12 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     protected void periodicAborting(Telemetry telemetry) {
         final boolean timedOut = isTimedOut(Status.ABORTING);
         final boolean isCharged = checkConsideredCharged();
-        final boolean isReloaded = checkIsReloaded();
+        // final boolean isReloaded = checkIsReloaded();
         
         // TODO: Add check for when a projectile leaves to end before timeout
-        if(timedOut && isReloaded && isCharged) {
+        if(timedOut && isCharged) {
             charge(); // Just making sure the powers are correct.
-            transitionTo(Status.RELOADED_CHARGED);
-        } else if(timedOut && !isReloaded && isCharged) {
-            charge(); // Just making sure the powers are correct.
-            transitionTo(Status.EMPTY_CHARGED);
+            transitionTo(Status.CHARGED);
         }
         // else if(timedOut && checkConsideredUncharged()) {
         //     // Using uncharge rather than transition to make sure the powers are set.
@@ -835,7 +818,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         // Updating the motor powers
         if(hasSetFlywheelPower) {
-            flywheels.setVelocity(targetFlyWheelPower);
+            flywheels.setVelocity(-targetFlyWheelPower);
             hasSetFlywheelPower = false;
         }
 

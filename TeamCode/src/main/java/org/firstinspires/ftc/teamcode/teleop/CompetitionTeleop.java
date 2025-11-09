@@ -174,24 +174,24 @@ public class CompetitionTeleop extends CommandOpMode {
         CarwashIntake intake
     ) {
         // UpgradeShootingState transitions from UNCAHRGED to CHARGED to FIRING 
-        final Command upgradeShootingState = new SelectCommand(
-            new HashMap<Object, Command>() {{
-                put(ShooterSubsystem.Status.UNCHARGED, shooter.chargeCommand());
-                put(ShooterSubsystem.Status.RELOADED_CHARGED, shooter.fireCommand());
-                put(ShooterSubsystem.Status.EMPTY_CHARGED, new SequentialCommandGroup(
-                    shooter.reloadCommand(),
-                    shooter.fireCommand()
-                ));
-            }},
-            shooter::getStatus
-        );
+        // final Command upgradeShootingState = new SelectCommand(
+        //     new HashMap<Object, Command>() {{
+        //         put(ShooterSubsystem.Status.UNCHARGED, shooter.chargeCommand());
+        //         put(ShooterSubsystem.Status.RELOADED_CHARGED, shooter.fireCommand());
+        //         put(ShooterSubsystem.Status.EMPTY_CHARGED, new SequentialCommandGroup(
+        //             shooter.reloadCommand(),
+        //             shooter.fireCommand()
+        //         ));
+        //     }},
+        //     shooter::getStatus
+        // );
 
-        // Both the triggers do the same thing: charge is uncharged; otherwise, reload if necessary and fire
-        new Trigger(() -> shooterPad.left_trigger > TRIGGER_PRESSED)
-            .whenActive(upgradeShootingState);
+        // // Both the triggers do the same thing: charge is uncharged; otherwise, reload if necessary and fire
+        // new Trigger(() -> shooterPad.left_trigger > TRIGGER_PRESSED)
+        //     .whenActive(upgradeShootingState);
             
-        new Trigger(() -> shooterPad.right_trigger > TRIGGER_PRESSED)
-            .whenActive(upgradeShootingState);
+        // new Trigger(() -> shooterPad.right_trigger > TRIGGER_PRESSED)
+        //     .whenActive(upgradeShootingState);
 
         // Holding up on the dpad shoots as many projectiles as possible
         final Command chargeIfNecessaryMultiFire = new ConditionalCommand(
