@@ -1,43 +1,54 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import com.arcrobotics.ftclib.command.button.Trigger;
+// import com.qualcomm.robotcore.hardware
 import com.arcrobotics.ftclib.command.Command;
-import com.arcrobotics.ftclib.command.CommandOpMode;
-import com.arcrobotics.ftclib.command.ConditionalCommand;
-import com.arcrobotics.ftclib.command.InstantCommand;
-import com.arcrobotics.ftclib.command.ParallelCommandGroup;
-import com.arcrobotics.ftclib.command.RunCommand;
-import com.arcrobotics.ftclib.command.SelectCommand;
-import com.arcrobotics.ftclib.command.SequentialCommandGroup;
+import com.arcrobotics.ftclib.command.CommandScheduler;
 import com.arcrobotics.ftclib.command.Subsystem;
-import com.arcrobotics.ftclib.gamepad.GamepadEx;
-import com.arcrobotics.ftclib.gamepad.GamepadKeys;
 import com.bylazar.configurables.annotations.Configurable;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.SwitchableLight;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
-import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
-import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
-import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
-import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem;
+import org.firstinspires.ftc.teamcode.subsystem.*;
+import org.firstinspires.ftc.teamcode.util.ArtifactColor;
+import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 @Configurable
-@TeleOp(group="A - Main") // Used for the main opmodes
-public class CompetitionTeleop extends CommandOpMode {
-    public static double TRIGGER_PRESSED = 0.1f;
-
-    private boolean wasInjected = false;
+@TeleOp(group="A - Main")
+public class CompetitionTeleop extends OpMode {
+    public static double TRIGGER_PRESSED = 0.1;
+    
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
+
+    private ArtifactColorRangeSensor rightReload = null;
+    private ArtifactColorRangeSensor leftReload = null;
+
+    private FlywheelTubeShooter shooter = null;
+    private CarwashIntake intake = null;
+    private BasicMecanumDrive drivetrain = null;
+
+    private SwitchableLight rightRed;
+    private SwitchableLight rightGreen;
+    private SwitchableLight leftRed;
+    private SwitchableLight leftGreen;
+
+    private boolean autoReloadEnabled = false;
+
+    private boolean wasPressingRightTrigger = false;
+    private boolean wasPressingLeftTrigger = false;
+    private boolean wasPressingLeftBumper = false;
+    private boolean wasTogglingAutoReload = false;
+
 
     /**
      * Attempts to get the given hardware from the hardwareMap. If it cannot be 
@@ -106,6 +117,15 @@ public class CompetitionTeleop extends CommandOpMode {
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
+        final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
+        final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
+        
+        rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
+        rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
+        
+        leftRed = hardwareMap.tryGet(SwitchableLight.class, "leftRed");     // Intentionaly not caring if we don't find this
+        leftGreen = hardwareMap.tryGet(SwitchableLight.class, "leftGreen"); // Intentionaly not caring if we don't find this
+
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
         // If any are not found, an error is thrown stating which.
         throwAFitIfAnyHardwareIsNotFound();
@@ -116,7 +136,14 @@ public class CompetitionTeleop extends CommandOpMode {
         frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
-        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        // rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        // rightShooterMotor.setVelocityPIDFCoefficients(
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
+        // );
+        intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
 
@@ -124,9 +151,20 @@ public class CompetitionTeleop extends CommandOpMode {
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
         // (even if nothing is achieved, per se).
+        rightReload = new ArtifactColorRangeSensor(
+            rightReloadSensor,
+            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst() // Use alternate tuning because wierd
+        );
+        leftReload = new ArtifactColorRangeSensor(
+            leftReloadSensor
+            // USe the default tuning
+        );
+
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
+            .setRightReloadClassifier(rightReload)
+            .setLeftReloadClassifier( leftReload)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
@@ -137,142 +175,317 @@ public class CompetitionTeleop extends CommandOpMode {
         );
 
         // This means that no command will use the same subsystem at the same time.
-        register(rightShooter, intake, drivetrain);
+        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake, drivetrain);
 
         // Return a list of every subsystem that we have created
         return new Subsystem[] { rightShooter, intake, drivetrain };
     }
-    
+
+    /**
+     * Initializing the opmode. This is not expected to be HardwareFaker 
+     * compatible.
+     */
     @Override
-    public void initialize() {
+    public void init() {
         final Subsystem[] subsystems = createSubsystems(hardwareMap);
-        final FlywheelTubeShooter shooter = (FlywheelTubeShooter) subsystems[0];
-        final CarwashIntake intake = (CarwashIntake) subsystems[1];
-        final BasicMecanumDrive drivetrain = (BasicMecanumDrive) subsystems[2];
+        shooter = (FlywheelTubeShooter) subsystems[0];
+        intake = (CarwashIntake) subsystems[1];
+        drivetrain = (BasicMecanumDrive) subsystems[2];
 
-        // Creating GamepadEx's
-        // These are special versions of gamepads that have added functionality
-        final Gamepad driverPad = gamepad1; // Just renaming the old gamepad
-        final Gamepad shooterPad = gamepad2; // Just renaming the old gamepad
-        final GamepadEx driverPadEx = new GamepadEx(driverPad);
-        final GamepadEx shooterPadEx = new GamepadEx(shooterPad);
+        shooter.setTelemetry(telemetry);
 
-        // Creating commands and making them happen on 
-        // Commands are actions that can be done on button presses
-        createShooterCommands(shooterPad, shooterPadEx, shooter, intake);
-        createIntakeCommands(shooterPad, shooterPadEx, shooter, intake);
-        createDriverCommands(driverPad, driverPadEx, drivetrain);
-
-        // Having the intake hold pieces by default.
-        schedule(new InstantCommand(() -> intake.holdGamePieces()));
+        // shooter.uncharge();
+        telemetry.addData("Status", "Initialized");
+        telemetry.update();
     }
 
-    private void createShooterCommands(
-        Gamepad shooterPad, 
-        GamepadEx shooterPadEx, 
-        FlywheelTubeShooter shooter,
-        CarwashIntake intake
-    ) {
-        // UpgradeShootingState transitions from UNCAHRGED to CHARGED to FIRING 
-        // final Command upgradeShootingState = new SelectCommand(
-        //     new HashMap<Object, Command>() {{
-        //         put(ShooterSubsystem.Status.UNCHARGED, shooter.chargeCommand());
-        //         put(ShooterSubsystem.Status.RELOADED_CHARGED, shooter.fireCommand());
-        //         put(ShooterSubsystem.Status.EMPTY_CHARGED, new SequentialCommandGroup(
-        //             shooter.reloadCommand(),
-        //             shooter.fireCommand()
-        //         ));
-        //     }},
-        //     shooter::getStatus
-        // );
+    @Override
+    public void loop() {
 
-        // // Both the triggers do the same thing: charge is uncharged; otherwise, reload if necessary and fire
-        // new Trigger(() -> shooterPad.left_trigger > TRIGGER_PRESSED)
-        //     .whenActive(upgradeShootingState);
-            
-        // new Trigger(() -> shooterPad.right_trigger > TRIGGER_PRESSED)
-        //     .whenActive(upgradeShootingState);
+        // Driving the drivetrain            
+        drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
+        changeDrivetrainSpeed(
+            gamepad1.left_trigger > TRIGGER_PRESSED || gamepad1.right_trigger > TRIGGER_PRESSED, // Fast
+            gamepad1.left_bumper || gamepad1.right_bumper // Slow
+        );        
 
-        // Holding up on the dpad shoots as many projectiles as possible
-        final Command chargeIfNecessaryMultiFire = new ConditionalCommand(
-            // new InstantCommand(() -> shooter.multiFire()), // Begin the mutli fire if charged
-            null,
-            shooter.chargeCommand(), // Charge the shooter if uncharged
-            () -> shooter.shouldBeAbleToFire() // Detected whether we are charged and ready
+        // Shooting the given color of artifact
+        fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
+
+        // Firing the given side if anything goes wrong
+        fireBasedOffSide(
+            gamepad2.rightStickButtonWasPressed(), // Right
+            gamepad2.leftStickButtonWasPressed() // Left
         );
 
-        shooterPadEx
-            .getGamepadButton(GamepadKeys.Button.DPAD_UP)
-            .whenPressed(chargeIfNecessaryMultiFire) // Start the mutli-fire
-            .whenReleased(shooter.chargeCommand()); // End multi fire and go back to charged/charging
+        // MULTIFIRE (hold right trigger)
+        fireIndiscriminantly(
+            gamepad2.right_trigger > TRIGGER_PRESSED && !wasPressingRightTrigger, // Begin
+            !(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger // Cancel
+        );
 
-        // Allowing for uncharging (aka [Down]grading) upon the down button
-        shooterPadEx
-            .getGamepadButton(GamepadKeys.Button.DPAD_DOWN)
-            .whenPressed(shooter.unchargeCommand());
+        // TODO: Fire pattern
 
-        // [A]bort a fire with the A button
-        shooterPadEx
-            .getGamepadButton(GamepadKeys.Button.A)
-            .whenPressed(shooter.abortCommand());
+        // RELOAD
+        reloadBothSides(gamepad2.yWasPressed());
 
-        // TODO: Variable fire power
+        // AUTO RELOAD
+        // Performing the auto reload if allowed to AND we are fully charged
+        // We check that we are charged so that we don't automaticcally exit, say, 
+        // `UNCHARGING` and cause the shooter to instantly speed up again.
+        reloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
+
+        // Toggling auto reload upon p
+        toggleAutoReload(gamepad2.back && gamepad2.y && !wasTogglingAutoReload);
+
+        // CHARGE
+        chargeShooter(gamepad2.dpadUpWasPressed());
+        
+        // UNCHARGE
+        unchargeShooter(gamepad2.dpadDownWasPressed());
+
+        // ABORT
+        bringArtifactsOutOfShooter(gamepad2.bWasPressed());
+
+        // INATKE (hold)
+        intakeFromFloor(
+            gamepad2.left_trigger > TRIGGER_PRESSED && !wasPressingLeftTrigger, // Begin
+            !(gamepad2.left_trigger > TRIGGER_PRESSED) && wasPressingLeftTrigger // End
+        );
+        
+        ejectToFloor(
+            gamepad2.left_bumper && !wasPressingLeftBumper, // Begin
+            !gamepad2.left_bumper && wasPressingLeftBumper // End
+        );
+
+        // LEDs
+        final ArtifactColor artifactcolorL = leftReload.getColor();
+        final ArtifactColor artifactcolorR = rightReload.getColor();
+
+        colorLed(rightRed, rightGreen, artifactcolorR);
+        colorLed(leftRed, leftGreen, artifactcolorL);
+
+        // BUTTON PRESSES
+        wasPressingRightTrigger = gamepad2.right_trigger > TRIGGER_PRESSED;
+        wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
+        wasPressingLeftBumper = gamepad2.left_bumper;
+        wasTogglingAutoReload = gamepad2.back && gamepad2.y;
+
+        // TELELEMETRY
+        telemetry.addLine();
+        telemetry.addLine(Util.header("Settings"));
+        telemetry.addLine();
+        telemetry.addData("autoReloadEnabled (Back + Y)", autoReloadEnabled);
+        telemetry.addLine();
+        telemetry.addLine(Util.header("Colors"));
+        telemetry.addLine();
+        telemetry.addData("leftReload Artifact", artifactcolorL);
+        telemetry.addData("rightReload Artifact", artifactcolorR);
+        telemetry.addLine();
+        // telemetry.update();
+
+        // COMMAND SCHEDULER
+        CommandScheduler.getInstance().run();
+
     }
 
-    private void createIntakeCommands(
-        Gamepad shooterPad, 
-        GamepadEx shooterPadEx, 
-        FlywheelTubeShooter shooter,
-        CarwashIntake intake
-    ) {
-        // Bumpers enable (right) or disable (left) the intake
-        shooterPadEx
-            .getGamepadButton(GamepadKeys.Button.RIGHT_BUMPER)
-            .whenPressed(new InstantCommand(() -> intake.intakeGamePieces()));
-
-        shooterPadEx
-            .getGamepadButton(GamepadKeys.Button.LEFT_BUMPER)
-            .whenPressed(new InstantCommand(() -> intake.holdGamePieces()));
-
-        // E[x]pell any mistaken pieces with the X button
-        shooterPadEx
-            .getGamepadButton(GamepadKeys.Button.X)
-            .whenPressed(new InstantCommand(() -> intake.ejectGamePieces()));
-
-        // Transfer any held game pieces with the 
-        // TODO: Transfer held pieces to the shooter mover
+    /**
+     * Sets the drivetrain speed to be abnormal when eithe of the 
+     * parameters are true. If both `goFast` and `goSlow` are true, this 
+     * goes fast. This goes at normal speed if ano only if both `goFast` and 
+     * `goSlow` are false.
+     * 
+     * @param goFast The drivetrain goes fast only when this is true
+     * @param goSlow The drivetrain goes fast only when this is false
+     * @return Whether the drivetrain speed was not at middle (normal) speed
+     */
+    public boolean changeDrivetrainSpeed(boolean goFast, boolean goSlow) {
+        if(goFast) {
+            drivetrain.engageFastMode();
+            return false;
+        }
+        
+        if(goSlow) {
+            drivetrain.engageSlowMode();
+            return false;
+        }
+        
+        // Normal Speed
+        drivetrain.engageMiddleMode();
+        return true;
     }
 
-    private void createDriverCommands(
-        Gamepad driverPad,
-        GamepadEx drivePadEx,
-        BasicMecanumDrive drivetrain
-    ) {
-        // Settings the default command to be driving with the joysticks
-        // A default command is something that a subsystem does when no other 
-        // command is being done.
-        drivetrain.setDefaultCommand(new RunCommand(
-            // We do mecanumDrive() by default, which is what drives the chasis
-            () -> drivetrain.mecanumDrive(
-                -driverPad.left_stick_y, 
-                driverPad.left_stick_x, 
-                driverPad.right_stick_x
-            ),
-            // We mark drivetrain as the subsystem so no one else uses it
-            drivetrain
-        ));
+    public boolean fireBasedOffColor(boolean fireGreen, boolean firePurple) {
+        if(fireGreen) {
+            shooter.fireGreen();
+            return true;
+        }
+        
+        if(firePurple) {
+            shooter.firePurple();
+            return true;
+        }
 
-        // Hold either trigger for fast mode.
-        // Fast mode ends when we let go.
-        new Trigger(() -> driverPad.left_trigger > TRIGGER_PRESSED || driverPad.right_trigger > TRIGGER_PRESSED)
-            .whenActive(new InstantCommand(() -> drivetrain.engageFastMode()))
-            .whenInactive(new InstantCommand(() -> drivetrain.engageMiddleMode()));
+        // Nothing was fired
+        return false;
+    }
 
-            
-        // Hold either trigger for slow mode
-        // Slow mode ends when we let go.
-        new Trigger(() -> driverPad.left_bumper || driverPad.right_bumper)
-            .whenActive(new InstantCommand(() -> drivetrain.engageFastMode()))
-            .whenInactive(new InstantCommand(() -> drivetrain.engageMiddleMode()));
+    public boolean fireBasedOffSide(boolean fireRight, boolean fireLeft) {
+        if(gamepad2.rightStickButtonWasPressed()) {
+            shooter.fireRight();
+            return true;
+        }
+        if(gamepad2.leftStickButtonWasPressed()) {
+            shooter.fireLeft();
+            return true;
+        }
+
+        // Nothing was fired
+        return false;
+    }
+
+    public boolean fireIndiscriminantly(boolean startFiring, boolean cancelFiring) {
+        if(startFiring) {
+            shooter.multiFire();
+            return true;
+        }
+
+        if(cancelFiring) {
+            shooter.charge();
+        } 
+
+        return false;
+    }
+
+    public boolean reloadBothSides(boolean doReload) {
+        if(doReload) {
+            shooter.reload();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean reloadEmptySides(boolean doReload) {
+        if(doReload) {
+            // Checking which sides are loaded or not
+            final boolean leftReloaded = shooter.checkIsLeftReloaded();
+            final boolean rightReloaded = shooter.checkIsRightReloaded();
+
+            if(leftReloaded && rightReloaded) {
+                shooter.reload();
+            } 
+
+            if(!leftReloaded && rightReloaded) {
+                shooter.reloadLeft();
+            }
+
+            if(leftReloaded && !rightReloaded) {
+                shooter.reloadRight();
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean toggleAutoReload(boolean doToggle) {
+        if(doToggle) {
+            autoReloadEnabled = !autoReloadEnabled;
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean chargeShooter(boolean doCharge) {
+        if(doCharge) {
+            shooter.charge();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean unchargeShooter(boolean doUncharge) {
+        if(doUncharge) {
+            shooter.uncharge();
+            return true;
+        } 
+
+        return false;
+    }
+
+    public boolean bringArtifactsOutOfShooter(boolean doBringBack) {
+        if(doBringBack) {
+            shooter.abort();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean intakeFromFloor(boolean startIntake, boolean cancelIntake) {
+        if(startIntake) {
+            intake.intakeGamePieces();
+            return true;
+        }
+        
+        if(cancelIntake) {
+            intake.holdGamePieces();
+        } 
+
+        return false;
+    }
+
+    public boolean ejectToFloor(boolean startEject, boolean cancelEject) {
+        if(startEject) {
+            intake.ejectGamePieces();
+            return true;
+        } 
+        
+        if(cancelEject) {
+            intake.holdGamePieces();
+        }
+
+        return false;
+    }
+
+    public boolean colorLed(SwitchableLight greenLed, SwitchableLight redLed, ArtifactColor color) {
+        if(greenLed == null && redLed == null) {
+            return false;
+        }
+
+        switch (color) {
+            case PURPLE:
+                nullSafeLedEnable(greenLed, false);
+                nullSafeLedEnable(redLed, true);
+                return true;
+
+            case GREEN:
+                nullSafeLedEnable(greenLed, true);
+                nullSafeLedEnable(redLed, false);
+                return true;
+
+            case UNKNOWN:
+            default:
+                nullSafeLedEnable(greenLed, false);
+                nullSafeLedEnable(redLed, false);
+                return false;
+        }
+    }
+
+    public boolean nullSafeLedEnable(SwitchableLight led, boolean enable) {
+        if(led == null) {
+            return false;
+        }
+
+        led.enableLight(enable);
+        return true;
+    }
+
+    @Override
+    public void stop() {
+        CommandScheduler.getInstance().reset();
     }
 }
