@@ -20,6 +20,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem.Status;
+import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.ConfigPose;
@@ -63,7 +64,7 @@ public class Rippley extends LinearOpMode {
         backLeft.setPower(-mPWR);
         backRight.setPower(mPWR);
 
-        sleep((int) 50);
+        timeUtil.sleep((int) 50);
 
         frontLeft.setPower(0);
         frontRight.setPower(0);
@@ -101,7 +102,7 @@ public class Rippley extends LinearOpMode {
         backLeft.setPower(-mPWR);
         backRight.setPower(-mPWR);
 
-        sleep((int) 50);
+        timeUtil.sleep((int) 50);
 
         frontLeft.setPower(-0);
         frontRight.setPower(-0);
@@ -191,7 +192,7 @@ public class Rippley extends LinearOpMode {
         telemetry.update();
 
         CommandScheduler.getInstance().registerSubsystem(shooter, intake);
-
+        
         waitForStart();
 
         // Get the motif 
@@ -313,4 +314,6 @@ public class Rippley extends LinearOpMode {
             RAMP_WIDTH + GOAL_LENGTH_X
         );
     }
+
+    private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);
 }

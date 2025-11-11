@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
 
@@ -127,7 +128,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private boolean isReadyToStartLifetime = true;
 
     private FlywheelTubeShooter(Builder builder) {
-        this.lifetime = new ElapsedTime();
+        this.lifetime = TimeInjectionUtil.getElapsedTime();
         this.flywheels = builder.flywheels;
         this.rightFeeder = builder.rightFeeder;
         this.leftFeeder = builder.leftFeeder;
