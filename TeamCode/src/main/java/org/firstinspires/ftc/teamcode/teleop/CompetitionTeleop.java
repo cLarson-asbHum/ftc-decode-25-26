@@ -83,7 +83,7 @@ public class CompetitionTeleop extends OpMode {
             for(int i = 0; i < nullDeviceNames.size() || i < nullDeviceNames.size(); i++) {
                 final String name = nullDeviceNames.get(i);
                 final Class type = nullDeviceTypes.get(i); 
-                concat += "    ";
+                concat += "\n    ";
 
                 if(name != null) {
                     concat += '"' + name + '"';
@@ -100,7 +100,7 @@ public class CompetitionTeleop extends OpMode {
                 }
             }
 
-            throw new RuntimeException("Cannot find hardware: \n" + concat);
+            throw new RuntimeException("Cannot find hardware:" + concat);
         }
     }
 
