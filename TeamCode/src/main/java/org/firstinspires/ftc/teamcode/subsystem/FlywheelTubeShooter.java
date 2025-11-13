@@ -75,12 +75,46 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * Constants for how long timers ought to last.
      */
     public static final class Timeout {
-        public double uncharging = 5.0; // seconds
+        public double uncharging = Double.POSITIVE_INFINITY; // seconds
         public double charging = Double.POSITIVE_INFINITY; // seconds
-        public double reloading = 2.0; // seconds
+        public double reloading = 8.0; // seconds
+        public double finishingReloading = 2.0; // seconds; happends after we have a projectile
         public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
         public double aborting = 1.0; // seconds
+    }
+
+    /**
+     * Describes specifcally how the shooter is reloading at the current point in time.
+     * Except for `NONE`, these states will only be seen during `Status.RELOADING` 
+     */
+    public static enum ReloadingState {
+        /**
+         * The shooter is not reloading or the state cannot be determined.
+         */
+        UNKNOWN, 
+
+        /**
+         * The left barrel of the shooter is being reloaded. No projectile has been seen yet.
+         */
+        RELOADING_LEFT,
+
+        /**
+         * The right barrel of the shooter is being reloaded. No projectile has been seen yet.
+         */
+        RELOADING_RIGHT,
+
+        /**
+         * Both barrels are being reloaded at the same time. No projectile in either barrel has 
+         * been seen yet.
+         */
+        RELOADING_BOTH,
+
+        /**
+         * A projectile has been seen somewhere, and we are making sure that it is comepletely 
+         * secure under the feeder (because it might have been seen too early otherwise).
+         */
+        FINISHING_RELOAD
     }
 
     public static FlywheelConst FLYWHEEL_CONST = new FlywheelConst();
@@ -111,6 +145,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     private final ArtifactColorGetter leftReloadClassifier;
 
     private Status status = Status.UNKNOWN;
+    private ReloadingState reloadingState = ReloadingState.UNKNOWN;
 
     /**
      * Whether any telemetry data ought to be shown, even if a telemetry has 
@@ -121,7 +156,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     public static Timeout TIMEOUT = new Timeout();
     private HashMap<Object, Double> timers = new HashMap<>();
-    // TODO: Make this use an Injectible-Elapsed time instead of a straight ElapsedTime
     private final ElapsedTime lifetime; // NOTE: Use deltaTime for any implementations, not this!!!
     private double lastTime = 0;        // NOTE: Use deltaTime for any implementations, not this!!!
     private double deltaTime = 0;
@@ -234,7 +268,14 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     private boolean transitionTo(Status newStatus) {
+        // status = newStatus; 
+        // return true;
+        return transitionTo(newStatus, ReloadingState.UNKNOWN);
+    }
+    
+    private boolean transitionTo(Status newStatus, ReloadingState newReloadingState) {
         status = newStatus; 
+        reloadingState = newReloadingState;
         return true;
     }
 
@@ -307,7 +348,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.reloading);
-        return transitionTo(Status.RELOADING);
+        return transitionTo(Status.RELOADING, ReloadingState.RELOADING_BOTH);
     }
 
     public boolean reloadRight() {
@@ -315,7 +356,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.reloading);
-        return transitionTo(Status.RELOADING);
+        return transitionTo(Status.RELOADING, ReloadingState.RELOADING_RIGHT);
     }
     
     public boolean reloadLeft() {
@@ -323,7 +364,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.reloading);
-        return transitionTo(Status.RELOADING);
+        return transitionTo(Status.RELOADING, ReloadingState.RELOADING_LEFT);
     }
 
     /**
@@ -656,8 +697,43 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      * @param telemetry Unused
      */
     protected void periodicReloading(Telemetry telemetry) {
-        if(checkIsReloaded() || isTimedOut(Status.RELOADING)) {
-            // Whether we go to EMTPTY_CHARGED or RELOADED_CHARGED is determined by charge().
+        // Handling how specifically we are going to reload
+        switch(reloadingState) {
+            case RELOADING_BOTH:
+                if(checkIsReloaded()) {
+                    startTimeout(Status.RELOADING, TIMEOUT.finishingReloading);
+                    transitionTo(Status.RELOADING, ReloadingState.FINISHING_RELOAD);
+                }
+                break;
+                
+            case RELOADING_LEFT:
+                if(checkIsLeftReloaded()) {
+                    startTimeout(Status.RELOADING, TIMEOUT.finishingReloading);
+                    transitionTo(Status.RELOADING, ReloadingState.FINISHING_RELOAD);
+                }
+                break;
+                
+            case RELOADING_RIGHT:
+                if(checkIsRightReloaded()) {
+                    startTimeout(Status.RELOADING, TIMEOUT.finishingReloading);
+                    transitionTo(Status.RELOADING, ReloadingState.FINISHING_RELOAD);
+                }
+                break;
+                
+            case FINISHING_RELOAD:
+                // Moving the projectiles just a little bit more
+                // We do reset the timeout before transitioning to this.
+                break;
+
+            case UNKNOWN:
+            default:
+                // Just waiting for timeout
+                break;
+        }
+
+        // Exiting from reloading automatically.
+        if(isTimedOut(Status.RELOADING)) {
+            // Rather than just jumping to CHARGED, we charge again just to be sure.
             charge();
         } 
     }

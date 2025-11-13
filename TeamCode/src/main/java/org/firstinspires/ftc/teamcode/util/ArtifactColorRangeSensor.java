@@ -24,7 +24,7 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
         public double greenMaxHue = 165;
         public double minGreenSaturation = 0.50;
         
-        public double purpleMinHue = 170;
+        public double purpleMinHue = 165;
         public double purpleMaxHue = 360;
         public double minPurpleSaturation = 0.30;
      
@@ -40,12 +40,12 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
         public double greenMaxHue = 165;
         public double minGreenSaturation = 0.45;
         
-        public double purpleMinHue = 170;
+        public double purpleMinHue = 165;
         public double purpleMaxHue = 360;
         public double minPurpleSaturation = 0.28;
      
         public double minDistCm = 0.00;
-        public double maxDistCm = 12;
+        public double maxDistCm = 13;
 
         public ColorSensorConst asColorSensorConst() {
             final ColorSensorConst result = new ColorSensorConst();

@@ -50,6 +50,7 @@ public class ColorSensorTest extends LinearOpMode {
         final ArtifactColorRangeSensor rightWrapper = new ArtifactColorRangeSensor(
             rightReloadSensor, 
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst()
+            // new ArtifactColorRangeSensor.ColorSensorConst()
         );
 
         // final ColorRangeSensor leftSensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
