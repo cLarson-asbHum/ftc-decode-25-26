@@ -35,7 +35,11 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 /*
  * This file contains an example of a Linear "OpMode".
@@ -80,6 +84,10 @@ public class BasicOmniOpMode_Linear extends LinearOpMode {
     private DcMotor frontRightDrive = null;
     private DcMotor backRightDrive = null;
 
+    private IMU imu = null;
+    private DcMotor forwardOdo = null;
+    private DcMotor strafeOdo = null;
+
     @Override
     public void runOpMode() {
 
@@ -89,6 +97,11 @@ public class BasicOmniOpMode_Linear extends LinearOpMode {
         backLeftDrive = hardwareMap.get(DcMotor.class, "backLeft");
         frontRightDrive = hardwareMap.get(DcMotor.class, "frontRight");
         backRightDrive = hardwareMap.get(DcMotor.class, "backRight");
+
+        imu = hardwareMap.get(IMU.class, "imu");
+        forwardOdo = frontLeftDrive;
+        strafeOdo = backLeftDrive;
+        // strafeOdo = hardwareMap.get(DcMotor.class, "odometryPlaceholder");
 
         // ########################################################################################
         // !!!            IMPORTANT Drive Information. Test your motor directions.            !!!!!
@@ -106,6 +119,7 @@ public class BasicOmniOpMode_Linear extends LinearOpMode {
         backRightDrive.setDirection(DcMotor.Direction.FORWARD);
 
         // Wait for the game to start (driver presses START)
+        telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE);
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
@@ -152,11 +166,12 @@ public class BasicOmniOpMode_Linear extends LinearOpMode {
             // Once the correct motors move in the correct direction re-comment this code.
 
             
-            frontLeftPower  = gamepad1.x ? 1.0 : 0.0;  // X gamepad
-            backLeftPower   = gamepad1.a ? 1.0 : 0.0;  // A gamepad
-            frontRightPower = gamepad1.y ? 1.0 : 0.0;  // Y gamepad
-            backRightPower  = gamepad1.b ? 1.0 : 0.0;  // B gamepad
+            // frontLeftPower  = gamepad1.x ? 1.0 : 0.0;  // X gamepad
+            // backLeftPower   = gamepad1.a ? 1.0 : 0.0;  // A gamepad
+            // frontRightPower = gamepad1.y ? 1.0 : 0.0;  // Y gamepad
+            // backRightPower  = gamepad1.b ? 1.0 : 0.0;  // B gamepad
            
+
 
             // Send calculated power to wheels
             frontLeftDrive.setPower(frontLeftPower);
@@ -168,6 +183,27 @@ public class BasicOmniOpMode_Linear extends LinearOpMode {
             telemetry.addData("Status", "Run Time: " + runtime.toString());
             telemetry.addData("Front left/Right", "%4.2f, %4.2f", frontLeftPower, frontRightPower);
             telemetry.addData("Back  left/Right", "%4.2f, %4.2f", backLeftPower, backRightPower);
+            telemetry.addLine();
+            telemetry.addLine("Encoders:");
+            telemetry.addData("    Front Left",  frontLeftDrive.getCurrentPosition());
+            telemetry.addData("    Back  Left",  backLeftDrive.getCurrentPosition());
+            telemetry.addData("    Front Right", frontRightDrive.getCurrentPosition());
+            telemetry.addData("    Back  Right", backRightDrive.getCurrentPosition());
+            telemetry.addLine();
+            telemetry.addLine("Odometry:");
+            telemetry.addData("    Forward", forwardOdo.getCurrentPosition());
+            telemetry.addData("    Strafe",  strafeOdo.getCurrentPosition());
+            telemetry.addLine();
+            telemetry.addLine("IMU (degrees):");
+            telemetry.addData("    Yaw",   deg(imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES)));
+            telemetry.addData("    Pitch", deg(imu.getRobotYawPitchRollAngles().getPitch(AngleUnit.DEGREES)));
+            telemetry.addData("    Roll",  deg(imu.getRobotYawPitchRollAngles().getRoll(AngleUnit.DEGREES)));
             telemetry.update();
         }
-    }}
+
+    }
+
+    private String deg(Double num) {
+        return num.toString().replaceAll("(?<=\\.\\d)\\d+", "") + "°";
+    }
+}
