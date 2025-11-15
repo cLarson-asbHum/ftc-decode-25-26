@@ -10,13 +10,14 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 
+import com.bylazar.configurables.annotations.Configurable;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
+// TODO: Figure out how to make the settings (e.g. max power) able to be confiured and updated in the builder
+@Configurable
 public class Constants {    
     public static FollowerConstants followerConstants = new FollowerConstants()
-        .mass(22.0 /* kg */) // TODO: Find mass in kg, because I have not put it on the scale
-
-        ;
+        .mass(9.616 /* kg */);
 
     public static MecanumConstants driveConstants = new MecanumConstants()
         .maxPower(1)
