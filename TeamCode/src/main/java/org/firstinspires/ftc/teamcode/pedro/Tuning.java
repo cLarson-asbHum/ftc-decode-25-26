@@ -345,7 +345,7 @@ public class Tuning extends SelectableOpMode {
                 telemetryM.debug("Press A to set the Forward Velocity temporarily (while robot remains on).");
 
                 for (int i = 0; i < velocities.size(); i++) {
-                    telemetry.addData(String.valueOf(i), velocities.get(i));
+                    telemetryM.debug(String.valueOf(i) + ": " + velocities.get(i));
                 }
 
                 telemetryM.update(telemetry);
@@ -451,8 +451,15 @@ public class Tuning extends SelectableOpMode {
                 telemetryM.debug("Strafe Velocity: " + average);
                 telemetryM.debug("\n");
                 telemetryM.debug("Press A to set the Lateral Velocity temporarily (while robot remains on).");
-                telemetryM.update(telemetry);
+                // telemetryM.update(telemetry);
 
+                for (int i = 0; i < velocities.size(); i++) {
+                    telemetryM.debug(String.valueOf(i) + ": " + velocities.get(i));
+                }
+
+                telemetryM.update(telemetry);
+                telemetry.update();
+                
                 if (gamepad1.aWasPressed()) {
                     follower.setYVelocity(average);
                     String message = "YMovement: " + average;
@@ -636,11 +643,19 @@ public class Tuning extends SelectableOpMode {
             Vector heading = new Vector(1.0, follower.getPose().getHeading() - Math.PI / 2);
             if (!end) {
                 if (!stopping) {
-                    if (Math.abs(follower.getVelocity().dot(heading)) > VELOCITY) {
+                    final double vel = Math.abs(follower.getVelocity().dot(heading));
+                    if (vel > VELOCITY) {
+                        
                         previousVelocity = Math.abs(follower.getVelocity().dot(heading));
                         previousTimeNano = System.nanoTime();
                         stopping = true;
                         follower.setTeleOpDrive(0,0,0,true);
+                        
+                    } else {
+                        telemetryM.debug("Strafe Velocity: " + vel);
+                        telemetryM.debug("\n");
+                        telemetryM.update(telemetry);
+                        telemetry.update();
                     }
                 } else {
                     double currentVelocity = Math.abs(follower.getVelocity().dot(heading));

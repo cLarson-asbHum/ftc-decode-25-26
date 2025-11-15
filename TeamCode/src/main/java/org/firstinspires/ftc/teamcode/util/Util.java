@@ -75,4 +75,24 @@ public final class Util {
 
         return true;
     }
+
+    public static double avg(double[] doubles) {
+        double total = 0.0;
+
+        for(final double dub : doubles) {
+            total += dub;
+        }
+
+        return total / doubles.length;
+    }
+
+    public static int floorAvg(int[] ints) {
+        int total = 0;
+
+        for(final int i : ints) {
+            total += i;
+        }
+
+        return total / ints.length;
+    }
 }
