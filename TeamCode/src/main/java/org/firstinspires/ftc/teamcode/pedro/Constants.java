@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.pedro;
 
+import com.pedropathing.control.FilteredPIDFCoefficients;
+import com.pedropathing.control.PIDFCoefficients;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.ftc.drivetrains.MecanumConstants;
@@ -23,6 +25,25 @@ public class Constants {
         .lateralZeroPowerAcceleration(Util.avg(new double[] { 
             -72.64969465750373, -79.11049228489789, -82.25602891741310, -73.77492763653832, -75.76698473910751, 
             -77.36451515801400, -69.28048582548735, -83.27346236321836, -72.48919310515740, -77.57216798938164 }))
+        .drivePIDFCoefficients(new FilteredPIDFCoefficients(
+            0.01,   // P
+            0.01,   // I
+            0.0005, // D
+            0.6,    // T
+            0.07188 // F
+        ))
+        .headingPIDFCoefficients(new PIDFCoefficients(
+            0.8,    // P
+            0.2,    // I
+            0.1,    // D,
+            0.0254  // F
+        ))
+        .translationalPIDFCoefficients(new PIDFCoefficients(
+            0.1,    // P
+            0.0003, // I
+            0.01,   // D
+            0       // F
+        ))
         ;
 
     public static MecanumConstants driveConstants = new MecanumConstants()
@@ -49,7 +70,7 @@ public class Constants {
         .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD)
         .strafeEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD);
 
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
+    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 0.6, 1);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
         return new FollowerBuilder(followerConstants, hardwareMap)
