@@ -44,6 +44,7 @@ public class Constants {
             0.01,   // D
             0       // F
         ))
+        .centripetalScaling(0.000875)
         ;
 
     public static MecanumConstants driveConstants = new MecanumConstants()
@@ -70,7 +71,7 @@ public class Constants {
         .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD)
         .strafeEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD);
 
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 0.6, 1);
+    public static PathConstraints pathConstraints = new PathConstraints(0.995, 100, 0.65, 1);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
         return new FollowerBuilder(followerConstants, hardwareMap)
