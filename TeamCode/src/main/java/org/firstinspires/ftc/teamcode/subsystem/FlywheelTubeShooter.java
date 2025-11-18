@@ -77,8 +77,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public static final class Timeout {
         public double uncharging = Double.POSITIVE_INFINITY; // seconds
         public double charging = Double.POSITIVE_INFINITY; // seconds
-        public double reloading = 8.0; // seconds
-        public double finishingReloading = 2.0; // seconds; happends after we have a projectile
+        public double reloading = 3.0; // seconds
+        public double finishingReloading = 0.5; // seconds; happends after we have a projectile
         public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
         public double aborting = 1.0; // seconds
@@ -860,6 +860,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             telemetry.addLine(padHeader("FlywheelTubeShooter"));
             telemetry.addLine();
             telemetry.addData("Status", getStatus());
+            telemetry.addData("    Reload", reloadingState);
             telemetry.addLine();
         }
 
@@ -895,7 +896,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         // Updating the motor powers
         if(hasSetFlywheelPower) {
-            flywheels.setVelocity(-targetFlyWheelPower);
+            flywheels.setVelocity(targetFlyWheelPower);
             hasSetFlywheelPower = false;
         }
 

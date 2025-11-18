@@ -4,6 +4,9 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 
+import java.util.ArrayList;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
@@ -21,15 +24,15 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
      */
     public static class ColorSensorConst {
         public double greenMinHue = 130;
-        public double greenMaxHue = 165;
-        public double minGreenSaturation = 0.48;
+        public double greenMaxHue = 160;
+        public double minGreenSaturation = 0.47;
         
-        public double purpleMinHue = 165;
+        public double purpleMinHue = 160;
         public double purpleMaxHue = 360;
         public double minPurpleSaturation = 0.30;
      
         public double minDistCm = 0.00;
-        public double maxDistCm = 7;
+        public double maxDistCm = 7.25;
     }
 
     /**
@@ -37,10 +40,10 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
      */
     public static class AlternateColorSensorConst extends ColorSensorConst {
         public double greenMinHue = 130;
-        public double greenMaxHue = 161.5;
+        public double greenMaxHue = 157;
         public double minGreenSaturation = 0.45;
         
-        public double purpleMinHue = 161.5;
+        public double purpleMinHue = 157;
         public double purpleMaxHue = 360;
         public double minPurpleSaturation = 0.20;
      
@@ -85,25 +88,39 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
     private double hue = 0;
     private double saturation = 0;
 
+    private final double[] weights;
+    private final ArrayList<Integer> colors = new ArrayList<>();
+    private final ArrayList<Double> dists = new ArrayList<>();
+
+
     public ArtifactColorRangeSensor(ColorRangeSensor sensor) {
         this(sensor, COLOR_SENSOR_CONST);
     }
     
     public ArtifactColorRangeSensor(ColorRangeSensor sensor, ColorSensorConst colorConst) {
+        this(sensor, colorConst, new double[] { 1 });
+    }
+
+    public ArtifactColorRangeSensor(ColorRangeSensor sensor, ColorSensorConst colorConst, double[] rollingWeights) {
         this.sensor = sensor;
         this.sensor.setGain((float) GAIN);
         this.colorConst = colorConst;
+        this.weights = rollingWeights;
     }
 
     @Override
     public ArtifactColor getColor() {
         // Update the sensor values if this is NOT manual and the color is outdated.
         // The color is only ever NOT outdated if we have immediately called clearBulkCache()
-        if(mode != LynxModule.BulkCachingMode.MANUAL && colorIsOutdated) {
-            clearBulkCache();
-        }
+        // if(mode != LynxModule.BulkCachingMode.MANUAL && colorIsOutdated) {
+        //     clearBulkCache();
+        // }
 
-        colorIsOutdated = true;
+        // colorIsOutdated = true;
+        // TODO: Bring back the bulk cache!
+
+        clearBulkCache();
+
 
         return calculateArtifactColor(hue, saturation, dist);
     }
@@ -126,18 +143,42 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
     public void clearBulkCache() {
         colorIsOutdated = false;
 
-        // Distance is used to verify that the RGB values will be accurate
-        dist = sensor.getDistance(DistanceUnit.CM);
+        addNewColor(sensor.argb(), sensor.getDistance(DistanceUnit.CM));
 
-        // Getting the components of the current color
-        final int red = sensor.red();
-        final int green = sensor.green();
-        final int blue = sensor.blue();
-        
-        // Convertin the RGB color to something more natural
-        hue = JavaUtil.rgbToHue(red, green, blue);
-        saturation = JavaUtil.rgbToSaturation(red, green, blue);
+        // Distance is used to verify that the RGB values will be accurate
+        dist = 0;
+        hue = 0;
+        saturation = 0;
+
+        // Performing the rolling average calculation
+        for(int i = 0; i < colors.size(); i++) {
+            // Getting the components of the current color
+            final int red   = ((colors.get(colors.size() - 1 - i) & 0x00_ff_00_00) >> 16);
+            final int green = ((colors.get(colors.size() - 1 - i) & 0x00_00_ff_00) >> 8);
+            final int blue  = ((colors.get(colors.size() - 1 - i) & 0x00_00_00_ff) >> 0);
+            
+            // Convertin the RGB color to something more natural
+            hue += weights[i] * JavaUtil.rgbToHue(red, green, blue);
+            saturation += weights[i] * JavaUtil.rgbToSaturation(red, green, blue);
+
+            // Adding the distance
+            dist += weights[i] * dists.get(dists.size() - 1 - i);
+        }
+
         // final double value = JavaUtil.rgbToValue(red, green, blue);
+    }
+
+    private void addNewColor(int argb, double distance) {
+        colors.add(argb);
+        dists.add(distance);
+         
+        if(colors.size() > weights.length) {
+            colors.remove(0);
+        }
+        
+        if(dists.size() > weights.length) {
+            dists.remove(0);
+        }
     }
 
     protected ArtifactColor calculateArtifactColor(double hue, double sat, double distCm) {
@@ -171,5 +212,13 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
 
         // The color was unrecognized; the color is unknown
         return ArtifactColor.UNKNOWN;
+    }
+
+
+    public void logTelemetry(Telemetry telemetry) {
+        telemetry.addData("Rolling Colors", colors);
+        telemetry.addData("Rolling Dists", dists);
+        telemetry.addData("Hue", hue);
+        telemetry.addData("saturation", saturation);
     }
 }

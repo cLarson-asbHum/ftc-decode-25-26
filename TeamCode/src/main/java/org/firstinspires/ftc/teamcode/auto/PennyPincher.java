@@ -34,7 +34,7 @@ public class PennyPincher extends LinearOpMode {
         rightFront.setPower(0.3);
         rightBack.setPower(0.3);
 
-        sleep(5000);
+        sleep(2000);
 
         leftFront.setPower(-0.3);
         leftBack.setPower(-0.3);

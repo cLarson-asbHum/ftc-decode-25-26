@@ -49,13 +49,18 @@ public class ColorSensorTest extends LinearOpMode {
         final String rightColorSensorName = "Right";
         final ArtifactColorRangeSensor rightWrapper = new ArtifactColorRangeSensor(
             rightReloadSensor, 
-            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst()
+            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(),
+            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
             // new ArtifactColorRangeSensor.ColorSensorConst()
         );
 
         // final ColorRangeSensor leftSensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
         final String leftColorSensorName = "Left";
-        final ArtifactColorRangeSensor leftWrapper = new ArtifactColorRangeSensor(leftReloadSensor);
+        final ArtifactColorRangeSensor leftWrapper = new ArtifactColorRangeSensor(
+            leftReloadSensor,
+            new ArtifactColorRangeSensor.ColorSensorConst(),
+            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
+        );
 
         ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
         ArtifactColorRangeSensor wrapper = rightReloadSensor == null ? leftWrapper : rightWrapper;
@@ -126,6 +131,7 @@ public class ColorSensorTest extends LinearOpMode {
             final double value = JavaUtil.rgbToValue(red, green, blue);
             
             final ArtifactColor artifactcolor = wrapper.getColor();
+            wrapper.logTelemetry(telemetry);
 
             // Formatting the data
             final String format = 

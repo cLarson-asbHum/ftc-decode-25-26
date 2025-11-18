@@ -14,8 +14,10 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
+import com.qualcomm.hardware.lynx.LynxModule;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.firstinspires.ftc.teamcode.subsystem.*;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
@@ -136,7 +138,7 @@ public class CompetitionTeleop extends OpMode {
         frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
-        // rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
         // rightShooterMotor.setVelocityPIDFCoefficients(
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
@@ -153,11 +155,13 @@ public class CompetitionTeleop extends OpMode {
         // (even if nothing is achieved, per se).
         rightReload = new ArtifactColorRangeSensor(
             rightReloadSensor,
-            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst() // Use alternate tuning because wierd
+            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
+            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
         leftReload = new ArtifactColorRangeSensor(
-            leftReloadSensor
-            // USe the default tuning
+            leftReloadSensor,
+            new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
+            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
 
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
@@ -194,6 +198,13 @@ public class CompetitionTeleop extends OpMode {
 
         shooter.setTelemetry(telemetry);
 
+        // Bulk caching
+        final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
+
+        for(final LynxModule module : modules) {
+            module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        }
+
         // shooter.uncharge();
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -227,7 +238,12 @@ public class CompetitionTeleop extends OpMode {
         // TODO: Fire pattern
 
         // RELOAD
-        reloadBothSides(gamepad2.yWasPressed());
+        if(autoReloadEnabled) {
+            // Because we assume that if we're reloading manually, something's wrong
+            reloadBothSides(gamepad2.yWasPressed());
+        } else {
+            reloadEmptySides(gamepad2.yWasPressed());
+        }
 
         // AUTO RELOAD
         // Performing the auto reload if allowed to AND we are fully charged
@@ -331,11 +347,11 @@ public class CompetitionTeleop extends OpMode {
     }
 
     public boolean fireBasedOffSide(boolean fireRight, boolean fireLeft) {
-        if(gamepad2.rightStickButtonWasPressed()) {
+        if(fireRight) {
             shooter.fireRight();
             return true;
         }
-        if(gamepad2.leftStickButtonWasPressed()) {
+        if(fireLeft) {
             shooter.fireLeft();
             return true;
         }
@@ -372,7 +388,7 @@ public class CompetitionTeleop extends OpMode {
             final boolean leftReloaded = shooter.checkIsLeftReloaded();
             final boolean rightReloaded = shooter.checkIsRightReloaded();
 
-            if(leftReloaded && rightReloaded) {
+            if(!leftReloaded && !rightReloaded) {
                 shooter.reload();
             } 
 
@@ -451,7 +467,7 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
-    public boolean colorLed(SwitchableLight greenLed, SwitchableLight redLed, ArtifactColor color) {
+    public boolean colorLed(SwitchableLight redLed, SwitchableLight greenLed, ArtifactColor color) {
         if(greenLed == null && redLed == null) {
             return false;
         }

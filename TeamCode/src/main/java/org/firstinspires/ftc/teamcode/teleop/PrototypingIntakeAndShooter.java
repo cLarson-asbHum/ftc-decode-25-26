@@ -13,6 +13,7 @@ import com.bylazar.configurables.annotations.Configurable;
 public class PrototypingIntakeAndShooter extends LinearOpMode {
     public static double FULL_POWER = -1.0;
     public static double FULL_INTAKE = -1.0;
+    public static double EJECT = 1.0;
 
     public static double FEEDER_FULL = -1.0;
     public static double FEEDER_HOLD = 0.1;
@@ -58,6 +59,10 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
 
             if(gamepad2.right_bumper) {
                 intakePower = FULL_INTAKE;
+            }
+
+            if(gamepad2.back) {
+                intakePower = EJECT;
             }
 
             intake.setPower(intakePower);
