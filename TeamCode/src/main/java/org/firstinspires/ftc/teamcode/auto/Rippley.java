@@ -357,6 +357,47 @@ public class Rippley extends LinearOpMode {
         if(motif == null) {
             motif = Motif.FIRST_GREEN;
         }
+
+        emptyClip(motif);
+
+        // Moving to grab artifacts
+        intake.intakeGamePieces();
+        follower.followPath(paths.get("grabArtifacts"), false);
+
+        while(follower.isBusy() && opModeIsActive()) {
+            follower.update();
+        }
+
+        // Going back to shooting
+        follower.followPath(paths.get("goAndShoot"), false);
+
+        while(follower.isBusy() && opModeIsActive()) {
+            follower.update();
+        }
+
+        // Shooting once again
+        emptyClip(motif);
+
+        // END
+        CommandScheduler.getInstance().reset();
+
+        // MoveForward(21);
+        // Turn(90);
+        // MoveForward(45);
+        // Turn(90);
+        // MoveForward(30);
+        // Turn(-100);
+
+    }
+
+    private void runUntilCompleted(Command command) {
+        CommandScheduler.getInstance().schedule(command);
+        while(!command.isFinished() && opModeIsActive()) {
+            telemetry.update();
+            CommandScheduler.getInstance().run();
+        }
+    }
+
     private boolean setManualExposure(MotifWebcam motifGetter, int exposureMS, int gain) {
         // Ensure Vision Portal has been setup.
         if (motifGetter.getStream() == null) {
@@ -395,6 +436,8 @@ public class Rippley extends LinearOpMode {
             return (false);
         }
     }
+
+    private void emptyClip(MotifGetter.Motif motif) {
         
         // Firing the artifacts we have, using the motif from the april tag
         boolean hasFiredPurple = false;
@@ -468,44 +511,7 @@ public class Rippley extends LinearOpMode {
                 shooter.forceCharged();
             }
         } 
-        
-        // Moving to grab artifacts
-        intake.intakeGamePieces();
-        follower.followPath(paths.get("grabArtifacts"), false);
-
-        while(follower.isBusy() && opModeIsActive()) {
-            follower.update();
-        }
-
-        // Going back to shooting
-        follower.followPath(paths.get("goAndShoot"), false);
-
-        while(follower.isBusy() && opModeIsActive()) {
-            follower.update();
-        }
-
-        // END
-        CommandScheduler.getInstance().reset();
-        hasFiredPurple = false; // This will save us if we copy and paste our stuff above.
-
-        // MoveForward(21);
-        // Turn(90);
-        // MoveForward(45);
-        // Turn(90);
-        // MoveForward(30);
-        // Turn(-100);
-
     }
-
-    private void runUntilCompleted(Command command) {
-        CommandScheduler.getInstance().schedule(command);
-        while(!command.isFinished() && opModeIsActive()) {
-            telemetry.update();
-            CommandScheduler.getInstance().run();
-        }
-    }
-
-    private void setManualExposure(WebcamName camera, int gain, int exposure) {}
     
     /**
      * Calculates the x so that the point (x, y) is along the edge of the goal.
