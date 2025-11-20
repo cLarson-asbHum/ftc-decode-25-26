@@ -218,7 +218,9 @@ public class CompetitionTeleop extends OpMode {
         changeDrivetrainSpeed(
             gamepad1.left_trigger > TRIGGER_PRESSED || gamepad1.right_trigger > TRIGGER_PRESSED, // Fast
             gamepad1.left_bumper || gamepad1.right_bumper // Slow
-        );        
+        );      
+        
+        reverseDrivingDirection(gamepad1.bWasPressed());
 
         // Shooting the given color of artifact
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
@@ -462,6 +464,15 @@ public class CompetitionTeleop extends OpMode {
         
         if(cancelEject) {
             intake.holdGamePieces();
+        }
+
+        return false;
+    }
+
+    public boolean reverseDrivingDirection(boolean doReverse) {
+        if(doReverse) {
+            drivetrain.reverse();
+            return true;
         }
 
         return false;

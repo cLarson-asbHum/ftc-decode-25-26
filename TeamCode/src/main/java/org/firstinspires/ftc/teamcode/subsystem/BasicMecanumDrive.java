@@ -44,6 +44,7 @@ public class BasicMecanumDrive implements MecanumSubsystem {
     public double lateralMult = POWER.middleLateral;
     public double yawMult = POWER.middleYaw;
 
+    public boolean isReversed = false;
 
     public BasicMecanumDrive(DcMotorEx fl, DcMotorEx bl, DcMotorEx fr, DcMotorEx br) {
         this.fl = fl;
@@ -87,6 +88,41 @@ public class BasicMecanumDrive implements MecanumSubsystem {
         final boolean didChange = newMultiplier == yawMult;
         this.yawMult = newMultiplier;
         return didChange;
+    }
+
+    /**
+     * Reverses all directions for `powerMotors()`. Calling this twice goes back to normal.
+     * 
+     */
+    public void reverse() {
+        this.isReversed = !this.isReversed;
+    }
+
+    /**
+     * Drives the drivetrain using a right-angle mecanum setup. 
+     * 
+     * @param forward The factor moving forward, from 
+     * @return Whether the motor powers were actually changed.
+     */
+    @Override
+    public boolean mecanumDrive(double forward, double lateral, double yaw) {
+        double scaledForward = forward * getForwardMultiplier();
+        double scaledLateral = lateral * getLateralMultiplier();
+        double scaledYaw = yaw * getYawMultiplier();
+
+        if(isReversed) {
+            scaledForward = -scaledForward;
+            scaledLateral = -scaledLateral;
+            scaledYaw = -scaledYaw;
+        }
+
+        return powerMotors(
+            /* frontLeft  */ scaledForward + scaledLateral + scaledYaw,
+            /* backLeft */ scaledForward - scaledLateral + scaledYaw,
+            /* frontRight   */ scaledForward - scaledLateral - scaledYaw,
+            /* backRight  */ scaledForward + scaledLateral - scaledYaw
+        );
+
     }
 
     @Override
