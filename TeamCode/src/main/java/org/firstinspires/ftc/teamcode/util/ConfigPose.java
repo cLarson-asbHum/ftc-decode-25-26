@@ -22,7 +22,7 @@ public class ConfigPose {
     public double y;
     
     /**
-     * The x coordinate. The coordinate system and units are assumed to be 
+     * The angle of the bot. The coordinate system and units are assumed to be 
      * PedroPathing coords unless the `pedroPose()` is told otherwise.
      * 
      * Defaults to 0 (radians)

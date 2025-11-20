@@ -80,7 +80,9 @@ public interface MotifGetter {
 
                 @Override
                 public ArtifactColor next() {
-                    return getColor(i++); // Get the current color and increment
+                    final ArtifactColor color = getColor(i); // Get the current color and increment
+                    i++;
+                    return color;
                 }
             };
         }

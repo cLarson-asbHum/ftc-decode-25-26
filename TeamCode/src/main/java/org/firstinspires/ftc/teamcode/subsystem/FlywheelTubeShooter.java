@@ -41,7 +41,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
 
         public double unchargedPower = 0; // Ticks / sec
-        public double chargedPower = 1600; // Ticks / sec
+        public double chargedPower = 1400; // Ticks / sec, tuned for 24 ins away
         public double reloadingPower = chargedPower; // Ticks / sec
         public double firingPower = chargedPower; // Ticks / sec
         public double abortingPower = 0.3 * ticksPerSec(); // Ticks / sec
@@ -77,7 +77,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public static final class Timeout {
         public double uncharging = Double.POSITIVE_INFINITY; // seconds
         public double charging = Double.POSITIVE_INFINITY; // seconds
-        public double reloading = 3.0; // seconds
+        public double reloading = 5.0; // seconds
         public double finishingReloading = 0.5; // seconds; happends after we have a projectile
         public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
