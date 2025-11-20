@@ -155,6 +155,14 @@ public class MotifWebcam implements MotifGetter {
         );
     }
 
+    public VisionPortal getStream() {
+        return this.stream;
+    }
+    
+    public AprilTagProcessor getProcessor() {
+        return this.processor;
+    }
+
     /**
      * Gets the tag that is facin the audience the most, based off of the 
      * robot's current global position. This requires that the camera position 

@@ -29,10 +29,14 @@ import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
+import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive ;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
@@ -50,6 +54,7 @@ import org.firstinspires.ftc.teamcode.util.WrapConcurrentCommand;
 
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
+
 @Configurable
 @Autonomous(name = "Auto2: Blue Rippley", group = "A - Main")
 public class Rippley extends LinearOpMode {
@@ -61,8 +66,8 @@ public class Rippley extends LinearOpMode {
     private IMU imu = null;
     private double startDeer = 0;
 
-    public static int GAIN = 200;
-    public static int EXPOSURE_MS = 33;
+    public static int GAIN = 50;
+    public static int EXPOSURE_MS = 1;
 
     // TODO: find the robot width and length
     public static double ROBOT_LENGTH = 17; // Inches parallel to the robot's forward-facing axis
@@ -77,8 +82,9 @@ public class Rippley extends LinearOpMode {
         // In Inches. Is along the top-most grid edge
         119.603,
 
-        // In Radians. Touching Blue goal but facing obelisk
-        Math.toRadians(21.8)
+        // In Radians. Along the blue goal, facing the upper wall
+        // Determined emperically
+        0.5 * Math.PI - Math.toRadians(36.3863433118)
     );
 
     public static ConfigPose SHOOTING_POS = new ConfigPose(
@@ -86,6 +92,12 @@ public class Rippley extends LinearOpMode {
         40.463,
         102.942,
         Math.toRadians(315)
+    );
+
+    public static ConfigPose OBELISK = new ConfigPose(
+        72,
+        144, 
+        -Math.PI / 2
     );
 
     
@@ -288,9 +300,9 @@ public class Rippley extends LinearOpMode {
         
         // Creating the webcam
         final WebcamName obeliskViewerCam = hardwareMap.get(WebcamName.class, "obeliskViewer");
-        setManualExposure(obeliskViewerCam, GAIN, EXPOSURE_MS);
-
         final MotifWebcam motifGetter = new MotifWebcam(obeliskViewerCam, CAMERA_YAW_OFFSET);
+        
+        setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
 
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
@@ -312,18 +324,8 @@ public class Rippley extends LinearOpMode {
         waitForStart();
 
         // Get the motif 
+        final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
         Motif motif = null;
-
-        if(obeliskViewerCam == null || motifGetter == null) { 
-            motifGetter.setGlobalRobotYaw(START_POS.yaw);
-            motif = motifGetter.getMotif();
-            motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
-        }
-
-        // If the motif coul dnt be found, use a defa`ult
-        if(motif == null) {
-            motif = Motif.FIRST_GREEN;
-        }
 
         // Moving to the shooting position
         if(paths.get("goFromCameraToShooting") == null) {
@@ -333,9 +335,67 @@ public class Rippley extends LinearOpMode {
         follower.followPath(paths.get("goFromCameraToShooting"), true);
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
+
+            // Snapping a photo of the motif if we are facing it
+            // The camera sees 60 degrees, but we subtract a bit to fully see the motif
+            final double F_O_V = Math.toRadians(40); 
+            final Pose currentPose = follower.getPose();
+            final double targetAngle = Math.atan2(
+                OBELISK.y - currentPose.getY(), 
+                OBELISK.x - currentPose.getX()
+            );
+
+            if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
+                motifGetter.setGlobalRobotYaw(currentPose.getHeading());
+                motif = motifGetter.getMotif();
+                motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+            }
+        }
+        
+
+        // If the motif coul dnt be found, use a defa`ult
+        if(motif == null) {
+            motif = Motif.FIRST_GREEN;
+        }
+    private boolean setManualExposure(MotifWebcam motifGetter, int exposureMS, int gain) {
+        // Ensure Vision Portal has been setup.
+        if (motifGetter.getStream() == null) {
+            return false;
         }
 
+        // Wait for the camera to be open
+        if (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING) {
+            telemetry.addData("Camera", "Waiting");
+            telemetry.update();
+            while (!isStopRequested() && (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING)) {
+                sleep(20);
+            }
+            telemetry.addData("Camera", "Ready");
+            telemetry.update();
+        }
 
+        // Set camera controls unless we are stopping.
+        if (!isStopRequested())
+        {
+            // Set exposure.  Make sure we are in Manual Mode for these values to take effect.
+            ExposureControl exposureControl = motifGetter.getStream().getCameraControl(ExposureControl.class);
+            if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
+                exposureControl.setMode(ExposureControl.Mode.Manual);
+                sleep(50);
+            }
+            exposureControl.setExposure((long)exposureMS, TimeUnit.MILLISECONDS);
+            sleep(20);
+
+            // Set Gain.
+            GainControl gainControl = motifGetter.getStream().getCameraControl(GainControl.class);
+            gainControl.setGain(gain);
+            sleep(20);
+            return (true);
+        } else {
+            return (false);
+        }
+    }
+        
         // Firing the artifacts we have, using the motif from the april tag
         boolean hasFiredPurple = false;
         for(final ArtifactColor color : motif) {
@@ -446,7 +506,7 @@ public class Rippley extends LinearOpMode {
     }
 
     private void setManualExposure(WebcamName camera, int gain, int exposure) {}
-
+    
     /**
      * Calculates the x so that the point (x, y) is along the edge of the goal.
      * This is used to find the x-coordinate a robot resting against the goal.
