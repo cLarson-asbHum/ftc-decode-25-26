@@ -9,6 +9,7 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -76,11 +77,11 @@ public class Rippley extends LinearOpMode {
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
     public static ConfigPose START_POS = new ConfigPose(
-        // In Inches. Touching the blue goal (but see conditions below)
-        22.017,
+        // In Inches. Resting flat against the blue goal
+        24,
 
         // In Inches. Is along the top-most grid edge
-        119.603,
+        120,
 
         // In Radians. Along the blue goal, facing the upper wall
         // Determined emperically
@@ -88,9 +89,8 @@ public class Rippley extends LinearOpMode {
     );
 
     public static ConfigPose SHOOTING_POS = new ConfigPose(
-        // About 24 ish inches away from the goal
-        40.463,
-        102.942,
+        48,
+        102, // A little higher than the jigsaw so we are facing the goal
         Math.toRadians(315)
     );
 
@@ -107,6 +107,8 @@ public class Rippley extends LinearOpMode {
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
+
+    private boolean isRed = false;
     
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
@@ -245,41 +247,61 @@ public class Rippley extends LinearOpMode {
         return new Subsystem[] { rightShooter, intake, drivetrain };
     }
 
-    private Map<String, PathChain> createPaths(Follower follower) {
+    private Pose mirror(Pose pose, boolean doMirror) {
+        if(doMirror) {
+            return new Pose(72 - (pose.getX() - 72), pose.getY(), Math.PI - pose.getHeading());
+        }
+
+        return pose;
+    }
+
+    private Map<String, PathChain> createPaths(Follower follower, boolean isRed) {
         final Map<String, PathChain> result = new HashMap<>();
 
+        // Seting up the points
+        final Pose start = mirror(START_POS.pedroPose(), isRed);
+        final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
+
+        // Creating the paths
         result.put("goFromCameraToShooting", follower
             .pathBuilder()
             .addPath(
                 // new BezierLine(new Pose(22.017, 119.603), new Pose(40.463, 102.942))
-                new BezierLine(START_POS.pedroPose(), SHOOTING_POS.pedroPose())
+                new BezierLine(start, shooting)
             )
-            .setLinearHeadingInterpolation(START_POS.yaw, SHOOTING_POS.yaw)
+            .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
             .build()
         );
 
-        result.put("grabArtifacts", follower
+        final Path grabArtifacts = new Path(new BezierCurve(
+            mirror(new Pose(40.463, 102.942), isRed),
+            mirror(new Pose(89.851, 68.430), isRed),
+            mirror(new Pose(12.496, 100.562), isRed),
+            mirror(new Pose(25.289, 83.306), isRed),
+            mirror(new Pose(23.207, 71.405), isRed),
+            mirror(new Pose(25.207, 73.488), isRed) // End point
+        ));
+        final Path goBackToShoot = new Path(new BezierLine(
+            mirror(new Pose(25.207, 73.488), isRed), 
+            shooting
+        ));
+
+        grabArtifacts.setConstantHeadingInterpolation(isRed ? 0 : Math.PI);
+        goBackToShoot.setConstantHeadingInterpolation(shooting.getHeading());
+        result.put("grabArtifactsAndShoot", follower
             .pathBuilder()
-            .addPath(
-                new BezierCurve(
-                    new Pose(44.463, 102.942),
-                    new Pose(89.851, 68.430),
-                    new Pose(12.496, 100.562),
-                    new Pose(25.289, 83.306),
-                    new Pose(23.207, 71.405),
-                    new Pose(23.207, 73.488) 
-                )
-            )
-            .setConstantHeadingInterpolation(Math.toRadians(180))
+            .addPath(grabArtifacts)
+            .addPath(goBackToShoot)
             .build()
         );
 
-        result.put("goAndShoot", follower
+        result.put("park", follower
             .pathBuilder()
-            .addPath(
-                new BezierLine(new Pose(23.207, 73.488), SHOOTING_POS.pedroPose())
-            )
-            .setConstantHeadingInterpolation(SHOOTING_POS.yaw)
+            .addPath(new BezierLine(
+                shooting, 
+                new Pose(shooting.getX(), shooting.getY() - 15, shooting.getHeading()
+            )))
+            .setConstantHeadingInterpolation(shooting.getHeading())
             .build()
         );
 
@@ -301,7 +323,7 @@ public class Rippley extends LinearOpMode {
         // Creating the webcam
         final WebcamName obeliskViewerCam = hardwareMap.get(WebcamName.class, "obeliskViewer");
         final MotifWebcam motifGetter = new MotifWebcam(obeliskViewerCam, CAMERA_YAW_OFFSET);
-        
+
         setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
 
         // Bulk caching
@@ -313,15 +335,28 @@ public class Rippley extends LinearOpMode {
 
         // Creating paths
         final Follower follower = Constants.createFollower(hardwareMap);
-        final Map<String, PathChain> paths = createPaths(follower);
-        follower.setStartingPose(START_POS.pedroPose());
+        Map<String, PathChain> paths = createPaths(follower, isRed);
+        // follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
 
+        // Init loop
+        while(opModeInInit()) {
+            telemetry.addData("Status", "Initialized");
+            telemetry.addLine();
+            telemetry.addLine(Util.header("Settings"));
+            telemetry.addLine();
+            telemetry.addData("Toggle isRed", "A");
+            telemetry.addData("isRed", isRed);
+            telemetry.update();
+
+            if(gamepad1.aWasPressed()) {
+                isRed = !isRed;
+                paths = createPaths(follower, isRed);
+            }
+            
+        }
         
-
-        telemetry.addData("Status", "Initialized");
-        telemetry.update();
-
         waitForStart();
+        follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
         final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
@@ -341,8 +376,8 @@ public class Rippley extends LinearOpMode {
             final double F_O_V = Math.toRadians(40); 
             final Pose currentPose = follower.getPose();
             final double targetAngle = Math.atan2(
-                OBELISK.y - currentPose.getY(), 
-                OBELISK.x - currentPose.getX()
+                mirror(OBELISK.pedroPose(), isRed).getY() - currentPose.getY(), 
+                mirror(OBELISK.pedroPose(), isRed).getX() - currentPose.getX()
             );
 
             if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
@@ -361,6 +396,7 @@ public class Rippley extends LinearOpMode {
         emptyClip(motif);
 
         // Moving to grab artifacts
+        // This goes back to shooting afterwards
         intake.intakeGamePieces();
         follower.followPath(paths.get("grabArtifacts"), false);
 
@@ -369,14 +405,24 @@ public class Rippley extends LinearOpMode {
         }
 
         // Going back to shooting
-        follower.followPath(paths.get("goAndShoot"), false);
+        // follower.followPath(paths.get("goAndShoot"), false);
+
+        // while(follower.isBusy() && opModeIsActive()) {
+        //     follower.update();
+        // }
+
+        // Shooting once again
+        emptyClip(motif);
+
+        // Getting leave points
+        intake.holdGamePieces();
+        shooter.uncharge();
+        follower.followPath(paths.get("park"), false);
 
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
         }
 
-        // Shooting once again
-        emptyClip(motif);
 
         // END
         CommandScheduler.getInstance().reset();
@@ -440,8 +486,11 @@ public class Rippley extends LinearOpMode {
     private void emptyClip(MotifGetter.Motif motif) {
         
         // Firing the artifacts we have, using the motif from the april tag
+        int motifIndex = -1;
         boolean hasFiredPurple = false;
+        shootingLoop:
         for(final ArtifactColor color : motif) {
+            motifIndex++;
             runUntilCompleted(shooter.chargeCommand());
 
             // if(shooter.getStatus() != Status.EMPTY_CHARGED && shooter.getStatus() != Status.RELOADED_CHARGED) {
@@ -466,6 +515,10 @@ public class Rippley extends LinearOpMode {
             // The shooter is likely to charge after this, but we want to wait until after reloading
             // to do any extra charging (for saving time).
             runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.FIRING));
+
+            if(motifIndex == 2) {
+                break shootingLoop;
+            }
 
             // Getting ready for reloading by cycling the next artifact into position
             // and taking note of what colors are already reloaded.
