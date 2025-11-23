@@ -71,7 +71,24 @@ public class Constants {
         .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD)
         .strafeEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD);
 
-    public static PathConstraints pathConstraints = new PathConstraints(0.995, 100, 0.65, 1);
+    public static PathConstraints pathConstraints = new PathConstraints(
+        /* double tValueConstraint, 
+        double velocityConstraint, 
+        double translationalConstraint, 
+        double headingConstraint, 
+        double timeoutConstraint, 
+        double brakingStrength, 
+        int BEZIER_CURVE_SEARCH_LIMIT, 
+        double brakingStart */
+        0.995,
+        10, // in/s
+        2, // inches
+        Math.toRadians(100), // radians
+        100, 
+        0.65, 
+        10,
+        1
+    );
 
     public static Follower createFollower(HardwareMap hardwareMap) {
         return new FollowerBuilder(followerConstants, hardwareMap)

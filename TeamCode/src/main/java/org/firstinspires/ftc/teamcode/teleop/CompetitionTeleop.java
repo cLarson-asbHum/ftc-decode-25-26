@@ -5,6 +5,10 @@ import com.arcrobotics.ftclib.command.Command;
 import com.arcrobotics.ftclib.command.CommandScheduler;
 import com.arcrobotics.ftclib.command.Subsystem;
 import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
@@ -13,6 +17,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.hardware.lynx.LynxModule;
 
@@ -38,6 +43,9 @@ public class CompetitionTeleop extends OpMode {
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
+    private Follower follower = null;
+
+    private Servo rampPivot = null;
 
     private SwitchableLight rightRed;
     private SwitchableLight rightGreen;
@@ -198,6 +206,9 @@ public class CompetitionTeleop extends OpMode {
 
         shooter.setTelemetry(telemetry);
 
+        // Getting the rampPivot
+        rampPivot = hardwareMap.get(Servo.class, "rampPivot");
+
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
 
@@ -211,16 +222,25 @@ public class CompetitionTeleop extends OpMode {
     }
 
     @Override
+    public void start() {
+        rampPivot.setPosition(0.58);
+    }
+
+    @Override
     public void loop() {
 
         // Driving the drivetrain            
         drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
         changeDrivetrainSpeed(
             gamepad1.left_trigger > TRIGGER_PRESSED || gamepad1.right_trigger > TRIGGER_PRESSED, // Fast
-            gamepad1.left_bumper || gamepad1.right_bumper // Slow
+            gamepad1.left_bumper || gamepad1.right_bumper, // Slow
+            gamepad1.left_bumper && gamepad1.right_bumper // Slowest
         );      
         
         reverseDrivingDirection(gamepad1.bWasPressed());
+
+        // Parking if both triggers are being pressed
+        // goPark
 
         // Shooting the given color of artifact
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
@@ -317,7 +337,12 @@ public class CompetitionTeleop extends OpMode {
      * @param goSlow The drivetrain goes fast only when this is false
      * @return Whether the drivetrain speed was not at middle (normal) speed
      */
-    public boolean changeDrivetrainSpeed(boolean goFast, boolean goSlow) {
+    public boolean changeDrivetrainSpeed(boolean goFast, boolean goSlow, boolean goSnail) {
+        if(goSnail) {
+            drivetrain.engageSlowestMode();
+            return false;
+        }
+
         if(goFast) {
             drivetrain.engageFastMode();
             return false;

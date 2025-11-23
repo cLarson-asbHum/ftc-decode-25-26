@@ -58,8 +58,8 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 
 @Configurable
-@Autonomous(name = "Auto2: Blue Rippley", group = "A - Main")
-public class Rippley extends LinearOpMode {
+@Autonomous(name = "Gary Larson's Far Side (EMPTY PRELOAD)", group = "A - Main")
+public class FarSideEmptyAuto extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;
     private DcMotor frontRight = null;
@@ -78,21 +78,21 @@ public class Rippley extends LinearOpMode {
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
     public static ConfigPose START_POS = new ConfigPose(
-        // In Inches. Resting flat against the blue goal
-        24,
+        // Along the grid edge away from the field's center edge
+        48 + 8.25, // The addend is half the robot width 
 
-        // In Inches. Is along the top-most grid edge
-        120,
+        // In Inches. Is along the bottom wall
+        8.5, // Half the height of the bot
 
-        // In Radians. Along the blue goal, facing the upper wall
-        // Determined emperically
-        Math.toRadians(45)
+        // Facing upwards
+        0.5 * Math.PI
     );
 
     public static ConfigPose SHOOTING_POS = new ConfigPose(
-        52,
-        102, // A little higher than the jigsaw so we are facing the goal
-        Math.toRadians(315)
+        // About 24 ish inches away from the goal
+        48,
+        2 + 8.5,
+        Math.toRadians(-70) // angle from current position, about 110°
     );
 
     public static ConfigPose OBELISK = new ConfigPose(
@@ -202,12 +202,6 @@ public class Rippley extends LinearOpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        // rightShooterMotor.setVelocityPIDFCoefficients(
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
-        // );
         intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
@@ -234,12 +228,12 @@ public class Rippley extends LinearOpMode {
             .setLeftReloadClassifier( leftReload)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        // final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
-        //     frontLeftMotor, 
-        //     backLeftMotor,
-        //     frontRightMotor,
-        //     backRightMotor
-        // );
+        final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
+            (DcMotorEx) frontLeftMotor,
+            (DcMotorEx) backLeftMotor,
+            (DcMotorEx) frontRightMotor,
+            (DcMotorEx) backRightMotor
+        );
 
         // This means that no command will use the same subsystem at the same time.
         CommandScheduler.getInstance().registerSubsystem(rightShooter, intake);
@@ -266,37 +260,29 @@ public class Rippley extends LinearOpMode {
         // Creating the paths
         result.put("goFromCameraToShooting", follower
             .pathBuilder()
-            .addPath(
-                // new BezierLine(new Pose(22.017, 119.603), new Pose(40.463, 102.942))
-                new BezierLine(start, shooting)
-            )
-            .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
+            .addPath(new BezierLine(start, shooting))
+            .setLinearHeadingInterpolation(start.getHeading(), start.getHeading())
+            // .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
             .build()
         );
 
         final Path grabArtifacts = new Path(new BezierCurve(
-            mirror(new Pose(40.463, 102.942 - 7), isRed),
-            mirror(new Pose(89.851, 68.430 - 7), isRed),
-            mirror(new Pose(12.496, 100.562 - 7), isRed),
-            mirror(new Pose(25.289, 83.306 - 7), isRed),
-            mirror(new Pose(23.207, 71.405 - 7), isRed),
-            mirror(new Pose(25.207, 73.488 - 7), isRed) // End point
+            mirror(new Pose(40.463, 54.942), isRed),
+            mirror(new Pose(89.851, 20.430), isRed),
+            mirror(new Pose(12.496, 52.562), isRed),
+            mirror(new Pose(25.289, 35.306), isRed),
+            mirror(new Pose(23.207, 23.405), isRed),
+            mirror(new Pose(25.207, 25.488), isRed) // End point
         ));
         final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(25.207, 73.488), isRed), 
+            mirror(new Pose(25.207, 25.488), isRed), 
             shooting
         ));
-        final Path turnSoAsToIntake = new Path(new BezierLine(
-            shooting,
-            new Pose(shooting.getX(), shooting.getY(), isRed ? 0 : Math.PI)
-        ));
 
-        // turnSoAsToIntake.setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.PI);
-        grabArtifacts.setConstantHeadingInterpolation(/* start.getHeading(),  */isRed ? 0 : Math.PI);
-        goBackToShoot.setLinearHeadingInterpolation(isRed ? 0 : Math.PI, shooting.getHeading());
+        grabArtifacts.setConstantHeadingInterpolation(isRed ? 0 : Math.PI);
+        goBackToShoot.setConstantHeadingInterpolation(shooting.getHeading());
         result.put("grabArtifactsAndShoot", follower
             .pathBuilder()
-            // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
             .addPath(grabArtifacts)
             .addPath(goBackToShoot)
             .build()
@@ -306,8 +292,8 @@ public class Rippley extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierLine(
                 shooting, 
-                mirror(new Pose(48, 60, shooting.getHeading()), isRed)
-            ))
+                new Pose(shooting.getX(), shooting.getY() + 15, shooting.getHeading()
+            )))
             .setConstantHeadingInterpolation(shooting.getHeading())
             .build()
         );
@@ -327,6 +313,7 @@ public class Rippley extends LinearOpMode {
         drivetrain = (BasicMecanumDrive) subsystems[2];
         shooter.setTelemetry(telemetry);
 
+        // Adjusting pivot
         final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
         
         // Creating the webcam
@@ -365,99 +352,55 @@ public class Rippley extends LinearOpMode {
         }
         
         waitForStart();
-        rampPivot.setPosition(0.58); // Determined emperically
+        rampPivot.setPosition(0.45); // Determined emperically
         follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
         final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
         Motif motif = null;
 
-        // Moving to the shooting position
-        if(paths.get("goFromCameraToShooting") == null) {
-            throw new RuntimeException("Cannot find path: goFromCameraToShooting");
-        }
-
-        follower.followPath(paths.get("goFromCameraToShooting"), true);
-        while(follower.isBusy() && opModeIsActive()) {
-            follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
-
-            // Snapping a photo of the motif if we are facing it
-            // The camera sees 60 degrees, but we subtract a bit to fully see the motif
-            final double F_O_V = Math.toRadians(40); 
-            final Pose currentPose = follower.getPose();
-            final double targetAngle = Math.atan2(
-                mirror(OBELISK.pedroPose(), isRed).getY() - currentPose.getY(), 
-                mirror(OBELISK.pedroPose(), isRed).getX() - currentPose.getX()
-            );
-
-            if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
-                motifGetter.setGlobalRobotYaw(currentPose.getHeading());
-                motif = motifGetter.getMotif();
-                motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
-            }
-        }
+        // for(int retries = 0; retries < 3 && cameraExists && motif == null; retries++) {
+        //     motifGetter.setGlobalRobotYaw(mirror(START_POS.pedroPose(), isRed).getHeading());
+        //     motif = motifGetter.getMotif();
+        //     motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+        // }
         
-
         // If the motif coul dnt be found, use a defa`ult
-        // if(motif == null && allPurple) {
-        //     motif = Motif.ALL_PURPLE;
-        /* }  else */ if(motif == null) {
-            motif = Motif.FIRST_GREEN;
+        if(motif == null) {
+            motif = Motif.ALL_PURPLE;
         }
 
         emptyClip(motif);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
-        intake.intakeGamePieces();
-        follower.followPath(paths.get("grabArtifactsAndShoot"), false);
+        // intake.intakeGamePieces();
 
-        boolean hasReloaded = false;
-        // follower.setMaxPowerScaling(0.5); // Slowing down
-        while(follower.isBusy() && opModeIsActive()) {
-            follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
+        // // Going back to shooting
+        // // follower.followPath(paths.get("goAndShoot"), false);
 
-            // Slowing down and reloading when in the correct part
-            if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
-                shooter.reload();
-                hasReloaded = true;
-            }
+        // // while(follower.isBusy() && opModeIsActive()) {
+        // //     follower.update();
+        // // blackboard.put("lastKnownAutoPos", follower.getPose());
+        // // }
 
-            // Speeding Back up when out of range
-            if(!follower.atPose(new Pose(), 10, 7) && hasReloaded) {
-                follower.setMaxPower(1.0); // Slowing down
-            }
-        }
-        // follower.setMaxPowerScaling(1.0);
-
-
-        // Going back to shooting
-        // follower.followPath(paths.get("goAndShoot"), false);
-
-        // while(follower.isBusy() && opModeIsActive()) {
-        //     follower.update();
-        //     blackboard.put("lastKnownAutoPos", follower.getPose());
-        // 
-        // }
-
-        // Shooting once again
-        emptyClip(motif);
+        // // Shooting once again
+        // emptyClip(motif);
 
         // Getting leave points
-        intake.holdGamePieces();
+        // intake.holdGamePieces();
         shooter.uncharge();
         follower.followPath(paths.get("park"), false);
 
         while(follower.isBusy() && opModeIsActive()) {
-            follower.update();
+            // follower.update();
             blackboard.put("lastKnownAutoPos", follower.getPose());
         }
 
 
         // END
         CommandScheduler.getInstance().reset();
+        blackboard.put("lastKnownAutoPos", follower.getPose());
 
         // MoveForward(21);
         // Turn(90);
@@ -520,22 +463,16 @@ public class Rippley extends LinearOpMode {
         // Firing the artifacts we have, using the motif from the april tag
         int motifIndex = -1;
         boolean hasFiredPurple = false;
-
-
         shootingLoop:
         for(final ArtifactColor color : motif) {
             motifIndex++;
+            // shooter.setFlywheelPower(1300, 50);
             runUntilCompleted(shooter.chargeCommand());
 
             // if(shooter.getStatus() != Status.EMPTY_CHARGED && shooter.getStatus() != Status.RELOADED_CHARGED) {
             //     CommandScheduler.getInstance().reset();
             //     requestOpModeStop();
             // }
-
-            if(motifIndex == 0) {
-                sleep(500); // AWait for correct power
-            }
-
 
             // Firing the indicated color
             switch(color) {
@@ -549,7 +486,8 @@ public class Rippley extends LinearOpMode {
                 default:
                     throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
             }
-
+            // shooter.setFlywheelPower(2350, 50);
+                    
             // Waiting for the firing to end
             // The shooter is likely to charge after this, but we want to wait until after reloading
             // to do any extra charging (for saving time).
@@ -603,24 +541,6 @@ public class Rippley extends LinearOpMode {
                 shooter.forceCharged();
             }
         } 
-    }
-    
-    /**
-     * Calculates the x so that the point (x, y) is along the edge of the goal.
-     * This is used to find the x-coordinate a robot resting against the goal.
-     * 
-     * @param y The y coordinate that is along the edge of the goal.
-     * @return The x coordinate so that (x, y) is along the edge of the goal.
-     */
-    private static double goalEdgeXFromY(double y) {
-        final double RAMP_WIDTH = 6.75; // Inches
-        final double GOAL_LENGTH_Y = 21.75; // Inches along the field y axis, up to the archway
-        final double GOAL_LENGTH_X = 22.75; // Inches along the field x axis
-        return Util.lerp(
-            RAMP_WIDTH, 
-            Util.invLerp(72 - GOAL_LENGTH_Y, y, 72), 
-            RAMP_WIDTH + GOAL_LENGTH_X
-        );
     }
 
     private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);

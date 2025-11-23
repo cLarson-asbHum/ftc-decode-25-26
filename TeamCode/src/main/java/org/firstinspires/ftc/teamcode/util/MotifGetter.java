@@ -17,6 +17,11 @@ public interface MotifGetter {
      */
     public static enum Motif implements Iterable<ArtifactColor> {
         /**
+         * Oops!
+         */
+        ALL_PURPLE(-1, PURPLE, PURPLE, PURPLE),
+
+        /**
          * The first color (closest to the gate) is green; all others are purple.
          * AprilTag id 21
          */

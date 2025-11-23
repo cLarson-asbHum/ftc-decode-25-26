@@ -16,9 +16,13 @@ public class BasicMecanumDrive implements MecanumSubsystem {
         public double middleLateral = 0.75 * maxLateral;
         public double middleYaw = 0.75 * maxYaw;
         
-        public double minForward = 0.25 * middleForward;
-        public double minLateral = 0.25 * middleLateral;
-        public double minYaw = 0.25 * middleYaw;
+        public double minForward = 0.5 * middleForward;
+        public double minLateral = 0.5 * middleLateral;
+        public double minYaw = 0.5 * middleYaw;
+        
+        public double pessimumForward = 0.25 * middleForward;
+        public double pessimumLateral = 0.25 * middleLateral;
+        public double pessimumYaw = 0.25 * middleYaw;
 
         public double tolerance = 0.05;
     }
@@ -186,6 +190,12 @@ public class BasicMecanumDrive implements MecanumSubsystem {
         return setForwardMultiplier(POWER.minForward) 
             && setLateralMultiplier(POWER.minLateral) 
             && setYawMultiplier(POWER.minYaw);
+    }
+
+    public boolean engageSlowestMode() {
+        return setForwardMultiplier(POWER.pessimumForward) 
+            && setLateralMultiplier(POWER.pessimumLateral) 
+            && setYawMultiplier(POWER.pessimumYaw);
     }
 
     @Override

@@ -13,6 +13,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
+import org.firstinspires.ftc.teamcode.util.Util;
 
 import static org.firstinspires.ftc.teamcode.util.Util.padHeader;
 
@@ -41,12 +42,13 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
 
         public double unchargedPower = 0; // Ticks / sec
+        // public double chargedPower = 2000; // Ticks / sec, tuned for 24 ins away
         public double chargedPower = 1300; // Ticks / sec, tuned for 24 ins away
         public double reloadingPower = chargedPower; // Ticks / sec
         public double firingPower = chargedPower; // Ticks / sec
         public double abortingPower = 0.3 * ticksPerSec(); // Ticks / sec
 
-        public double powerTolerance = 200; // Ticks / sec
+        public double powerTolerance = 50; // Ticks / sec
     };
 
     /**
@@ -77,7 +79,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public static final class Timeout {
         public double uncharging = Double.POSITIVE_INFINITY; // seconds
         public double charging = Double.POSITIVE_INFINITY; // seconds
-        public double reloading = 5.0; // seconds
+        public double reloading = 6.0; // seconds
         public double finishingReloading = 0.5; // seconds; happends after we have a projectile
         public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
@@ -206,7 +208,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
     }
 
-    private boolean setFlywheelPower(double power, double powerTolerance) {
+    public boolean setFlywheelPower(double power, double powerTolerance) {
         if(flywheels == null) {
             return false;
         }
@@ -687,6 +689,13 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
     }
 
+    protected void periodicCharged(Telemetry telemetry) {
+        // Going to the charging state if the velocity changes too much
+        if(!Util.near(flywheels.getVelocity(), FLYWHEEL_CONST.chargedPower, FLYWHEEL_CONST.powerTolerance)) {
+            charge();
+        }
+    }
+
     /**
      * Keeps the shooter at a charged power, moves the feeders to intake a 
      * projectile, and waits until a projectile or projectiles are ready to be 
@@ -876,6 +885,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
                 
             case CHARGING: 
                 periodicCharging(telemetry);
+                break;
+
+            case CHARGED:
+                periodicCharged(telemetry);
                 break;
             
             case RELOADING: 

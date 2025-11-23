@@ -12,12 +12,24 @@ public class LinearServoTest extends LinearOpMode {
         final ServoImplEx rampPivot = (ServoImplEx) hardwareMap.get(Servo.class, "rampPivot");
 
         while(opModeIsActive() || opModeInInit()) {
+            // Far side: 0.22
+            // Close: 0.58
             if(gamepad1.a) { 
                 rampPivot.setPosition(-gamepad1.left_stick_y);
             }
             if(gamepad2.a) { 
                 rampPivot.setPosition(-gamepad2.left_stick_y);
             }
+
+            if(gamepad1.b) { 
+                rampPivot.setPosition(-0.333 * gamepad1.left_stick_y);
+            }
+            if(gamepad2.b) { 
+                rampPivot.setPosition(-0.333 * gamepad2.left_stick_y);
+            }
+            telemetry.addData("Current Position", rampPivot.getPosition());
+            telemetry.update();
         }
+
     }   
 }
