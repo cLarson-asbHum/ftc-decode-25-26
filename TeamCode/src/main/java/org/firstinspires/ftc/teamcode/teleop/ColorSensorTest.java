@@ -5,6 +5,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.LED;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -30,6 +31,10 @@ public class ColorSensorTest extends LinearOpMode {
         final ColorRangeSensor rightReloadSensor = hardwareMap.tryGet(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = hardwareMap.tryGet(ColorRangeSensor.class, "leftReload");
 
+        final DistanceSensor leftDistanceSensor = hardwareMap.get(DistanceSensor.class, "leftDistance");
+        final DistanceSensor rightDistanceSensor = hardwareMap.get(DistanceSensor.class, "rightDistance");
+
+        // PORT 0
         final LED rightRed = hardwareMap.tryGet(LED.class, "rightRed");
         final LED rightGreen = hardwareMap.tryGet(LED.class, "rightGreen");
         
@@ -49,6 +54,7 @@ public class ColorSensorTest extends LinearOpMode {
         final String rightColorSensorName = "Right";
         final ArtifactColorRangeSensor rightWrapper = new ArtifactColorRangeSensor(
             rightReloadSensor, 
+            rightDistanceSensor,
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(),
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
             // new ArtifactColorRangeSensor.ColorSensorConst()
@@ -58,6 +64,7 @@ public class ColorSensorTest extends LinearOpMode {
         final String leftColorSensorName = "Left";
         final ArtifactColorRangeSensor leftWrapper = new ArtifactColorRangeSensor(
             leftReloadSensor,
+            leftDistanceSensor,
             new ArtifactColorRangeSensor.ColorSensorConst(),
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );

@@ -3,12 +3,15 @@ package org.firstinspires.ftc.teamcode.util;
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 
 import java.util.ArrayList;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.util.ColorGetter;
+import org.firstinspires.ftc.teamcode.util.DistanceGetter;
 
 /**
  * Wraps a color sensor and determines the most accurate color based off of the 
@@ -80,7 +83,9 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
      */
     public static double GAIN = 200.0;
 
-    private final ColorRangeSensor sensor;
+    // private final ColorRangeSensor sensor;
+    private final ColorGetter colorGetter;
+    private final DistanceGetter distanceGetter;
     private LynxModule.BulkCachingMode mode = LynxModule.BulkCachingMode.OFF;
 
     private boolean colorIsOutdated = true; // Used to prevent unecessary calls to clearBulkCache()
@@ -101,9 +106,36 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
         this(sensor, colorConst, new double[] { 1 });
     }
 
-    public ArtifactColorRangeSensor(ColorRangeSensor sensor, ColorSensorConst colorConst, double[] rollingWeights) {
-        this.sensor = sensor;
-        this.sensor.setGain((float) GAIN);
+    public ArtifactColorRangeSensor(
+        final ColorRangeSensor sensor, 
+        final ColorSensorConst colorConst, 
+        double[] rollingWeights
+    ) {
+        // this.sensor = sensor;
+        // this.colorConst = colorConst;
+        // this.weights = rollingWeights;
+        this(() -> sensor.argb(), (unit) -> sensor.getDistance(unit), colorConst, rollingWeights);
+        sensor.setGain((float) GAIN);
+    }
+
+    public ArtifactColorRangeSensor(
+        final ColorRangeSensor colorSensor, 
+        final DistanceSensor distanceSensor, 
+        ColorSensorConst colorConst, 
+        double[] rollingWeights
+    ) {
+        this(
+            () -> colorSensor.argb(), 
+            (unit) -> distanceSensor.getDistance(unit), 
+            colorConst, 
+            rollingWeights
+        );
+        colorSensor.setGain((float) GAIN);
+    }
+
+    public ArtifactColorRangeSensor(ColorGetter colorGetter, DistanceGetter distanceGetter, ColorSensorConst colorConst, double[] rollingWeights) {
+        this.colorGetter = colorGetter;
+        this.distanceGetter = distanceGetter;
         this.colorConst = colorConst;
         this.weights = rollingWeights;
     }
@@ -143,7 +175,7 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
     public void clearBulkCache() {
         colorIsOutdated = false;
 
-        addNewColor(sensor.argb(), sensor.getDistance(DistanceUnit.CM));
+        addNewColor(colorGetter.argb(), distanceGetter.getDistance(DistanceUnit.CM));
 
         // Distance is used to verify that the RGB values will be accurate
         dist = 0;
