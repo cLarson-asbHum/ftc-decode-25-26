@@ -58,7 +58,7 @@ public class CompetitionTeleop extends OpMode {
     private SwitchableLight leftRed;
     private SwitchableLight leftGreen;
 
-    private boolean autoReloadEnabled = false;
+    private boolean autoReloadEnabled = true;
 
     private boolean wasPressingRightTrigger = false;
     private boolean wasPressingLeftTrigger = false;
@@ -142,6 +142,8 @@ public class CompetitionTeleop extends OpMode {
 
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
+        final DistanceSensor rightDistanceSensor = findHardware(DistanceSensor.class, "rightDistance");
+        final DistanceSensor leftDistanceSensor = findHardware(DistanceSensor.class, "leftDistance");
         
         rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
         rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
@@ -177,13 +179,20 @@ public class CompetitionTeleop extends OpMode {
         // (even if nothing is achieved, per se).
         rightReload = new ArtifactColorRangeSensor(
             rightReloadSensor,
+            rightDistanceSensor,
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
+            // new double[] { 0.60, 0.16, 0.11, 0.08, 0.05  }
+            // new double[] {1.00}
         );
         leftReload = new ArtifactColorRangeSensor(
             leftReloadSensor,
+            leftDistanceSensor,
             new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
+            // new double[] { 0.40, 0.16, 0.11, 0.08, 0.05  }
+            // new double[] {1.00}
+
         );
 
         final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
@@ -345,6 +354,10 @@ public class CompetitionTeleop extends OpMode {
         // cause any calls after the first one to be ignored.
         follower.setStartingPose(startPosition);
 
+        // DEV START: Trying to replicate when artifacts bounce off the intake
+        // isRed = true;
+        // follower.setStartingPose(KeyPoses.Red.BASE.plus(new Pose(48, 0, 0)));
+        // DEV END
     }
 
     @Override
@@ -393,14 +406,14 @@ public class CompetitionTeleop extends OpMode {
             // Because we assume that if we're reloading manually, something's wrong
             reloadBothSides(gamepad2.yWasPressed());
         } else {
-            reloadEmptySides(gamepad2.yWasPressed());
+            manualReloadEmptySides(gamepad2.yWasPressed());
         }
 
         // AUTO RELOAD
         // Performing the auto reload if allowed to AND we are fully charged
         // We check that we are charged so that we don't automaticcally exit, say, 
         // `UNCHARGING` and cause the shooter to instantly speed up again.
-        reloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
+        autoReloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
 
         // Toggling auto reload upon p
         toggleAutoReload(gamepad2.back && gamepad2.y && !wasTogglingAutoReload);
@@ -597,23 +610,9 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
-    public boolean reloadEmptySides(boolean doReload) {
+    public boolean manualReloadEmptySides(boolean doReload) {
         if(doReload) {
-            // Checking which sides are loaded or not
-            final boolean leftReloaded = shooter.checkIsLeftReloaded();
-            final boolean rightReloaded = shooter.checkIsRightReloaded();
-
-            if(!leftReloaded && !rightReloaded) {
-                shooter.reload();
-            } 
-
-            if(!leftReloaded && rightReloaded) {
-                shooter.reloadLeft();
-            }
-
-            if(leftReloaded && !rightReloaded) {
-                shooter.reloadRight();
-            }
+            shooter.reloadEmpty();
             return true;
         }
 
@@ -623,6 +622,15 @@ public class CompetitionTeleop extends OpMode {
     public boolean toggleAutoReload(boolean doToggle) {
         if(doToggle) {
             autoReloadEnabled = !autoReloadEnabled;
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean autoReloadEmptySides(boolean doReload) {
+        if(doReload) {
+            shooter.autoReload();
             return true;
         }
 

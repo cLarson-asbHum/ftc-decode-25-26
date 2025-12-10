@@ -65,12 +65,13 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
 
         public double unchargedPower = 0;
-        public double chargedPower = 0;
-        public double reloadingPower = 0.7;
+        public double chargedPower = -0.02;
+        public double reloadingPower = 1.0;
+        public double autoReloadingPower = 0.2;
         public double firingPower = 1.0;
         public double abortingPower = -1.0;
 
-        public double powerTolerance = 0.05;
+        public double powerTolerance = 0.01;
     };
 
     /**
@@ -79,8 +80,9 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public static final class Timeout {
         public double uncharging = Double.POSITIVE_INFINITY; // seconds
         public double charging = Double.POSITIVE_INFINITY; // seconds
-        public double reloading = 6.0; // seconds
-        public double finishingReloading = 0.5; // seconds; happends after we have a projectile
+        public double reloading = 3.0; // seconds
+        public double autoReloading = 1.0; // seconds
+        public double finishingReloading = 0.0; // seconds; happends after we have a projectile
         public double firing = 2.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
         public double aborting = 1.0; // seconds
@@ -367,6 +369,63 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.reloading);
         return transitionTo(Status.RELOADING, ReloadingState.RELOADING_LEFT);
+    }
+
+    public boolean reloadEmpty() {
+        final boolean leftReloaded = this.checkIsLeftReloaded();
+        final boolean rightReloaded = this.checkIsRightReloaded();
+
+        if(!leftReloaded && !rightReloaded) {
+            return this.reload();
+        } 
+
+        if(!leftReloaded && rightReloaded) {
+            return this.reloadLeft();
+        }
+
+        if(leftReloaded && !rightReloaded) {
+            return this.reloadRight();
+        }
+    
+        return false;
+    }
+
+    public boolean autoReload() {
+        final boolean leftReloaded = this.checkIsLeftReloaded();
+        final boolean rightReloaded = this.checkIsRightReloaded();
+
+        // If both are reloaded, exit early and return false
+        if(leftReloaded && rightReloaded) {
+            return false;
+        }
+
+        // Getting what powers we need
+        ReloadingState newReloadState = ReloadingState.RELOADING_BOTH; // Placeholder
+        double leftFeederPower = FEEDER_CONST.unchargedPower;
+        double rightFeederPower = FEEDER_CONST.unchargedPower;
+
+        if(!leftReloaded && !rightReloaded) {
+            leftFeederPower = FEEDER_CONST.autoReloadingPower;
+            rightFeederPower = FEEDER_CONST.autoReloadingPower;
+            newReloadState = ReloadingState.RELOADING_BOTH;
+        } 
+
+        if(!leftReloaded && rightReloaded) {
+            leftFeederPower = FEEDER_CONST.autoReloadingPower;
+            newReloadState = ReloadingState.RELOADING_LEFT;
+        }
+
+        if(leftReloaded && !rightReloaded) {
+            rightFeederPower = FEEDER_CONST.autoReloadingPower;
+            newReloadState = ReloadingState.RELOADING_RIGHT;
+        }
+
+        // Applying the found powers
+        setRightFeederPower(rightFeederPower, FEEDER_CONST.powerTolerance);
+        setLeftFeederPower(leftFeederPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        startTimeout(Status.RELOADING, TIMEOUT.autoReloading);
+        return transitionTo(Status.RELOADING, newReloadState);
     }
 
     /**
