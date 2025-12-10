@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.teleop;
 
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -21,10 +22,13 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        final DcMotor rightShooter = hardwareMap.get(DcMotor.class, "rightShooter");
+        final DcMotorEx rightShooter = (DcMotorEx) hardwareMap.get(DcMotor.class, "rightShooter");
+        final DcMotorEx leftShooter = (DcMotorEx) hardwareMap.get(DcMotor.class, "leftShooter");
         final DcMotor intake = hardwareMap.get(DcMotor.class, "intake");
         final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
         final CRServo leftFeeder = hardwareMap.get(CRServo.class, "leftFeeder");
+
+        leftShooter.setDirection(DcMotorSimple.Direction.REVERSE);
 
         rightFeeder.setDirection(DcMotorSimple.Direction.FORWARD);
         leftFeeder.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -33,11 +37,18 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
 
         double intakePower = 0;
         while(opModeIsActive()) {
-            if(gamepad2.left_trigger > 0.1f) {
+            if(gamepad2.right_trigger > 0.1f) {
                 rightShooter.setPower(FULL_POWER);
 
             } else {
                 rightShooter.setPower(0);
+            }
+
+            if(gamepad2.left_trigger > 0.1f) {
+                leftShooter.setPower(FULL_POWER);
+
+            } else {
+                leftShooter.setPower(0);
             }
 
             if(gamepad2.dpad_left) {
@@ -66,6 +77,10 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
             }
 
             intake.setPower(intakePower);
+
+            telemetry.addData("lvel", leftShooter.getVelocity());
+            telemetry.addData("rvel", rightShooter.getVelocity());
+            telemetry.update();
         }
     }
 }
