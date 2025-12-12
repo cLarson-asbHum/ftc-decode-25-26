@@ -70,6 +70,7 @@ public class ColorSensorTest extends LinearOpMode {
         );
 
         ColorRangeSensor sensor = rightReloadSensor == null ? leftReloadSensor : rightReloadSensor;
+        DistanceSensor distSensor = rightReloadSensor == null ? leftDistanceSensor : rightDistanceSensor;
         ArtifactColorRangeSensor wrapper = rightReloadSensor == null ? leftWrapper : rightWrapper;
         String sensorName = rightReloadSensor == null ? leftColorSensorName : rightColorSensorName;
 
@@ -92,10 +93,12 @@ public class ColorSensorTest extends LinearOpMode {
                     sensorName = leftColorSensorName;
                     sensor = leftReloadSensor;
                     wrapper = leftWrapper;
+                    distSensor = leftDistanceSensor;
                 } else if(sensor == leftReloadSensor && rightReloadSensor != null) {
                     sensorName = rightColorSensorName;
                     sensor = rightReloadSensor;
                     wrapper = rightWrapper;
+                    distSensor = rightDistanceSensor;
                 }   
             }
 
@@ -113,7 +116,7 @@ public class ColorSensorTest extends LinearOpMode {
             telemetry.setMsTransmissionInterval(TRANSMISSION_MS_INTERVAL);
 
             // Getting the data
-            final double dist = sensor.getDistance(DistanceUnit.CM);
+            final double dist = distSensor.getDistance(DistanceUnit.CM);
             int argb = 0;
             int red = sensor.red();
             int green = sensor.green();

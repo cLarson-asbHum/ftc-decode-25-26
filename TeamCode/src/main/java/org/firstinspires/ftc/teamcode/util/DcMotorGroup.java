@@ -33,6 +33,10 @@ public class DcMotorGroup implements DcMotorEx {
         }
     }
 
+    public DcMotorEx[] getMotors() {
+        return this.motors;
+    }
+
     @Override
     public void setMotorEnable() {
         all((motor) -> motor.setMotorEnable());

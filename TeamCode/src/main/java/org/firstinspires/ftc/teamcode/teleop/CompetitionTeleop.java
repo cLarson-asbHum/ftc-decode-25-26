@@ -15,6 +15,8 @@ import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -24,9 +26,13 @@ import com.qualcomm.hardware.lynx.LynxModule;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystem.*;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
+import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 @Configurable
@@ -58,6 +64,12 @@ public class CompetitionTeleop extends OpMode {
     private boolean wasPressingLeftTrigger = false;
     private boolean wasPressingLeftBumper = false;
     private boolean wasTogglingAutoReload = false;
+    private boolean wasPressingIsRed = false;
+    private boolean wasPressingX = false;
+    private boolean wasPressingPark = false;
+
+    private Pose startPosition = null;
+    private boolean isRed = false;
 
 
     /**
@@ -123,12 +135,15 @@ public class CompetitionTeleop extends OpMode {
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
+        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
+        final DistanceSensor rightDistanceSensor = findHardware(DistanceSensor.class, "rightDistance");
+        final DistanceSensor leftDistanceSensor = findHardware(DistanceSensor.class, "leftDistance");
         
         rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
         rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
@@ -147,6 +162,7 @@ public class CompetitionTeleop extends OpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         // rightShooterMotor.setVelocityPIDFCoefficients(
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
@@ -163,20 +179,28 @@ public class CompetitionTeleop extends OpMode {
         // (even if nothing is achieved, per se).
         rightReload = new ArtifactColorRangeSensor(
             rightReloadSensor,
+            rightDistanceSensor,
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
+            // new double[] { 0.60, 0.16, 0.11, 0.08, 0.05  }
+            // new double[] {1.00}
         );
         leftReload = new ArtifactColorRangeSensor(
             leftReloadSensor,
+            leftDistanceSensor,
             new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
+            // new double[] { 0.40, 0.16, 0.11, 0.08, 0.05  }
+            // new double[] {1.00}
+
         );
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
+        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
-            .setLeftReloadClassifier( leftReload)
+            .setLeftReloadClassifier(leftReload)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
@@ -206,6 +230,9 @@ public class CompetitionTeleop extends OpMode {
 
         shooter.setTelemetry(telemetry);
 
+        // Creating the PerdoPathing path follower
+        follower = Constants.createFollower(hardwareMap);
+
         // Getting the rampPivot
         rampPivot = hardwareMap.get(Servo.class, "rampPivot");
 
@@ -221,9 +248,116 @@ public class CompetitionTeleop extends OpMode {
         telemetry.update();
     }
 
+    public void adjustSettings(Gamepad gamepad) {
+        // Adjusting whether we are blue or red
+        final Boolean blackboardIsRed = (Boolean) blackboard.get("isRed");
+        isRed = blackboardIsRed == null ? false : blackboardIsRed.booleanValue();
+
+        if(gamepad.aWasPressed()) {
+            isRed = !isRed;
+        }
+
+        blackboard.put("isRed", isRed);
+        
+        // Adjusting where we start the opmode
+        startPosition = (Pose) blackboard.get("startPosition");
+        if(startPosition == null) {
+            startPosition = new Pose(72, 72, 0);
+        }
+        
+        // X
+        final double X_STEP = 6;
+        if(gamepad.dpadUpWasPressed()) {
+            startPosition = startPosition.withX(Util.clamp(0, startPosition.getX() + X_STEP, 144));
+        }
+
+        if(gamepad.dpadDownWasPressed()) {
+            startPosition = startPosition.withX(Util.clamp(0, startPosition.getX() - X_STEP, 144));
+        }
+        
+        
+        // Y
+        final double Y_STEP = 6;
+        if(gamepad.dpadRightWasPressed()) {
+            startPosition = startPosition.withY(Util.clamp(0, startPosition.getY() + Y_STEP, 144));
+        }
+        
+        
+        if(gamepad.dpadLeftWasPressed()) {
+            startPosition = startPosition.withY(Util.clamp(0, startPosition.getY() - Y_STEP, 144));
+        }
+
+        // θ
+        final double YAW_STEP = Math.toRadians(15);
+        if(gamepad.leftBumperWasPressed()) {
+            final double newYaw = AngleUnit.normalizeRadians(startPosition.getHeading() + YAW_STEP);
+            startPosition = startPosition.withHeading(newYaw);
+        }
+        
+        
+        if(gamepad.rightBumperWasPressed()) {
+            final double newYaw = AngleUnit.normalizeRadians(startPosition.getHeading() - YAW_STEP);
+            startPosition = startPosition.withHeading(newYaw);
+        }
+
+        blackboard.put("startPosition", startPosition);
+    }
+
+    public void displaySettings() {
+        final String format = Util.lines(
+            "",
+            "========== Settings ==========",
+            "",
+            "isRed: %b",
+            "",
+            "startPos", 
+            "    x: %.2f;",
+            "    y: %.2f;",
+            "    θ: %.2f;°",
+            "",
+            "========== Controls ==========",
+            "",
+            "Toggle isRed: A",
+            "",
+            "Add   X: dpad_up",
+            "minus X: dpad_down",
+            "",
+            "Add   Y: dpad_up",
+            "Minus Y: dpad_left",
+            "",
+            "Add   θ: left_bumper",
+            "Minus θ: right_bumper",
+            ""
+        );
+
+        telemetry.addLine(String.format(
+            format, 
+            isRed,
+            startPosition.getX(),
+            startPosition.getY(),
+            Math.toDegrees(startPosition.getHeading())
+        ));
+        telemetry.update();
+    }
+
+    @Override
+    public void init_loop() {
+        adjustSettings(gamepad1);
+        displaySettings();
+    }
+
     @Override
     public void start() {
         rampPivot.setPosition(0.58);
+
+        // Calling this method multiple times on the same reference will
+        // cause any calls after the first one to be ignored.
+        follower.setStartingPose(startPosition);
+
+        // DEV START: Trying to replicate when artifacts bounce off the intake
+        // isRed = true;
+        // follower.setStartingPose(KeyPoses.Red.BASE.plus(new Pose(48, 0, 0)));
+        // DEV END
     }
 
     @Override
@@ -234,13 +368,21 @@ public class CompetitionTeleop extends OpMode {
         changeDrivetrainSpeed(
             gamepad1.left_trigger > TRIGGER_PRESSED || gamepad1.right_trigger > TRIGGER_PRESSED, // Fast
             gamepad1.left_bumper || gamepad1.right_bumper, // Slow
-            gamepad1.left_bumper && gamepad1.right_bumper // Slowest
+            gamepad1.left_bumper && gamepad1.right_bumper // Slowest, has precedent over the above
         );      
         
         reverseDrivingDirection(gamepad1.bWasPressed());
 
-        // Parking if both triggers are being pressed
-        // goPark
+        // Parking if the park combination is held
+        toggleIsRed(gamepad1.back && gamepad1.a && !wasPressingIsRed);   
+        goParkForthwith(
+            gamepad1.dpad_up && gamepad1.y && !wasPressingPark,
+            gamepad1.dpad_up && gamepad1.y, 
+            !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
+        ); // TODO: Have this only work if it is endgame?
+
+        // Going to nearest shooting point if X is held
+        goToShootingZone(gamepad1.x, !gamepad1.x && wasPressingX);
 
         // Shooting the given color of artifact
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
@@ -264,14 +406,14 @@ public class CompetitionTeleop extends OpMode {
             // Because we assume that if we're reloading manually, something's wrong
             reloadBothSides(gamepad2.yWasPressed());
         } else {
-            reloadEmptySides(gamepad2.yWasPressed());
+            manualReloadEmptySides(gamepad2.yWasPressed());
         }
 
         // AUTO RELOAD
         // Performing the auto reload if allowed to AND we are fully charged
         // We check that we are charged so that we don't automaticcally exit, say, 
         // `UNCHARGING` and cause the shooter to instantly speed up again.
-        reloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
+        autoReloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
 
         // Toggling auto reload upon p
         toggleAutoReload(gamepad2.back && gamepad2.y && !wasTogglingAutoReload);
@@ -308,23 +450,45 @@ public class CompetitionTeleop extends OpMode {
         wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
         wasPressingLeftBumper = gamepad2.left_bumper;
         wasTogglingAutoReload = gamepad2.back && gamepad2.y;
+        wasPressingIsRed = gamepad1.back && gamepad1.a;
+        wasPressingX = gamepad1.x;
+        wasPressingPark = gamepad1.dpad_up && gamepad1.y;
 
         // TELELEMETRY
+        telemetry.clearAll();
         telemetry.addLine();
         telemetry.addLine(Util.header("Settings"));
         telemetry.addLine();
-        telemetry.addData("autoReloadEnabled (Back + Y)", autoReloadEnabled);
+        telemetry.addData("autoReloadEnabled (Back2 + Y)", autoReloadEnabled);
         telemetry.addLine();
-        telemetry.addLine(Util.header("Colors"));
+        telemetry.addData("isRed (Back1 + A)", isRed);
+        telemetry.addData("startPosition", startPosition);
+        
+        telemetry.addLine();
+        telemetry.addLine(Util.header("Sensors"));
         telemetry.addLine();
         telemetry.addData("leftReload Artifact", artifactcolorL);
         telemetry.addData("rightReload Artifact", artifactcolorR);
+        telemetry.addData("currentPose", () -> {
+            follower.updatePose();
+            return follower.getPose();
+        });
         telemetry.addLine();
-        // telemetry.update();
+
+        // if(telemetry.update()) {}
 
         // COMMAND SCHEDULER
         CommandScheduler.getInstance().run();
 
+    }
+
+    public boolean toggleIsRed(boolean doToggle) {
+        if(doToggle) {
+            isRed = !isRed;
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -356,6 +520,43 @@ public class CompetitionTeleop extends OpMode {
         // Normal Speed
         drivetrain.engageMiddleMode();
         return true;
+    }
+
+    public boolean goParkForthwith(boolean doStart, boolean doFollow, boolean cancel) {
+        if(cancel && follower != null) {
+            follower.breakFollowing();
+            follower.update();
+            return false;            
+        }
+
+        if(doStart && follower != null) {
+            final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
+            path.setConstantHeadingInterpolation(KeyPoses.base(isRed).getHeading());
+            follower.followPath(path);
+        }
+        
+        if((doStart || doFollow) && follower != null) {
+            follower.update();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean goToShootingZone(boolean doGoTo, boolean cancel) {
+        if(cancel) {
+            follower.breakFollowing();
+            follower.update();
+            return false;
+        }
+
+        if(doGoTo && follower != null) {
+            // TODO: Calculate shooting position
+            // follower.holdPosition(KeyPoses.base(isRed));
+            // return true;
+        }
+
+        return false;
     }
 
     public boolean fireBasedOffColor(boolean fireGreen, boolean firePurple) {
@@ -409,23 +610,9 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
-    public boolean reloadEmptySides(boolean doReload) {
+    public boolean manualReloadEmptySides(boolean doReload) {
         if(doReload) {
-            // Checking which sides are loaded or not
-            final boolean leftReloaded = shooter.checkIsLeftReloaded();
-            final boolean rightReloaded = shooter.checkIsRightReloaded();
-
-            if(!leftReloaded && !rightReloaded) {
-                shooter.reload();
-            } 
-
-            if(!leftReloaded && rightReloaded) {
-                shooter.reloadLeft();
-            }
-
-            if(leftReloaded && !rightReloaded) {
-                shooter.reloadRight();
-            }
+            shooter.reloadEmpty();
             return true;
         }
 
@@ -435,6 +622,15 @@ public class CompetitionTeleop extends OpMode {
     public boolean toggleAutoReload(boolean doToggle) {
         if(doToggle) {
             autoReloadEnabled = !autoReloadEnabled;
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean autoReloadEmptySides(boolean doReload) {
+        if(doReload) {
+            shooter.autoReload();
             return true;
         }
 

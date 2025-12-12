@@ -28,14 +28,14 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
     public static class ColorSensorConst {
         public double greenMinHue = 130;
         public double greenMaxHue = 160;
-        public double minGreenSaturation = 0.47;
+        public double minGreenSaturation = 0.5;
         
         public double purpleMinHue = 160;
         public double purpleMaxHue = 360;
         public double minPurpleSaturation = 0.30;
      
-        public double minDistCm = 0.00;
-        public double maxDistCm = 7.25;
+        public double minDistCm = 1.00;
+        public double maxDistCm = 18.5;
     }
 
     /**
@@ -43,15 +43,15 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
      */
     public static class AlternateColorSensorConst extends ColorSensorConst {
         public double greenMinHue = 130;
-        public double greenMaxHue = 157;
+        public double greenMaxHue = 165;
         public double minGreenSaturation = 0.45;
         
-        public double purpleMinHue = 157;
+        public double purpleMinHue = 165;
         public double purpleMaxHue = 360;
         public double minPurpleSaturation = 0.20;
      
-        public double minDistCm = 0.00;
-        public double maxDistCm = 12.3;
+        public double minDistCm = 1.00;
+        public double maxDistCm = 18.5;
 
         public ColorSensorConst asColorSensorConst() {
             final ColorSensorConst result = new ColorSensorConst();
@@ -174,11 +174,26 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
      */
     public void clearBulkCache() {
         colorIsOutdated = false;
-
-        addNewColor(colorGetter.argb(), distanceGetter.getDistance(DistanceUnit.CM));
-
+        
         // Distance is used to verify that the RGB values will be accurate
+        final int PLACEHOLDER = -1;
+        addNewColor(PLACEHOLDER, distanceGetter.getDistance(DistanceUnit.CM));
         dist = 0;
+
+        for(int i = 0; i < colors.size(); i++) {
+            dist += weights[i] * dists.get(dists.size() - 1 - i);
+        }
+
+        // Getting color only if the distance is within tolerance 
+        //
+        // Since the distance is the guiding light, we check that the distance 
+        // is good before getting color so as to speed up I2C command calls
+        if(dist < colorConst.minDistCm || dist > colorConst.maxDistCm) {
+            return; // Distance is unacceptable!!1! reject the color.
+        }
+
+        // The distance is within bounds; get the color as well.
+        colors.set(colors.size() - 1, colorGetter.argb());
         hue = 0;
         saturation = 0;
 
@@ -192,9 +207,6 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
             // Convertin the RGB color to something more natural
             hue += weights[i] * JavaUtil.rgbToHue(red, green, blue);
             saturation += weights[i] * JavaUtil.rgbToSaturation(red, green, blue);
-
-            // Adding the distance
-            dist += weights[i] * dists.get(dists.size() - 1 - i);
         }
 
         // final double value = JavaUtil.rgbToValue(red, green, blue);
@@ -245,7 +257,6 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
         // The color was unrecognized; the color is unknown
         return ArtifactColor.UNKNOWN;
     }
-
 
     public void logTelemetry(Telemetry telemetry) {
         telemetry.addData("Rolling Colors", colors);

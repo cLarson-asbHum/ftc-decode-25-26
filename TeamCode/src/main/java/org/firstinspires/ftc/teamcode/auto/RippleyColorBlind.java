@@ -43,6 +43,7 @@ import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive ;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem.Status;
+import org.firstinspires.ftc.teamcode.teleop.ClearCommandScheduler;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
@@ -58,8 +59,8 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 
 @Configurable
-@Autonomous(name = "Gary Larson's Far Side (EMPTY PRELOAD)", group = "A - Main")
-public class FarSideEmptyAuto extends LinearOpMode {
+@Autonomous(name = "ColorBlind Auto2: Blue Rippley", group = "A - Main")
+public class RippleyColorBlind extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;
     private DcMotor frontRight = null;
@@ -78,21 +79,21 @@ public class FarSideEmptyAuto extends LinearOpMode {
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
     public static ConfigPose START_POS = new ConfigPose(
-        // Along the grid edge away from the field's center edge
-        48 + 8.25, // The addend is half the robot width 
+        // In Inches. Resting flat against the blue goal
+        24,
 
-        // In Inches. Is along the bottom wall
-        8.5, // Half the height of the bot
+        // In Inches. Is along the top-most grid edge
+        120,
 
-        // Facing upwards
-        0.5 * Math.PI
+        // In Radians. Along the blue goal, facing the upper wall
+        // Determined emperically
+        Math.toRadians(45)
     );
 
     public static ConfigPose SHOOTING_POS = new ConfigPose(
-        // About 24 ish inches away from the goal
-        48,
-        2 + 8.5,
-        Math.toRadians(-70) // angle from current position, about 110°
+        52,
+        102, // A little higher than the jigsaw so we are facing the goal
+        Math.toRadians(315)
     );
 
     public static ConfigPose OBELISK = new ConfigPose(
@@ -178,6 +179,7 @@ public class FarSideEmptyAuto extends LinearOpMode {
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
+        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
@@ -202,6 +204,12 @@ public class FarSideEmptyAuto extends LinearOpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        // rightShooterMotor.setVelocityPIDFCoefficients(
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
+        // );
         intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
@@ -221,19 +229,19 @@ public class FarSideEmptyAuto extends LinearOpMode {
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor, leftShooterMotor) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier( leftReload)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
-            (DcMotorEx) frontLeftMotor,
-            (DcMotorEx) backLeftMotor,
-            (DcMotorEx) frontRightMotor,
-            (DcMotorEx) backRightMotor
-        );
+        // final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
+        //     frontLeftMotor, 
+        //     backLeftMotor,
+        //     frontRightMotor,
+        //     backRightMotor
+        // );
 
         // This means that no command will use the same subsystem at the same time.
         CommandScheduler.getInstance().registerSubsystem(rightShooter, intake);
@@ -260,31 +268,67 @@ public class FarSideEmptyAuto extends LinearOpMode {
         // Creating the paths
         result.put("goFromCameraToShooting", follower
             .pathBuilder()
-            .addPath(new BezierLine(start, shooting))
-            .setLinearHeadingInterpolation(start.getHeading(), start.getHeading())
-            // .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
+            .addPath(
+                // new BezierLine(new Pose(22.017, 119.603), new Pose(40.463, 102.942))
+                new BezierLine(start, shooting)
+            )
+            .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
             .build()
         );
 
         final Path grabArtifacts = new Path(new BezierCurve(
-            mirror(new Pose(40.463, 54.942), isRed),
-            mirror(new Pose(89.851, 20.430), isRed),
-            mirror(new Pose(12.496, 52.562), isRed),
-            mirror(new Pose(25.289, 35.306), isRed),
-            mirror(new Pose(23.207, 23.405), isRed),
-            mirror(new Pose(25.207, 25.488), isRed) // End point
+            mirror(new Pose(40.463 - 5.5, 102.942), isRed),
+            mirror(new Pose(89.851 - 5.5, 68.430), isRed),
+            mirror(new Pose(12.496 - 5.5, 100.562), isRed),
+            mirror(new Pose(25.289 - 5.5, 83.306), isRed),
+            mirror(new Pose(23.207 - 5.5, 71.405), isRed),
+            mirror(new Pose(25.207 - 5.5, 83.488), isRed) // End point
         ));
+        // final Path grabArtifacts = new Path(new BezierCurve(
+        //     mirror(new Pose(52.000, 102.000), isRed),
+        //     mirror(new Pose(25.707 - 7, 106.312), isRed),
+        //     mirror(new Pose(26.796 - 7, 89.537), isRed),
+        //     mirror(new Pose(25.053 - 7, 74.505), isRed)
+        // ));
         final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(25.207, 25.488), isRed), 
+            mirror(new Pose(25.207 - 5.5, 83.488), isRed), 
             shooting
         ));
+        final Path grabArtifactsAgain = new Path(new BezierCurve(
+            new Pose(52.000, 102.000),
+            new Pose(25.707, 106.312),
+            new Pose(23.092, 70.148),
+            new Pose(23.528, 50.106)
+        ));
+        final Path goBackToShootAgain = new Path(new BezierLine(
+            mirror(new Pose(23.528, 50.106), isRed), 
+            shooting
+        ));
+        final Path turnSoAsToIntake = new Path(new BezierLine(
+            shooting,
+            new Pose(shooting.getX(), shooting.getY(), isRed ? 0 : Math.PI)
+        ));
 
-        grabArtifacts.setConstantHeadingInterpolation(isRed ? 0 : Math.PI);
+        // turnSoAsToIntake.setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.PI);
+        grabArtifacts.setConstantHeadingInterpolation(/* start.getHeading(),  */isRed ? 0 : Math.PI);
+        // grabArtifacts.setConstantHeadingInterpolation(isRed ? Math.toRadians(-90) : Math.toRadians(-90));
+        grabArtifactsAgain.setConstantHeadingInterpolation(isRed ? Math.toRadians(-90) : Math.toRadians(-90));
         goBackToShoot.setConstantHeadingInterpolation(shooting.getHeading());
+        goBackToShootAgain.setConstantHeadingInterpolation(shooting.getHeading());
+
         result.put("grabArtifactsAndShoot", follower
             .pathBuilder()
+            // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
             .addPath(grabArtifacts)
             .addPath(goBackToShoot)
+            .build()
+        );
+
+        result.put("grabArtifactsAndShootAgain", follower
+            .pathBuilder()
+            // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
+            .addPath(grabArtifactsAgain)
+            .addPath(goBackToShootAgain)
             .build()
         );
 
@@ -292,8 +336,8 @@ public class FarSideEmptyAuto extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierLine(
                 shooting, 
-                new Pose(shooting.getX(), shooting.getY() + 15, shooting.getHeading()
-            )))
+                mirror(new Pose(48, 60, shooting.getHeading()), isRed)
+            ))
             .setConstantHeadingInterpolation(shooting.getHeading())
             .build()
         );
@@ -313,14 +357,13 @@ public class FarSideEmptyAuto extends LinearOpMode {
         drivetrain = (BasicMecanumDrive) subsystems[2];
         shooter.setTelemetry(telemetry);
 
-        // Adjusting pivot
         final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
         
         // Creating the webcam
-        final WebcamName obeliskViewerCam = hardwareMap.get(WebcamName.class, "obeliskViewer");
-        final MotifWebcam motifGetter = new MotifWebcam(obeliskViewerCam, CAMERA_YAW_OFFSET);
+        final WebcamName obeliskViewerCam = null;
+        final MotifWebcam motifGetter = null;
 
-        setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
+        // setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
 
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
@@ -352,63 +395,123 @@ public class FarSideEmptyAuto extends LinearOpMode {
         }
         
         waitForStart();
-        rampPivot.setPosition(0.45); // Determined emperically
+        rampPivot.setPosition(0.58); // Determined emperically
         follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
         final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
         Motif motif = null;
 
-        // for(int retries = 0; retries < 3 && cameraExists && motif == null; retries++) {
-        //     motifGetter.setGlobalRobotYaw(mirror(START_POS.pedroPose(), isRed).getHeading());
-        //     motif = motifGetter.getMotif();
-        //     motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
-        // }
+        // Moving to the shooting position
+        if(paths.get("goFromCameraToShooting") == null) {
+            throw new RuntimeException("Cannot find path: goFromCameraToShooting");
+        }
+
+        shooter.charge();
+        CommandScheduler.getInstance().run();
+        follower.followPath(paths.get("goFromCameraToShooting"), true);
+        while(follower.isBusy() && opModeIsActive()) {
+
+            follower.update();
+            blackboard.put("startPosition", follower.getPose());
+
+            // Snapping a photo of the motif if we are facing it
+            // The camera sees 60 degrees, but we subtract a bit to fully see the motif
+            final double F_O_V = Math.toRadians(40); 
+            final Pose currentPose = follower.getPose();
+            final double targetAngle = Math.atan2(
+                mirror(OBELISK.pedroPose(), isRed).getY() - currentPose.getY(), 
+                mirror(OBELISK.pedroPose(), isRed).getX() - currentPose.getX()
+            );
+
+            if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
+                motifGetter.setGlobalRobotYaw(currentPose.getHeading());
+                motif = motifGetter.getMotif();
+                motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+            }
+        }
         
+
         // If the motif coul dnt be found, use a defa`ult
-        if(motif == null) {
-            motif = Motif.ALL_PURPLE;
+        // if(motif == null && allPurple) {
+        //     motif = Motif.ALL_PURPLE;
+        /* }  else */ if(motif == null) {
+            motif = Motif.FIRST_GREEN;
         }
 
         emptyClip(motif);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
-        // intake.intakeGamePieces();
+        intake.intakeGamePieces();
+        follower.followPath(paths.get("grabArtifactsAndShoot"), false);
 
-        // // Going back to shooting
-        // // follower.followPath(paths.get("goAndShoot"), false);
+        boolean hasReloaded = false;
+        // follower.setMaxPowerScaling(0.5); // Slowing down
+        while(follower.isBusy() && opModeIsActive()) {
+            follower.update();
+            blackboard.put("startPosition", follower.getPose());
 
-        // // while(follower.isBusy() && opModeIsActive()) {
-        // //     follower.update();
-        // // blackboard.put("startPosition", follower.getPose());
-        // // }
+            // Slowing down and reloading when in the correct part
+            if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
+                shooter.reload();
+                hasReloaded = true;
+            }
 
-        // // Shooting once again
-        // emptyClip(motif);
+            // Speeding Back up when out of range
+            if(!follower.atPose(new Pose(), 10, 7) && hasReloaded) {
+                follower.setMaxPower(1.0); // Slowing down
+            }
+
+            CommandScheduler.getInstance().run();
+        }
+        // follower.setMaxPowerScaling(1.0);
+
+        // Shooting once again
+        emptyClip(motif);
+
+        // Moving to grab artifacts
+        // This goes back to shooting afterwards
+        intake.intakeGamePieces();
+        follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
+
+        // hasReloaded = false;
+        // follower.setMaxPowerScaling(0.5); // Slowing down
+        while(follower.isBusy() && opModeIsActive()) {
+            follower.update();
+            blackboard.put("startPosition", follower.getPose());
+
+            // Slowing down and reloading when in the correct part
+            // if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
+            //     shooter.reload();
+            //     hasReloaded = true;
+            // }
+
+            // // Speeding Back up when out of range
+            // if(!follower.atPose(new Pose(), 10, 7) && hasReloaded) {
+            //     follower.setMaxPower(1.0); // Slowing down
+            // }
+
+            CommandScheduler.getInstance().run();
+        }
+        // follower.setMaxPowerScaling(1.0);
+
+        // Shooting once again
+        emptyClip(motif);
 
         // Getting leave points
-        // intake.holdGamePieces();
+        intake.holdGamePieces();
         shooter.uncharge();
         follower.followPath(paths.get("park"), false);
 
         while(follower.isBusy() && opModeIsActive()) {
-            // follower.update();
+            follower.update();
             blackboard.put("startPosition", follower.getPose());
         }
 
 
         // END
         CommandScheduler.getInstance().reset();
-        blackboard.put("startPosition", follower.getPose());
-
-        // MoveForward(21);
-        // Turn(90);
-        // MoveForward(45);
-        // Turn(90);
-        // MoveForward(30);
-        // Turn(-100);
-
     }
 
     private void runUntilCompleted(Command command) {
@@ -458,21 +561,47 @@ public class FarSideEmptyAuto extends LinearOpMode {
         }
     }
 
-    private void emptyClip(MotifGetter.Motif motif) {
+    private void emptyClip(Motif unused) {
+        runUntilCompleted(shooter.chargeCommand());
+        final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
+
+        // Shooting depth 1
+        runUntilCompleted(shooter.fireCommand());
+
+        // Reloading and going
+        runUntilCompleted(shooter.chargeCommand());
+        
+        // Shooting
+        intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
+
+        // Ending
+        intake.holdGamePieces();
+        shooter.charge();
+        CommandScheduler.getInstance().run();
+    }
+
+    private void shootPattern(MotifGetter.Motif motif) {
         
         // Firing the artifacts we have, using the motif from the april tag
         int motifIndex = -1;
         boolean hasFiredPurple = false;
+
+
         shootingLoop:
         for(final ArtifactColor color : motif) {
             motifIndex++;
-            // shooter.setFlywheelPower(1300, 50);
             runUntilCompleted(shooter.chargeCommand());
 
             // if(shooter.getStatus() != Status.EMPTY_CHARGED && shooter.getStatus() != Status.RELOADED_CHARGED) {
             //     CommandScheduler.getInstance().reset();
             //     requestOpModeStop();
             // }
+
+            if(motifIndex == 0) {
+                sleep(500); // AWait for correct power
+            }
+
 
             // Firing the indicated color
             switch(color) {
@@ -486,8 +615,7 @@ public class FarSideEmptyAuto extends LinearOpMode {
                 default:
                     throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
             }
-            // shooter.setFlywheelPower(2350, 50);
-                    
+
             // Waiting for the firing to end
             // The shooter is likely to charge after this, but we want to wait until after reloading
             // to do any extra charging (for saving time).
@@ -541,6 +669,24 @@ public class FarSideEmptyAuto extends LinearOpMode {
                 shooter.forceCharged();
             }
         } 
+    }
+    
+    /**
+     * Calculates the x so that the point (x, y) is along the edge of the goal.
+     * This is used to find the x-coordinate a robot resting against the goal.
+     * 
+     * @param y The y coordinate that is along the edge of the goal.
+     * @return The x coordinate so that (x, y) is along the edge of the goal.
+     */
+    private static double goalEdgeXFromY(double y) {
+        final double RAMP_WIDTH = 6.75; // Inches
+        final double GOAL_LENGTH_Y = 21.75; // Inches along the field y axis, up to the archway
+        final double GOAL_LENGTH_X = 22.75; // Inches along the field x axis
+        return Util.lerp(
+            RAMP_WIDTH, 
+            Util.invLerp(72 - GOAL_LENGTH_Y, y, 72), 
+            RAMP_WIDTH + GOAL_LENGTH_X
+        );
     }
 
     private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);

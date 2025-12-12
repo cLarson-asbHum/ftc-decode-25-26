@@ -380,7 +380,7 @@ public class Rippley extends LinearOpMode {
         follower.followPath(paths.get("goFromCameraToShooting"), true);
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
+            blackboard.put("startPosition", follower.getPose());
 
             // Snapping a photo of the motif if we are facing it
             // The camera sees 60 degrees, but we subtract a bit to fully see the motif
@@ -417,7 +417,7 @@ public class Rippley extends LinearOpMode {
         // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
+            blackboard.put("startPosition", follower.getPose());
 
             // Slowing down and reloading when in the correct part
             if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
@@ -438,7 +438,7 @@ public class Rippley extends LinearOpMode {
 
         // while(follower.isBusy() && opModeIsActive()) {
         //     follower.update();
-        //     blackboard.put("lastKnownAutoPos", follower.getPose());
+        //     blackboard.put("startPosition", follower.getPose());
         // 
         // }
 
@@ -452,7 +452,7 @@ public class Rippley extends LinearOpMode {
 
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
+            blackboard.put("startPosition", follower.getPose());
         }
 
 

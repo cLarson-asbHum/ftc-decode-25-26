@@ -95,4 +95,14 @@ public final class Util {
 
         return total / ints.length;
     }
+
+    public static String lines(String... lines) {
+        String result = "";
+
+        for(final String line : lines) {
+            result += line + "\n";
+        }
+
+        return result;
+    }
 }
