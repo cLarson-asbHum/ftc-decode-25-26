@@ -33,6 +33,7 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
         rightFeeder.setDirection(DcMotorSimple.Direction.FORWARD);
         leftFeeder.setDirection(DcMotorSimple.Direction.REVERSE);
 
+        telemetry.setMsTransmissionInterval(33);
         waitForStart();
 
         double intakePower = 0;

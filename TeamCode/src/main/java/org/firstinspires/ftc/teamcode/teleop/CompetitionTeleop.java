@@ -58,7 +58,7 @@ public class CompetitionTeleop extends OpMode {
     private SwitchableLight leftRed;
     private SwitchableLight leftGreen;
 
-    private boolean autoReloadEnabled = true;
+    private boolean autoReloadEnabled = false;
 
     private boolean wasPressingRightTrigger = false;
     private boolean wasPressingLeftTrigger = false;

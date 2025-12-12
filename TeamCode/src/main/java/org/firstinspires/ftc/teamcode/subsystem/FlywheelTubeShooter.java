@@ -7,12 +7,15 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
+import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 import static org.firstinspires.ftc.teamcode.util.Util.padHeader;
@@ -66,7 +69,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         public double unchargedPower = 0;
         public double chargedPower = -0.02;
-        public double reloadingPower = 1.0;
+        public double reloadingPower = 0.3;
         public double autoReloadingPower = 0.2;
         public double firingPower = 1.0;
         public double abortingPower = -1.0;
@@ -80,10 +83,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public static final class Timeout {
         public double uncharging = Double.POSITIVE_INFINITY; // seconds
         public double charging = Double.POSITIVE_INFINITY; // seconds
-        public double reloading = 3.0; // seconds
+        public double reloading = 1.0; // seconds
         public double autoReloading = 1.0; // seconds
         public double finishingReloading = 0.0; // seconds; happends after we have a projectile
-        public double firing = 2.0; // seconds
+        public double firing = 1.0; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
         public double aborting = 1.0; // seconds
     }
@@ -127,7 +130,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     /**
      * What is responsible for propelling the projectile very quickly
      */
-    private final DcMotorEx flywheels;
+    private final DcMotorGroup flywheels;
     private double targetFlyWheelPower = 0; 
     private boolean hasSetFlywheelPower = false;
     
@@ -167,7 +170,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     private FlywheelTubeShooter(Builder builder) {
         this.lifetime = TimeInjectionUtil.getElapsedTime();
-        this.flywheels = builder.flywheels;
+        this.flywheels = new DcMotorGroup(builder.flywheels.toArray(new DcMotorEx[0]));
         this.rightFeeder = builder.rightFeeder;
         this.leftFeeder = builder.leftFeeder;
         this.rightReloadClassifier = builder.rightReloadClassifier;
@@ -175,14 +178,25 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     public static final class Builder {
-        public final DcMotorEx flywheels;
+        public final ArrayList<DcMotorEx> flywheels = new ArrayList<DcMotorEx>();
         public CRServo rightFeeder = null;
         public CRServo leftFeeder = null;
         public ArtifactColorGetter rightReloadClassifier = null;
         public ArtifactColorGetter leftReloadClassifier = null;
         
-        public Builder(DcMotorEx flywheels) {
-            this.flywheels = flywheels;
+        public Builder() {
+            // Do nothing; everything is initialized with the fields
+        }
+
+        public Builder(DcMotorEx... flywheels) {
+            addMotors(flywheels);
+        }
+
+        public Builder addMotors(DcMotorEx... flywheels) {
+            for(final DcMotorEx flywheel : flywheels) {
+                this.flywheels.add(flywheel);
+            }
+            return this;
         }
 
         public Builder setRightFeeder(CRServo newRightFeeder) {
@@ -205,7 +219,16 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             return this;
         }
 
+        /**
+         * Creates the shooter. This throws if no flywheels were added. 
+         * 
+         * @return New shooter, given the builder's parameters
+         */
         public FlywheelTubeShooter build() {
+            if(flywheels.size() == 0) { 
+                throw new IllegalArgumentException("Number of flywheels added to builder is 0");
+            }
+
             return new FlywheelTubeShooter(this);
         }
     }
@@ -619,7 +642,29 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public boolean checkConsideredCharged() {
         // final double currentPower = flywheels.getVelocity() / FLYWHEEL_CONST.ticksPerSec();
-        return Math.abs(flywheels.getVelocity() - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
+        // return Math.abs(flywheels.getVelocity() - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
+        return Util.any(
+            Arrays.asList(flywheels.getMotors()), 
+            (motor) -> Math.abs(motor.getVelocity() - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance
+        );
+    }
+
+    /**
+     * Checks motor 1
+     * @return
+     */
+    public boolean checkLeftConsideredCharged() {
+        final double velocity = flywheels.getMotors()[1].getVelocity();
+        return Math.abs(velocity - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
+    }
+
+    /**
+     * Checks motor 0
+     * @return
+     */
+    public boolean checkRightConsideredCharged() {
+        final double velocity = flywheels.getMotors()[0].getVelocity();
+        return Math.abs(velocity - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
     }
 
     /**

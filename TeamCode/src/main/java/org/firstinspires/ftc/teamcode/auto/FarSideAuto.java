@@ -17,6 +17,7 @@ import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
@@ -47,13 +48,13 @@ import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.ConfigPose;
+import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
 import org.firstinspires.ftc.teamcode.util.MotifGetter;
 import org.firstinspires.ftc.teamcode.util.MotifGetter.Motif;
 import org.firstinspires.ftc.teamcode.util.MotifWebcam;
 import org.firstinspires.ftc.teamcode.util.RrCoordinates;
 import org.firstinspires.ftc.teamcode.util.Util;
 import org.firstinspires.ftc.teamcode.util.WrapConcurrentCommand;
-
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 
@@ -178,19 +179,16 @@ public class FarSideAuto extends LinearOpMode {
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
+        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
+        final DistanceSensor rightDistanceSensor = findHardware(DistanceSensor.class, "rightDistance");
+        final DistanceSensor leftDistanceSensor = findHardware(DistanceSensor.class, "leftDistance");
         
-        // rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
-        // rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
-        
-        // leftRed = hardwareMap.tryGet(SwitchableLight.class, "leftRed");     // Intentionaly not caring if we don't find this
-        // leftGreen = hardwareMap.tryGet(SwitchableLight.class, "leftGreen"); // Intentionaly not caring if we don't find this
-
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
         // If any are not found, an error is thrown stating which.
         throwAFitIfAnyHardwareIsNotFound();
@@ -202,6 +200,13 @@ public class FarSideAuto extends LinearOpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
+        // rightShooterMotor.setVelocityPIDFCoefficients(
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
+        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
+        // );
         intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
@@ -212,36 +217,44 @@ public class FarSideAuto extends LinearOpMode {
         // (even if nothing is achieved, per se).
         rightReload = new ArtifactColorRangeSensor(
             rightReloadSensor,
+            rightDistanceSensor,
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
+            // new double[] { 0.60, 0.16, 0.11, 0.08, 0.05  }
+            // new double[] {1.00}
         );
         leftReload = new ArtifactColorRangeSensor(
             leftReloadSensor,
+            leftDistanceSensor,
             new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
+            // new double[] { 0.40, 0.16, 0.11, 0.08, 0.05  }
+            // new double[] {1.00}
+
         );
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
+        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
-            .setLeftReloadClassifier( leftReload)
+            .setLeftReloadClassifier(leftReload)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
-            (DcMotorEx) frontLeftMotor,
-            (DcMotorEx) backLeftMotor,
-            (DcMotorEx) frontRightMotor,
-            (DcMotorEx) backRightMotor
+            frontLeftMotor, 
+            backLeftMotor,
+            frontRightMotor,
+            backRightMotor
         );
 
         // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake);
+        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake, drivetrain);
 
         // Return a list of every subsystem that we have created
         return new Subsystem[] { rightShooter, intake, drivetrain };
     }
-
+    
     private Pose mirror(Pose pose, boolean doMirror) {
         if(doMirror) {
             return new Pose(72 - (pose.getX() - 72), pose.getY(), Math.PI - pose.getHeading());
@@ -362,8 +375,8 @@ public class FarSideAuto extends LinearOpMode {
         for(int retries = 0; retries < 3 && cameraExists && motif == null; retries++) {
             motifGetter.setGlobalRobotYaw(mirror(START_POS.pedroPose(), isRed).getHeading());
             motif = motifGetter.getMotif();
-            motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
         }
+        motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
 
         // Moving to the shooting position
         if(paths.get("goFromCameraToShooting") == null) {
@@ -384,7 +397,7 @@ public class FarSideAuto extends LinearOpMode {
         follower.turnTo(targetAngle);
         while(!Util.near(follower.getPose().getHeading(), targetAngle, Math.toRadians(2.5)) && opModeIsActive()) {
             follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
+            blackboard.put("startPosition", follower.getPose());
             telemetry.addData("Current pos", follower.getPose().getHeading());
             telemetry.update();
         }
@@ -408,7 +421,7 @@ public class FarSideAuto extends LinearOpMode {
 
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
+            blackboard.put("startPosition", follower.getPose());
         }
 
         // Going back to shooting
@@ -416,7 +429,7 @@ public class FarSideAuto extends LinearOpMode {
 
         // while(follower.isBusy() && opModeIsActive()) {
         //     follower.update();
-        // blackboard.put("lastKnownAutoPos", follower.getPose());
+        // blackboard.put("startPosition", follower.getPose());
         // }
 
         // Shooting once again
@@ -429,13 +442,13 @@ public class FarSideAuto extends LinearOpMode {
 
         while(follower.isBusy() && opModeIsActive()) {
             // follower.update();
-            blackboard.put("lastKnownAutoPos", follower.getPose());
+            blackboard.put("startPosition", follower.getPose());
         }
 
 
         // END
         CommandScheduler.getInstance().reset();
-        blackboard.put("lastKnownAutoPos", follower.getPose());
+        blackboard.put("startPosition", follower.getPose());
 
         // MoveForward(21);
         // Turn(90);
