@@ -26,8 +26,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import java.util.List;
 
-import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
-
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
@@ -39,6 +37,7 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainCon
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive ;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
@@ -48,6 +47,7 @@ import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.ConfigPose;
+import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.MotifGetter;
 import org.firstinspires.ftc.teamcode.util.MotifGetter.Motif;
 import org.firstinspires.ftc.teamcode.util.MotifWebcam;
@@ -55,7 +55,7 @@ import org.firstinspires.ftc.teamcode.util.RrCoordinates;
 import org.firstinspires.ftc.teamcode.util.Util;
 import org.firstinspires.ftc.teamcode.util.WrapConcurrentCommand;
 
-import org.firstinspires.ftc.teamcode.pedro.Constants;
+import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
 
 @Configurable
@@ -90,11 +90,7 @@ public class RippleyColorBlind extends LinearOpMode {
         Math.toRadians(45)
     );
 
-    public static ConfigPose SHOOTING_POS = new ConfigPose(
-        52,
-        102, // A little higher than the jigsaw so we are facing the goal
-        Math.toRadians(315)
-    );
+    public static ConfigPose SHOOTING_POS = new ConfigPose(KeyPoses.Blue.SHOOTING);
 
     public static ConfigPose OBELISK = new ConfigPose(
         72,

@@ -66,6 +66,7 @@ public class CompetitionTeleop extends OpMode {
     private boolean wasTogglingAutoReload = false;
     private boolean wasPressingIsRed = false;
     private boolean wasPressingX = false;
+    private boolean wasPressingA = false;
     private boolean wasPressingPark = false;
 
     private Pose startPosition = null;
@@ -373,16 +374,18 @@ public class CompetitionTeleop extends OpMode {
         
         reverseDrivingDirection(gamepad1.bWasPressed());
 
-        // Parking if the park combination is held
+        // Team change
         toggleIsRed(gamepad1.back && gamepad1.a && !wasPressingIsRed);   
+
+        // Automatic driving
+        goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
+        goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
         goParkForthwith(
             gamepad1.dpad_up && gamepad1.y && !wasPressingPark,
             gamepad1.dpad_up && gamepad1.y, 
             !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
         ); // TODO: Have this only work if it is endgame?
 
-        // Going to nearest shooting point if X is held
-        goToShootingZone(gamepad1.x, !gamepad1.x && wasPressingX);
 
         // Shooting the given color of artifact
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
@@ -452,6 +455,7 @@ public class CompetitionTeleop extends OpMode {
         wasTogglingAutoReload = gamepad2.back && gamepad2.y;
         wasPressingIsRed = gamepad1.back && gamepad1.a;
         wasPressingX = gamepad1.x;
+        wasPressingA = gamepad1.a;
         wasPressingPark = gamepad1.dpad_up && gamepad1.y;
 
         // TELELEMETRY
@@ -543,17 +547,43 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
-    public boolean goToShootingZone(boolean doGoTo, boolean cancel) {
-        if(cancel) {
+    public boolean goToShootingZone(boolean doStart, boolean doFollow, boolean cancel) {
+        if(cancel && follower != null) {
             follower.breakFollowing();
             follower.update();
-            return false;
+            return false;            
         }
 
-        if(doGoTo && follower != null) {
-            // TODO: Calculate shooting position
-            // follower.holdPosition(KeyPoses.base(isRed));
-            // return true;
+        if(doStart && follower != null) {
+            final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
+            path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
+            follower.followPath(path);
+        }
+        
+        if((doStart || doFollow) && follower != null) {
+            follower.update();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean goToLoadingZone(boolean doStart, boolean doFollow, boolean cancel) {
+        if(cancel && follower != null) {
+            follower.breakFollowing();
+            follower.update();
+            return false;            
+        }
+
+        if(doStart && follower != null) {
+            final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
+            path.setConstantHeadingInterpolation(KeyPoses.loading(isRed).getHeading());
+            follower.followPath(path);
+        }
+        
+        if((doStart || doFollow) && follower != null) {
+            follower.update();
+            return true;
         }
 
         return false;
