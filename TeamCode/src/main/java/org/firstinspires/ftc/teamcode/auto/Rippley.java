@@ -12,6 +12,7 @@ import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -56,7 +57,7 @@ import org.firstinspires.ftc.teamcode.util.WrapConcurrentCommand;
 
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
-
+@Disabled
 @Configurable
 @Autonomous(name = "Auto2: Blue Rippley", group = "A - Main")
 public class Rippley extends LinearOpMode {

@@ -66,6 +66,10 @@ public class ConfigPose {
         this.defaultSystem = defaultSystem;
     } 
 
+    public ConfigPose(Pose pose) {
+        this(pose.getX(), pose.getY(), pose.getHeading());
+    }
+
     /**
      * Gets the equivalent PedroPathing `Pose`, assuming the coordinates
      * to already be in the specified coordinate system. 

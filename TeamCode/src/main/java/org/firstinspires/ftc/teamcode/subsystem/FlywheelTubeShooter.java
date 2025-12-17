@@ -72,6 +72,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         public double reloadingPower = 0.3;
         public double autoReloadingPower = 0.2;
         public double firingPower = 1.0;
+        public double preventMisfire = -0.8;
         public double abortingPower = -1.0;
 
         public double powerTolerance = 0.01;
@@ -233,7 +234,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
     }
 
-    public boolean setFlywheelPower(double power, double powerTolerance) {
+    private boolean setFlywheelPower(double power, double powerTolerance) {
         if(flywheels == null) {
             return false;
         }
@@ -449,6 +450,14 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.autoReloading);
         return transitionTo(Status.RELOADING, newReloadState);
+    }
+
+    public boolean blockMisfire() {
+        return setFeederPower(FEEDER_CONST.preventMisfire, FEEDER_CONST.powerTolerance);
+    }
+    
+    public boolean neutralizeFeeders() {
+        return setFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
     }
 
     /**

@@ -174,8 +174,9 @@ public class RippleyColorBlind extends LinearOpMode {
         final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
+        // FIXME: Left shooter disabled due to hardware fault
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
+        // final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
@@ -225,7 +226,7 @@ public class RippleyColorBlind extends LinearOpMode {
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor, leftShooterMotor) 
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor/* , leftShooterMotor */) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
@@ -273,12 +274,12 @@ public class RippleyColorBlind extends LinearOpMode {
         );
 
         final Path grabArtifacts = new Path(new BezierCurve(
-            mirror(new Pose(40.463 - 5.5, 102.942), isRed),
-            mirror(new Pose(89.851 - 5.5, 68.430), isRed),
-            mirror(new Pose(12.496 - 5.5, 100.562), isRed),
-            mirror(new Pose(25.289 - 5.5, 83.306), isRed),
-            mirror(new Pose(23.207 - 5.5, 71.405), isRed),
-            mirror(new Pose(25.207 - 5.5, 83.488), isRed) // End point
+            mirror(new Pose(40.463 - 4.5, 102.942 - 2), isRed),
+            mirror(new Pose(89.851 - 4.5, 68.430 - 2), isRed),
+            mirror(new Pose(12.496 - 4.5, 100.562 - 2), isRed),
+            mirror(new Pose(25.289 - 4.5, 83.306 - 2), isRed),
+            mirror(new Pose(23.207 - 4.5, 71.405 - 2), isRed),
+            mirror(new Pose(25.207 - 3, 83.488 - 2), isRed) // End point
         ));
         // final Path grabArtifacts = new Path(new BezierCurve(
         //     mirror(new Pose(52.000, 102.000), isRed),
@@ -287,17 +288,17 @@ public class RippleyColorBlind extends LinearOpMode {
         //     mirror(new Pose(25.053 - 7, 74.505), isRed)
         // ));
         final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(25.207 - 5.5, 83.488), isRed), 
+            mirror(new Pose(25.207 - 3, 83.488 - 2), isRed), 
             shooting
         ));
         final Path grabArtifactsAgain = new Path(new BezierCurve(
-            new Pose(52.000, 102.000),
-            new Pose(25.707, 106.312),
-            new Pose(23.092, 70.148),
-            new Pose(23.528, 50.106)
+            mirror(new Pose(52.000, 102.000 - 4), isRed),
+            mirror(new Pose(25.707, 106.312 - 4), isRed),
+            mirror(new Pose(23.092, 70.148 - 4), isRed),
+            mirror(new Pose(23.528, 50.106 - 4), isRed)
         ));
         final Path goBackToShootAgain = new Path(new BezierLine(
-            mirror(new Pose(23.528, 50.106), isRed), 
+            mirror(new Pose(23.528, 50.106 - 4), isRed), 
             shooting
         ));
         final Path turnSoAsToIntake = new Path(new BezierLine(
@@ -440,6 +441,7 @@ public class RippleyColorBlind extends LinearOpMode {
         // Moving to grab artifacts
         // This goes back to shooting afterwards
         intake.intakeGamePieces();
+        shooter.blockMisfire();
         follower.followPath(paths.get("grabArtifactsAndShoot"), false);
 
         boolean hasReloaded = false;
@@ -447,28 +449,17 @@ public class RippleyColorBlind extends LinearOpMode {
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
             blackboard.put("startPosition", follower.getPose());
-
-            // Slowing down and reloading when in the correct part
-            if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
-                shooter.reload();
-                hasReloaded = true;
-            }
-
-            // Speeding Back up when out of range
-            if(!follower.atPose(new Pose(), 10, 7) && hasReloaded) {
-                follower.setMaxPower(1.0); // Slowing down
-            }
-
             CommandScheduler.getInstance().run();
         }
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyClip(motif);
+        emptyForefrontClip(motif);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
         intake.intakeGamePieces();
+        shooter.blockMisfire();
         follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
 
         // hasReloaded = false;
@@ -476,24 +467,12 @@ public class RippleyColorBlind extends LinearOpMode {
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
             blackboard.put("startPosition", follower.getPose());
-
-            // Slowing down and reloading when in the correct part
-            // if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
-            //     shooter.reload();
-            //     hasReloaded = true;
-            // }
-
-            // // Speeding Back up when out of range
-            // if(!follower.atPose(new Pose(), 10, 7) && hasReloaded) {
-            //     follower.setMaxPower(1.0); // Slowing down
-            // }
-
             CommandScheduler.getInstance().run();
         }
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyClip(motif);
+        emptyForefrontClip(motif);
 
         // Getting leave points
         intake.holdGamePieces();
@@ -507,6 +486,7 @@ public class RippleyColorBlind extends LinearOpMode {
 
 
         // END
+        blackboard.put("startPosition", follower.getPose());
         CommandScheduler.getInstance().reset();
     }
 
@@ -569,6 +549,19 @@ public class RippleyColorBlind extends LinearOpMode {
         
         // Shooting
         intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
+
+        // Ending
+        intake.holdGamePieces();
+        shooter.charge();
+        CommandScheduler.getInstance().run();
+    }
+    
+    private void emptyForefrontClip(Motif unused) {
+        runUntilCompleted(shooter.chargeCommand());
+        final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
+
+        // Shooting depth 1
         runUntilCompleted(shooter.fireCommand());
 
         // Ending

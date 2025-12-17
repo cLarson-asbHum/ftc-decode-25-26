@@ -21,6 +21,7 @@ import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.hardware.lynx.LynxModule;
 
 import java.util.ArrayList;
@@ -39,6 +40,9 @@ import org.firstinspires.ftc.teamcode.util.Util;
 @TeleOp(group="A - Main")
 public class CompetitionTeleop extends OpMode {
     public static double TRIGGER_PRESSED = 0.1;
+
+    private ElapsedTime timer = new ElapsedTime();
+    private double lastTime = 0;
     
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
@@ -71,7 +75,6 @@ public class CompetitionTeleop extends OpMode {
 
     private Pose startPosition = null;
     private boolean isRed = false;
-
 
     /**
      * Attempts to get the given hardware from the hardwareMap. If it cannot be 
@@ -135,8 +138,9 @@ public class CompetitionTeleop extends OpMode {
         final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
+        // FIXME: left shootere disabled because of hardware fault
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
+        // final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
@@ -163,7 +167,7 @@ public class CompetitionTeleop extends OpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
+        // leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         // rightShooterMotor.setVelocityPIDFCoefficients(
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
         //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
@@ -180,7 +184,7 @@ public class CompetitionTeleop extends OpMode {
         // (even if nothing is achieved, per se).
         rightReload = new ArtifactColorRangeSensor(
             rightReloadSensor,
-            rightDistanceSensor,
+            // rightDistanceSensor,
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
             // new double[] { 0.60, 0.16, 0.11, 0.08, 0.05  }
@@ -188,7 +192,7 @@ public class CompetitionTeleop extends OpMode {
         );
         leftReload = new ArtifactColorRangeSensor(
             leftReloadSensor,
-            leftDistanceSensor,
+            // leftDistanceSensor,
             new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
             // new double[] { 0.40, 0.16, 0.11, 0.08, 0.05  }
@@ -196,7 +200,7 @@ public class CompetitionTeleop extends OpMode {
 
         );
 
-        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
+        final DcMotorGroup flywheels = new DcMotorGroup(/* leftShooterMotor, */ rightShooterMotor);
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
@@ -354,6 +358,7 @@ public class CompetitionTeleop extends OpMode {
         // Calling this method multiple times on the same reference will
         // cause any calls after the first one to be ignored.
         follower.setStartingPose(startPosition);
+        timer.reset();
 
         // DEV START: Trying to replicate when artifacts bounce off the intake
         // isRed = true;
@@ -363,6 +368,9 @@ public class CompetitionTeleop extends OpMode {
 
     @Override
     public void loop() {
+        final double timestamp = timer.seconds();
+        final double deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
 
         // Driving the drivetrain            
         drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
@@ -377,14 +385,14 @@ public class CompetitionTeleop extends OpMode {
         // Team change
         toggleIsRed(gamepad1.back && gamepad1.a && !wasPressingIsRed);   
 
-        // Automatic driving
-        goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
-        goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
-        goParkForthwith(
-            gamepad1.dpad_up && gamepad1.y && !wasPressingPark,
-            gamepad1.dpad_up && gamepad1.y, 
-            !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
-        ); // TODO: Have this only work if it is endgame?
+        // // Automatic driving
+        // goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
+        // goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
+        // goParkForthwith(
+        //     gamepad1.dpad_up && gamepad1.y && !wasPressingPark,
+        //     gamepad1.dpad_up && gamepad1.y, 
+        //     !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
+        // ); // TODO: Have this only work if it is endgame?
 
 
         // Shooting the given color of artifact
@@ -442,11 +450,13 @@ public class CompetitionTeleop extends OpMode {
         );
 
         // LEDs
-        final ArtifactColor artifactcolorL = leftReload.getColor();
-        final ArtifactColor artifactcolorR = rightReload.getColor();
+        // final ArtifactColor artifactcolorL = leftReload.getColor();
+        // final ArtifactColor artifactcolorR = rightReload.getColor();
+        final ArtifactColor artifactcolorR = ArtifactColor.GREEN;
+        final ArtifactColor artifactcolorL = ArtifactColor.GREEN;
 
-        colorLed(rightRed, rightGreen, artifactcolorR);
-        colorLed(leftRed, leftGreen, artifactcolorL);
+        // colorLed(rightRed, rightGreen, artifactcolorR);
+        // colorLed(leftRed, leftGreen, artifactcolorL);
 
         // BUTTON PRESSES
         wasPressingRightTrigger = gamepad2.right_trigger > TRIGGER_PRESSED;
@@ -460,6 +470,7 @@ public class CompetitionTeleop extends OpMode {
 
         // TELELEMETRY
         telemetry.clearAll();
+        telemetry.addData("deltaTime (seconds)", deltaTime);
         telemetry.addLine();
         telemetry.addLine(Util.header("Settings"));
         telemetry.addLine();
@@ -697,11 +708,13 @@ public class CompetitionTeleop extends OpMode {
     public boolean intakeFromFloor(boolean startIntake, boolean cancelIntake) {
         if(startIntake) {
             intake.intakeGamePieces();
+            shooter.blockMisfire();
             return true;
         }
         
         if(cancelIntake) {
             intake.holdGamePieces();
+            shooter.neutralizeFeeders();
         } 
 
         return false;
