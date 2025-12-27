@@ -1,4 +1,4 @@
-package ballistics;
+package org.firstinspires.ftc.teamcode.ballistics;
 
 import java.util.function.Function;
 

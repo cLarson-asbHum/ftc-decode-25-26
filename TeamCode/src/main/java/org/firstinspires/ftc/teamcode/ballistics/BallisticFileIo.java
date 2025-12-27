@@ -1,4 +1,6 @@
-package ballistics;
+package org.firstinspires.ftc.teamcode.ballistics;
+
+import com.pedropathing.math.Vector;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -40,7 +42,7 @@ public final class BallisticFileIo {
             // Writing the points themselves
             arc.pointIterator().forEachRemaining((point) -> {
                 try {
-                    writeFloats(writer, (float) point.x, (float) point.y);
+                    writeFloats(writer, (float) point.getXComponent(), (float) point.getYComponent());
                 } catch(IOException exception) {
                     throw new InnerException(exception);
                 }
@@ -49,7 +51,7 @@ public final class BallisticFileIo {
             // Writing the velocities
             arc.velIterator().forEachRemaining((vel) -> {
                 try {
-                    writeFloats(writer, (float) vel.x, (float) vel.y);
+                    writeFloats(writer, (float) vel.getXComponent(), (float) vel.getYComponent());
                 } catch(IOException exception) {
                     throw new InnerException(exception);
                 }

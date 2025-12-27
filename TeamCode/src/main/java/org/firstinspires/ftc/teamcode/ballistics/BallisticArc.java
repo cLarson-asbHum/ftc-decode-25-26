@@ -1,14 +1,15 @@
-package ballistics;
+package org.firstinspires.ftc.teamcode.ballistics;
 
 import java.util.Iterator;
+import com.pedropathing.math.Vector;
 
 public interface BallisticArc extends Iterable<Vector> {
     public static String stringify(BallisticArc arc) {
         final Vector firstVel = arc.firstVel();
         return String.format(
             "BallisticArc<%f, %f°>(%d)",
-            firstVel.norm(),
-            Math.toDegrees(firstVel.arctan()),
+            firstVel.getMagnitude(),
+            Math.toDegrees(firstVel.getTheta()),
             arc.size()
         );
     }
@@ -30,7 +31,7 @@ public interface BallisticArc extends Iterable<Vector> {
     }
 
     default boolean compute() {
-        return compute((arc) -> arc.getCurrentPoint().y > 0);
+        return compute((arc) -> arc.getCurrentPoint().getYComponent() > 0);
     }
 
     default Vector firstPoint() {

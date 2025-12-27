@@ -1,4 +1,6 @@
-package ballistics;
+package org.firstinspires.ftc.teamcode.ballistics;
+
+import com.pedropathing.math.Vector;
 
 import java.util.Iterator;
 

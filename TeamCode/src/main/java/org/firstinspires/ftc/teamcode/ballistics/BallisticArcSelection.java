@@ -1,4 +1,4 @@
-package ballistics;
+package org.firstinspires.ftc.teamcode.ballistics;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -18,18 +18,18 @@ public final class BallisticArcSelection {
          * Gets the horizontal distance traveled by the arc when it reaches the 
          * goal. In other words, this is the final x coordinate of the arc.
          */
-        DISTANCE((arc) -> arc.lastPoint().x), 
+        DISTANCE((arc) -> arc.lastPoint().getXComponent()), 
 
         /**
          * Gets the speed of the arc's first velocity.
          */
-        SPEED((arc) -> arc.firstVel().norm()),
+        SPEED((arc) -> arc.firstVel().getMagnitude()),
 
         /**
          * Gets the angle from the x-axis of the arc's first velocity. The 
          * returned value is in radians
          */
-        ANGLE((arc) -> arc.firstVel().arctan()),
+        ANGLE((arc) -> arc.firstVel().getTheta()),
         
         /** 
          * The specific metric of arcs used in the selection is not known. 

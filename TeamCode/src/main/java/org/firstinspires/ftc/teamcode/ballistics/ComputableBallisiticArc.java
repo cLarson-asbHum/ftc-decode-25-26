@@ -1,4 +1,6 @@
-package ballistics;
+package org.firstinspires.ftc.teamcode.ballistics;
+
+import com.pedropathing.math.Vector;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -38,7 +40,7 @@ public class ComputableBallisiticArc implements BallisticArc {
         }
 
         public Builder setVel(double theta, double speed) {
-            this.vel = new Vector(Math.cos(theta), Math.sin(theta)).scale(speed);
+            this.vel = new Vector(Math.cos(theta), Math.sin(theta)).times(speed);
             return this;
         }
 
@@ -129,15 +131,15 @@ public class ComputableBallisiticArc implements BallisticArc {
         final Vector curVel = getCurrentVelocity();
 
         // Getting the forces
-        final double dragMagnitude = 0.5 * dragScalar * curVel.norm();
-        final Vector accel = curVel.scale(-dragMagnitude).add(gravity);
+        final double dragMagnitude = 0.5 * dragScalar * curVel.getMagnitude();
+        final Vector accel = curVel.times(-dragMagnitude).plus(gravity);
         final Vector deltaPos = accel
-            .scale(0.5 * deltaTime * deltaTime)
-            .add(curVel.scale(2 * deltaTime));
+            .times(0.5 * deltaTime * deltaTime)
+            .plus(curVel.times(2 * deltaTime));
 
         //Updating the velocity and the position
-        vels.add(curVel.add(accel.scale(deltaTime)));
-        points.add(curPos.add(deltaPos));
+        vels.add(curVel.plus(accel.times(deltaTime)));
+        points.add(curPos.plus(deltaPos));
         elapsed += deltaTime;
     }
 
