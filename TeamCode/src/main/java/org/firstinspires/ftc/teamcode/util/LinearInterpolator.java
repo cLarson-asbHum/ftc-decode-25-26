@@ -1,15 +1,14 @@
 package org.firstinspires.ftc.teamcode.util;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.DoubleSupplier;
+import java.util.function.DoubleUnaryOperator;
 
 import org.firstinspires.ftc.teamcode.util.Util;
 
-public class LinearInterpolator implements DoubleSupplier {
-    private final DoubleSupplier getter;
-    
+public class LinearInterpolator implements DoubleUnaryOperator {
     /**
      * The input the corresponding output was at.
      */
@@ -20,9 +19,7 @@ public class LinearInterpolator implements DoubleSupplier {
      */
     private final double[] outs;
 
-    public LinearInterpolator(Map<Double, Double> coordinatePairs, DoubleSupplier getter) {
-        this.getter = getter;
-
+    public LinearInterpolator(Map<Double, Double> coordinatePairs) {
         // Initializing ins and sorting
         this.ins = new double[coordinatePairs.size()];
         final Double[] wrappedInputs = coordinatePairs.keySet().toArray(new Double[ins.length]);
@@ -83,7 +80,7 @@ public class LinearInterpolator implements DoubleSupplier {
     }
 
     @Override
-    public double getAsDouble() {
-        return calculate(getter.getAsDouble());
+    public double applyAsDouble(double input) {
+        return calculate(input);
     }
 }

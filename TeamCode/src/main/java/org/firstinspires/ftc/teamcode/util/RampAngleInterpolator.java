@@ -12,7 +12,7 @@ public class RampAngleInterpolator extends LinearInterpolator implements AngleGe
     private final DistanceUnit distsUnit;
 
     public RampAngleInterpolator(final DistanceUnit units, Map<Double, Double> distAnglePairs, DistanceGetter distGetter) {
-        super(distAnglePairs, () -> distGetter.getDistance(units));
+        super(distAnglePairs);
         this.distsUnit = units;
     }
 
@@ -58,6 +58,6 @@ public class RampAngleInterpolator extends LinearInterpolator implements AngleGe
      */
     @Override
     public double getAngle() {
-        return getAsDouble();
+        return getAngle();
     }
 }
