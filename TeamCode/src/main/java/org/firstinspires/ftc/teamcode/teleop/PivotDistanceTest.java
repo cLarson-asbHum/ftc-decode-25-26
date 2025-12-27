@@ -23,9 +23,9 @@ import org.firstinspires.ftc.teamcode.util.Util;
 
 @TeleOp(group="B - Testing")
 public class PivotDistanceTest extends OpMode {
-    public static double SERVO_STEP = 0.02;
-    public static double ANGLE_START = Math.toRadians(38);
-    public static double ANGLE_STEP = Math.toRadians(5);
+    public static double SERVO_STEP = 0.01;
+    public static double ANGLE_START = Math.toRadians(37);
+    public static double ANGLE_STEP = Math.toRadians(1);
 
     private final ArrayList<String> nullDeviceNames = new ArrayList<>();
     private final ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
@@ -114,7 +114,8 @@ public class PivotDistanceTest extends OpMode {
         final DoubleSupplier getDistance = new DoubleSupplier() {
             @Override
             public double getAsDouble() {
-                return rampDistanceSensor.getDistance(units);
+                // return rampDistanceSensor.getDistance(units);
+                return rampPivot.getPosition(); // NOTE: Distance sensor was unreliable, so we'll use the servo
             }
         };
         final RollingAverage rollingAverage = new RollingAverage(
@@ -134,32 +135,23 @@ public class PivotDistanceTest extends OpMode {
 
         // NOTE: This is a default tuning, from 18 Dec 2025 at 10:32 AM
         final HashMap<Double, Double> pretunedData = new HashMap<>() {{
-            put(3.35, Math.toRadians(38.0));
-            put(3.61, Math.toRadians(40.0));
-            put(3.66, Math.toRadians(42.0));
-            put(3.70, Math.toRadians(44.0));
-
-            put(3.75, Math.toRadians(46.0));
-            put(3.78, Math.toRadians(48.0));
-            put(3.95, Math.toRadians(50.0));
-            put(3.99, Math.toRadians(52.0));
-
-            put(4.10, Math.toRadians(54.0));
-            put(4.22, Math.toRadians(56.0));
-            put(4.37, Math.toRadians(58.0));
-            put(4.49, Math.toRadians(60.0));
-
-            put(4.64, Math.toRadians(62.0));
-            put(4.67, Math.toRadians(64.0));
-            put(4.69, Math.toRadians(66.0));
-            put(4.75, Math.toRadians(68.0));
-
-            put(4.79, Math.toRadians(70.0));
-            put(4.82, Math.toRadians(72.0));
-
+            final double[] dists = new double[] {
+                0.00, 0.03, 0.06, 0.08,   0.11, 0.13, 0.16, 0.18, 
+                0.20, 0.24, 0.26, 0.29,   0.31, 0.36, 0.40, 0.42, 
+                0.46, 0.49, 0.52, 0.54,   0.56, 0.58, 0.60, 0.62, 
+                0.65, 0.70, 0.72, 0.75,   0.77, 0.80, 0.83, 0.86,
+                0.88, 0.90, 0.94, 0.98,   1.00
+            };
+            
+            double angle = 37.0;
+            for(final double dist : dists) {
+                put(dist, Math.toRadians(angle));
+                angle++;
+            }
+            
             // The following values are just in case we get out of bound values
-            put(0.5, Math.toRadians(38.0)); // Minimum possible angle
-            put(20.0, Math.toRadians(72.0));  // Maximum possible angle
+            put(-0.1, Math.toRadians(37.0)); // Minimum possible angle
+            put(1.1, Math.toRadians(73.0));  // Maximum possible angle
         }};
         rampAngle = new RampAngleInterpolator(DistanceUnit.INCH, pretunedData, rampDistance); 
 
@@ -210,7 +202,8 @@ public class PivotDistanceTest extends OpMode {
         telemetry.addLine(Util.header("Data"));
         telemetry.addLine();
 
-        final String distanceSuffix = units == DistanceUnit.CM ? "cm" : "in";
+        // final String distanceSuffix = units == DistanceUnit.CM ? "cm" : "in";
+        final String distanceSuffix = "pos"; // 
         for(int i = 0; i < distances.size(); i++) {
             telemetry.addData(
                 String.format("%.2f %s", distances.get(i), distanceSuffix), 
@@ -221,7 +214,8 @@ public class PivotDistanceTest extends OpMode {
 
     private void changeUnits() {
         final DistanceUnit oldUnits = units;
-        final DistanceUnit newUnits = units == DistanceUnit.CM ? DistanceUnit.INCH : DistanceUnit.CM;
+        // final DistanceUnit newUnits = units == DistanceUnit.CM ? DistanceUnit.INCH : DistanceUnit.CM;
+        final DistanceUnit newUnits = DistanceUnit.INCH; // NOTE: Keep it the same because we're using servo pos, not distance
         units = newUnits;
 
         // Convering the recorded distances to the new units
@@ -280,7 +274,8 @@ public class PivotDistanceTest extends OpMode {
         }
         
         // Data
-        final String distanceSuffix = units == DistanceUnit.CM ? "cm" : "in";
+        // final String distanceSuffix = units == DistanceUnit.CM ? "cm" : "in";
+        final String distanceSuffix = "pos";
         telemetry.addLine();
         telemetry.addLine(Util.header(currentMode.name()));
         telemetry.addLine();

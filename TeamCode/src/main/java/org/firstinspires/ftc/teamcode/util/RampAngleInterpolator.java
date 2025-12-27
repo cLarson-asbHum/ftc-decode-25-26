@@ -11,9 +11,12 @@ public class RampAngleInterpolator extends LinearInterpolator implements AngleGe
      */
     private final DistanceUnit distsUnit;
 
+    private final DistanceGetter getter;
+
     public RampAngleInterpolator(final DistanceUnit units, Map<Double, Double> distAnglePairs, DistanceGetter distGetter) {
         super(distAnglePairs);
         this.distsUnit = units;
+        this.getter = distGetter;
     }
 
     /**
@@ -51,13 +54,10 @@ public class RampAngleInterpolator extends LinearInterpolator implements AngleGe
     }
 
     /**
-     * Alias for `LinearInterpolator.getAsDouble().` This reevaluates the
-     * expression of the getter provided at construction time. 
-     * 
      * @return The angle, in radians, for the current distance 
      */
     @Override
     public double getAngle() {
-        return getAngle();
+        return calculateAngle(getter.getDistance(distsUnit));
     }
 }
