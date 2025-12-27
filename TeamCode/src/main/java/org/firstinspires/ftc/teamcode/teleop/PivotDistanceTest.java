@@ -17,6 +17,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.util.AngleGetter;
 import org.firstinspires.ftc.teamcode.util.DistanceGetter;
+import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
 import org.firstinspires.ftc.teamcode.util.RampAngleInterpolator;
 import org.firstinspires.ftc.teamcode.util.RollingAverage;
 import org.firstinspires.ftc.teamcode.util.Util;
@@ -32,7 +33,8 @@ public class PivotDistanceTest extends OpMode {
 
     private Servo rampPivot = null;
     private DistanceGetter rampDistance = null;
-    private AngleGetter rampAngle = null;
+    private RampAngleInterpolator rampAngle = null;
+    private LinearInterpolator inverseAngle = null;
 
     private DistanceUnit units = DistanceUnit.INCH;
     private ArrayList<Double> distances = new ArrayList<>();
@@ -45,6 +47,9 @@ public class PivotDistanceTest extends OpMode {
     private Mode currentMode = Mode.NO_DATA;
 
     private boolean areControlsHidden = true;
+
+    private double lastAngle = ANGLE_START;
+    private boolean usingPosition = true;
 
     /**
      * Attempts to get the given hardware from the hardwareMap. If it cannot be 
@@ -133,7 +138,7 @@ public class PivotDistanceTest extends OpMode {
         );
         rampDistance = (unit) -> rollingAverage.getAsDouble();
 
-        // NOTE: This is a default tuning, from 18 Dec 2025 at 10:32 AM
+        // NOTE: This is a default tuning, from 27 Dec 2025 at 1:28 AM
         final HashMap<Double, Double> pretunedData = new HashMap<>() {{
             final double[] dists = new double[] {
                 0.00, 0.03, 0.06, 0.08,   0.11, 0.13, 0.16, 0.18, 
@@ -154,6 +159,7 @@ public class PivotDistanceTest extends OpMode {
             put(1.1, Math.toRadians(73.0));  // Maximum possible angle
         }};
         rampAngle = new RampAngleInterpolator(DistanceUnit.INCH, pretunedData, rampDistance); 
+        inverseAngle = rampAngle.inverse();
 
         telemetry.setMsTransmissionInterval(33);
         // telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE);
@@ -228,16 +234,32 @@ public class PivotDistanceTest extends OpMode {
     }
 
     private void changePivotAngle() {
-        double newPosition = rampPivot.getPosition();
-        if(gamepad1.dpadUpWasPressed()) {
-            newPosition += SERVO_STEP;
+        double newPosition = 0.0;
+
+        if(usingPosition) {
+            newPosition = rampPivot.getPosition();
+            if(gamepad1.dpadUpWasPressed()) {
+                newPosition += SERVO_STEP;
+            }
+
+            if(gamepad1.dpadDownWasPressed()) {
+                newPosition -= SERVO_STEP;
+            }
+        } else {
+            newPosition = lastAngle;
+            if(gamepad1.dpadUpWasPressed()) {
+                newPosition += ANGLE_STEP;
+            }
+
+            if(gamepad1.dpadDownWasPressed()) {
+                newPosition -= ANGLE_STEP;
+            }
+            newPosition = Util.clamp(Math.toRadians(37), newPosition, Math.toRadians(73));
+            lastAngle = newPosition;
+            newPosition = inverseAngle.applyAsDouble(newPosition);
         }
 
-        if(gamepad1.dpadDownWasPressed()) {
-            newPosition -= SERVO_STEP;
-        }
-
-        telemetry.addData("new Pos", newPosition);
+        // telemetry.addData("new Pos", newPosition);
         rampPivot.setPosition(Util.clamp(0, newPosition, 1.0));
     }
 
@@ -253,7 +275,8 @@ public class PivotDistanceTest extends OpMode {
         }
 
         if(gamepad1.bWasPressed()) {
-            changeUnits();
+            // changeUnits();
+            usingPosition = !usingPosition;
         }
 
         changePivotAngle();
@@ -261,12 +284,13 @@ public class PivotDistanceTest extends OpMode {
         // Controls
         if(!areControlsHidden) {
             telemetry.addLine(Util.header("Controls (Back to hide)"));
-            telemetry.addData("Change units", "B");
+            // telemetry.addData("Change units", "B");
             telemetry.addLine();
             telemetry.addData("Record distance", "A");
             telemetry.addData("Save data", "Y");
             telemetry.addData("Clear data", "X");
             telemetry.addLine();
+            telemetry.addData("Change angle units", "B");
             telemetry.addData("Raise pivot", "↑");
             telemetry.addData("Lower pivot", "↓");
         } else {
@@ -279,9 +303,21 @@ public class PivotDistanceTest extends OpMode {
         telemetry.addLine();
         telemetry.addLine(Util.header(currentMode.name()));
         telemetry.addLine();
+
+        if(usingPosition) {
+            telemetry.addLine("[POS]");
+        } else {
+            telemetry.addLine("[RAD]");
+        }
+
         telemetry.addData("Servo pos", rampPivot.getPosition());
         telemetry.addData("Distance", "%.2f %s", rampDistance.getDistance(units), distanceSuffix);
-        telemetry.addData("Expected Angle", "%.1f°", rampAngle.getAngle(AngleUnit.DEGREES));
+
+        if(usingPosition) {
+            telemetry.addData("Expected Angle", "%.1f°", rampAngle.getAngle(AngleUnit.DEGREES));
+        } else {
+            telemetry.addData("Expected Angle", "%.1f°", Math.toDegrees(lastAngle));
+        }
     }
 
     @Override

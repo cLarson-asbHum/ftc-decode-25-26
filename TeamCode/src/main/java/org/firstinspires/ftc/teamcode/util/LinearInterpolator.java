@@ -83,4 +83,23 @@ public class LinearInterpolator implements DoubleUnaryOperator {
     public double applyAsDouble(double input) {
         return calculate(input);
     }
+
+    /**
+     * Creates the inverse function of this interpolator. The returned interpolator 
+     * is a new interpolator and the inputs and outputs are cloned by this method.
+     * 
+     * The calling interpolator is not modified as a result of this method
+     * 
+     * @return An interpolator with this interpolator's inputs and outputs swapped
+     */
+    public LinearInterpolator inverse() {
+        final HashMap<Double, Double> pairs = new HashMap<>();
+
+        for(int i = 0; i < ins.length; i++) {
+            pairs.put(outs[i], ins[i]);
+        }
+
+        return new LinearInterpolator(pairs);
+    }
+
 }
