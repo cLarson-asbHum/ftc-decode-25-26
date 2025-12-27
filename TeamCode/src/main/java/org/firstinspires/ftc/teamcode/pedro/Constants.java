@@ -75,7 +75,7 @@ public class Constants {
         0.995,  // tValueConstraint
         20,     // velocityConstraint, in/s
         2,      // translationalConstraint, inches
-        Math.toRadians(100), // headingConstraint, radians
+        Math.toRadians(5), // headingConstraint, radians
         100,    // timeoutConstraint
         0.65,   // brakingStrength
         10,     // bezierCurveSearchLimit

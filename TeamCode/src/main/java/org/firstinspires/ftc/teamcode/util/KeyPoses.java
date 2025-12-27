@@ -7,20 +7,29 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public final class KeyPoses {
     public static final class Blue {
         public static final Pose BASE = new Pose(105, 33);
-        public static final Pose GOAL = new Pose(12, 144 - 7.25);
+        // public static final Pose GOAL = new Pose(12, 144 - 7.25);
+        public static final Pose GOAL = new Pose(24 - 6.57, 120 + 13.0); // Edge of the wall, determines from an image
         public static final Pose LOADING = new Pose(132, 12);
 
         public static final Pose SHOOTING = new Pose(
             56,
             106, // A little higher than the jigsaw so we are facing the goal
-            Math.toRadians(325)
+            AngleUnit.normalizeRadians(Math.toRadians(325))
+        );
+
+        public static final Pose FAR_SHOOTING = new Pose(
+            // TODO: Make red as well
+            // Determines from an image
+            48 + 11.5,
+            0 + 18.1,
+            AngleUnit.normalizeRadians(Math.toRadians(110 + 180))
         );
 
         // Artifacts are on the side closest to the blue goal
         // Colors are ordered coming in from the inner edge
-        public static final Pose LAST_PURPLE = new Pose(24, 84);
-        public static final Pose MIDDLE_PURPLE = new Pose(24, 60);
-        public static final Pose FIRST_PURPLE = new Pose(24, 46);
+        public static final Pose LAST_GREEN = new Pose(24, 84);
+        public static final Pose MIDDLE_GREEN = new Pose(24, 60);
+        public static final Pose FIRST_GREEN = new Pose(24, 46);
         // public static final Pose POSE = new Pose();
 
         
@@ -37,11 +46,18 @@ public final class KeyPoses {
             AngleUnit.normalizeRadians(Math.PI - KeyPoses.Blue.SHOOTING.getHeading())
         );
 
+        
+        public static final Pose FAR_SHOOTING = new Pose(
+            144 - KeyPoses.Blue.FAR_SHOOTING.getX(),
+            144 - KeyPoses.Blue.FAR_SHOOTING.getY(), 
+            AngleUnit.normalizeRadians(Math.PI - KeyPoses.Blue.FAR_SHOOTING.getHeading())
+        );
+
         // Artifacts are on the side closest to the blue goal
         // Colors are ordered coming in from the inner edge
-        public static final Pose LAST_PURPLE = Blue.LAST_PURPLE.mirror();
-        public static final Pose MIDDLE_PURPLE = Blue.MIDDLE_PURPLE.mirror();
-        public static final Pose FIRST_PURPLE = Blue.FIRST_PURPLE.mirror();
+        public static final Pose LAST_GREEN = Blue.LAST_GREEN.mirror();
+        public static final Pose MIDDLE_GREEN = Blue.MIDDLE_GREEN.mirror();
+        public static final Pose FIRST_GREEN = Blue.FIRST_GREEN.mirror();
     }
 
     public static Pose base(boolean isRed) {
@@ -60,16 +76,20 @@ public final class KeyPoses {
         return isRed ? Red.SHOOTING : Blue.SHOOTING;
     }
 
-    public static Pose lastPurple(boolean isRed)   {
-        return isRed ? Red.LAST_PURPLE : Blue.LAST_PURPLE;
+    public static Pose farShooting(boolean isRed) {
+        return isRed ? Red.FAR_SHOOTING : Blue.FAR_SHOOTING;
     }
 
-    public static Pose middlePurple(boolean isRed) {
-        return isRed ? Red.MIDDLE_PURPLE : Blue.MIDDLE_PURPLE;
+    public static Pose lastGreen(boolean isRed)   {
+        return isRed ? Red.LAST_GREEN : Blue.LAST_GREEN;
     }
 
-    public static Pose firstPurple(boolean isRed)  {
-        return isRed ? Red.FIRST_PURPLE : Blue.FIRST_PURPLE;
+    public static Pose middleGreen(boolean isRed) {
+        return isRed ? Red.MIDDLE_GREEN : Blue.MIDDLE_GREEN;
+    }
+
+    public static Pose firstGreen(boolean isRed)  {
+        return isRed ? Red.FIRST_GREEN : Blue.FIRST_GREEN;
     }
 
 }
