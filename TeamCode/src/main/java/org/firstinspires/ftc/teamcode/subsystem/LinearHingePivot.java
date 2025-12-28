@@ -88,6 +88,10 @@ public class LinearHingePivot implements PivotSubsystem {
         }
     }
     
+    public double convertFromPosition(double positon) {
+        return this.positionToRadians.applyAsDouble(positon);
+    }
+
     private boolean setServoPosition(double position, double tolerance) {
         if(pivot == null) {
             return false;

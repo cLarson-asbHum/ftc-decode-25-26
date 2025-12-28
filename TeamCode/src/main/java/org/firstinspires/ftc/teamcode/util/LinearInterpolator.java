@@ -76,7 +76,7 @@ public class LinearInterpolator implements DoubleUnaryOperator {
      * @return The calculated output. 
      */
     public double clampedCalculate(double input) {
-        return calculate(Util.clamp(0, input, ins[ins.length - 1]));
+        return calculate(Util.clamp(ins[0], input, ins[ins.length - 1]));
     }
 
     @Override
