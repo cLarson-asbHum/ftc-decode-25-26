@@ -152,8 +152,22 @@ public final class BallisticFileIo {
      * Returns all the arcs in the file that satisfy the given condition. 
      */
     public static LinkedList<BallisticArc> readArcs(File file, ArcFunction filter) throws IOException {
-        final LinkedList<BallisticArc> result = new LinkedList<>();
+        LinkedList<BallisticArc> result = null;
         final FileInputStream reader = new FileInputStream(file);
+
+        try {
+            result = readArcs(reader, filter);
+        } catch(IOException | InnerException exception) {
+            reader.close();
+            throw exception;
+        }
+
+        reader.close();
+        return result;
+    }
+
+    public static LinkedList<BallisticArc> readArcs(FileInputStream reader, ArcFunction filter) throws IOException {
+        final LinkedList<BallisticArc> result = new LinkedList<>();
         int position = 0;
 
         try {
@@ -177,27 +191,24 @@ public final class BallisticFileIo {
                 final int size = intFromBuf(buf, 4); // in point vectors, not total point and velocit vecs nor file bytes
 
                 // Creating the ballistic arc stream
-                final FileChannel channel = FileChannel.open(file.toPath());
-                channel.position(position);
+                final FileChannel channel = reader.getChannel();
+                // channel.position(position);
                 final BallisticArcStream stream = new BallisticArcStream(channel, elapsed, size);
 
                 // Concretizing the arc and adding it to the result only if it satisfies the filter
                 if(filter.apply(stream)) {
                     result.add(stream.concretize());
                 }
-                channel.close();
-
+                
                 // Going to the next arc
                 final int dataByteLength = size * 4 * Float.BYTES;
-                reader.skip(dataByteLength);
+                channel.position(position + dataByteLength);
                 position += dataByteLength;
             }
         } catch(IOException | InnerException exception) {
-            reader.close();
             throw exception;
         }
 
-        reader.close();
         return result;
     }
 
