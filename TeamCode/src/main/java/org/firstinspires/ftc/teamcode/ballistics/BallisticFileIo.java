@@ -5,6 +5,7 @@ import com.pedropathing.math.Vector;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -66,24 +67,22 @@ public final class BallisticFileIo {
      * which stores all its data at once upon computation. These, however, cannot be computed
      */
     private static final class BallisticArcStream implements BallisticArc {
-        private final FileChannel channel; 
-        private final long channelStartPosition;
+        private final InputStream stream; 
         private final double elapsed;
         private final int size;
 
         /**
          * Creates a ballistic arc that sources its data from a file.
-         * @param channel The file data. The position must be at the first byte of data 
+         * @param stream The file data. The position must be at the first byte of data 
          * (immediately after the size metadata field)
          * @param elapsed The time surmised by the arc. Returned by `getElapsedTime()`
          * @param pointSize The number of points in the arc. This is equal to the number of 
          * velocities but **not** the number of bytes. 
          */
-        BallisticArcStream(FileChannel channel, float elapsed, int pointSize) throws IOException {
+        BallisticArcStream(InputStream stream, float elapsed, int pointSize) throws IOException {
             this.elapsed = elapsed;
             this.size = pointSize;
-            this.channel = channel;
-            this.channelStartPosition = channel.position();
+            this.stream = stream;
         }
 
         @Override
@@ -95,8 +94,9 @@ public final class BallisticFileIo {
         public Vector getPoint(int i) {
             try {
                 final byte[] buf = new byte[2 * Float.BYTES];
-                final ByteBuffer bufProxy = ByteBuffer.wrap(buf);
-                channel.read(bufProxy, channelStartPosition + buf.length * i);
+                stream.reset();
+                stream.skip(buf.length * i);
+                stream.read(buf);
                 return new Vector(
                     Float.intBitsToFloat(intFromBuf(buf, 0)), 
                     Float.intBitsToFloat(intFromBuf(buf, 4))
@@ -110,8 +110,9 @@ public final class BallisticFileIo {
         public Vector getVel(int i) {
             try {
                 final byte[] buf = new byte[2 * Float.BYTES];
-                final ByteBuffer bufProxy = ByteBuffer.wrap(buf);
-                channel.read(bufProxy, channelStartPosition + buf.length * (i + size));
+                stream.reset();
+                stream.skip(buf.length * i);
+                stream.read(buf);
                 return new Vector(
                     Float.intBitsToFloat(intFromBuf(buf, 0)), 
                     Float.intBitsToFloat(intFromBuf(buf, 4))
@@ -166,7 +167,7 @@ public final class BallisticFileIo {
         return result;
     }
 
-    public static LinkedList<BallisticArc> readArcs(FileInputStream reader, ArcFunction filter) throws IOException {
+    public static LinkedList<BallisticArc> readArcs(InputStream reader, ArcFunction filter) throws IOException {
         final LinkedList<BallisticArc> result = new LinkedList<>();
         int position = 0;
 
@@ -191,9 +192,9 @@ public final class BallisticFileIo {
                 final int size = intFromBuf(buf, 4); // in point vectors, not total point and velocit vecs nor file bytes
 
                 // Creating the ballistic arc stream
-                final FileChannel channel = reader.getChannel();
-                // channel.position(position);
-                final BallisticArcStream stream = new BallisticArcStream(channel, elapsed, size);
+                final int dataByteLength = size * 4 * Float.BYTES;
+                reader.mark(dataByteLength);
+                final BallisticArcStream stream = new BallisticArcStream(reader, elapsed, size);
 
                 // Concretizing the arc and adding it to the result only if it satisfies the filter
                 if(filter.apply(stream)) {
@@ -201,8 +202,8 @@ public final class BallisticFileIo {
                 }
                 
                 // Going to the next arc
-                final int dataByteLength = size * 4 * Float.BYTES;
-                channel.position(position + dataByteLength);
+                reader.reset();
+                reader.skipNBytes(position + dataByteLength);
                 position += dataByteLength;
             }
         } catch(IOException | InnerException exception) {
