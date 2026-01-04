@@ -848,6 +848,10 @@ public final class BallisticArcSelection {
             return null;
         }
 
+        if(indices == null) {
+            return arcs[0];
+        }
+
         return arcs[indices[0]];
     }
     
@@ -860,6 +864,10 @@ public final class BallisticArcSelection {
     public BallisticArc last() {
         if(indices != null && indices.length == 0) {
             return null;
+        }
+
+        if(indices == null) {
+            return arcs[0];
         }
 
         return arcs[ indices[indices.length - 1] ];

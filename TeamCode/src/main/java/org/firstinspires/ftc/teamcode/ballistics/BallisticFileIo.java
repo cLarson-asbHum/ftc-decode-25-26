@@ -111,7 +111,7 @@ public final class BallisticFileIo {
             try {
                 final byte[] buf = new byte[2 * Float.BYTES];
                 stream.reset();
-                stream.skip(buf.length * i);
+                stream.skip(buf.length * (i + size));
                 stream.read(buf);
                 return new Vector(
                     Float.intBitsToFloat(intFromBuf(buf, 0)), 
@@ -133,7 +133,8 @@ public final class BallisticFileIo {
         }
 
         public BallisticArc concretize() {
-            return new ImmutableBallisticArc(this);
+            // return new ImmutableBallisticArc(this);
+            return this;
         }
     }
 
@@ -172,7 +173,7 @@ public final class BallisticFileIo {
         int position = 0;
 
         try {
-            final int MAX_ITERS = Integer.MAX_VALUE; // Infinite loop prevention 
+            final int MAX_ITERS = 100_000; // Infinite loop prevention 
 
             // NOTE: This loop is ordinarily broken by a break statement inside the loop
             //       The only reason we are using a for loop is to provide infinite loop 
@@ -203,7 +204,7 @@ public final class BallisticFileIo {
                 
                 // Going to the next arc
                 reader.reset();
-                reader.skipNBytes(position + dataByteLength);
+                reader.skip(dataByteLength);
                 position += dataByteLength;
             }
         } catch(IOException | InnerException exception) {
