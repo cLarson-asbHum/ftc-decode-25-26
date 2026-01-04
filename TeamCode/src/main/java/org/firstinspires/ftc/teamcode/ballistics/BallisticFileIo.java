@@ -63,6 +63,71 @@ public final class BallisticFileIo {
     }
 
     /**
+     * An arc that only stores its first and last of the points and velocities.
+     */
+    private static final class FirstLastBallisticArc implements BallisticArc {
+        private final double elapsed;
+
+        private final Vector firstPoint;
+        private final Vector lastPoint;
+
+        private final Vector firstVelocity;
+        private final Vector lastVelocity;
+
+        FirstLastBallisticArc(BallisticArc arc) {
+            this.elapsed = arc.getElapsedTime();
+
+            this.firstPoint = arc.firstPoint();
+            this.lastPoint = arc.lastPoint();
+            this.firstVelocity = arc.firstVel();
+            this.lastVelocity = arc.lastVel();
+        }
+
+        @Override
+        public Vector getPoint(int i) {
+            if(i == 0) {
+                return this.firstPoint;
+            }
+
+            if(i == 1) {
+                return this.lastPoint;
+            }
+
+            // Out of bounds
+            throw new IndexOutOfBoundsException(i);
+        }
+
+        @Override
+        public Vector getVel(int i) {
+            if(i == 0) {
+                return this.firstVelocity;
+            }
+
+            if(i == 1) {
+                return this.lastVelocity;
+            }
+
+            // Out of bounds
+            throw new IndexOutOfBoundsException(i);
+        }
+
+        @Override
+        public int size() {
+            return 2;
+        }
+    
+        @Override
+        public double getElapsedTime() {
+            return this.elapsed;
+        }
+    
+        @Override
+        public boolean compute(double unused1, ArcFunction unused2) {
+            return false;
+        }
+    }
+
+    /**
      * Supplies data for a ballistic arc lazily. This is in contrast to ComputableBallisiticArc,
      * which stores all its data at once upon computation. These, however, cannot be computed
      */
@@ -132,9 +197,15 @@ public final class BallisticFileIo {
             return false;
         }
 
+        /**
+         * Creates an `ImmutableBallisticArc` that only has the correct time, 
+         * first point, last point, first velocity, and last velocity. No 
+         * in-between points are kept 
+         * 
+         * @return An ImmutableBallisticArc with only the important aspects
+         */
         public BallisticArc concretize() {
-            // return new ImmutableBallisticArc(this);
-            return this;
+            return new ImmutableBallisticArc(new FirstLastBallisticArc(this));
         }
     }
 
