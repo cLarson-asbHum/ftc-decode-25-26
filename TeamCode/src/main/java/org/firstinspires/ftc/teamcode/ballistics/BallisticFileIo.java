@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.ballistics;
 
+import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
 
 import java.io.File;
@@ -126,7 +127,7 @@ public final class BallisticFileIo {
             return false;
         }
     }
-
+    
     /**
      * Supplies data for a ballistic arc lazily. This is in contrast to ComputableBallisiticArc,
      * which stores all its data at once upon computation. These, however, cannot be computed
@@ -162,10 +163,10 @@ public final class BallisticFileIo {
                 stream.reset();
                 stream.skip(buf.length * i);
                 stream.read(buf);
-                return new Vector(
+                return new Vector(new Pose(
                     Float.intBitsToFloat(intFromBuf(buf, 0)), 
                     Float.intBitsToFloat(intFromBuf(buf, 4))
-                ); 
+                )); 
             } catch(IOException exception) {
                 throw new InnerException(exception);
             }
@@ -178,10 +179,10 @@ public final class BallisticFileIo {
                 stream.reset();
                 stream.skip(buf.length * (i + size));
                 stream.read(buf);
-                return new Vector(
+                return new Vector(new Pose(
                     Float.intBitsToFloat(intFromBuf(buf, 0)), 
                     Float.intBitsToFloat(intFromBuf(buf, 4))
-                ); 
+                )); 
             } catch(IOException exception) {
                 throw new InnerException(exception);
             }

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.ballistics;
 
+import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
 
 import java.util.Iterator;
@@ -24,10 +25,10 @@ public class ComputableBallisiticArc implements BallisticArc {
     // private ComputableBallisiticArc() {}
     
     public static class Builder {
-        private Vector start = new Vector(0,0);
-        private Vector vel = new Vector(0, 0);
+        private Vector start = new Vector();
+        private Vector vel = new Vector();
         private double dragScalar = 1;
-        private Vector gravity = new Vector(0, -1);
+        private Vector gravity = new Vector(new Pose(0, -1));
         
         public Builder setStart(Vector newStart) {
             this.start = newStart;
@@ -40,7 +41,7 @@ public class ComputableBallisiticArc implements BallisticArc {
         }
 
         public Builder setVel(double theta, double speed) {
-            this.vel = new Vector(Math.cos(theta), Math.sin(theta)).times(speed);
+            this.vel = new Vector(speed, theta);
             return this;
         }
 
@@ -55,7 +56,7 @@ public class ComputableBallisiticArc implements BallisticArc {
         }
 
         public Builder setGravity(double gravity) {
-            this.gravity = new Vector(0, gravity);
+            this.gravity = new Vector(new Pose(0, gravity));
             return this;
         }
 
