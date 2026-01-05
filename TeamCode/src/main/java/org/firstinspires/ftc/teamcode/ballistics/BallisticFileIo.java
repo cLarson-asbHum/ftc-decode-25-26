@@ -242,7 +242,6 @@ public final class BallisticFileIo {
 
     public static LinkedList<BallisticArc> readArcs(InputStream reader, ArcFunction filter) throws IOException {
         final LinkedList<BallisticArc> result = new LinkedList<>();
-        int position = 0;
 
         try {
             final int MAX_ITERS = 100_000; // Infinite loop prevention 
@@ -251,10 +250,9 @@ public final class BallisticFileIo {
             //       The only reason we are using a for loop is to provide infinite loop 
             //       prevention
             fileParsingLoop:
-            for(int iters = 0; iters < MAX_ITERS; iters++) {
+            for(int iters = 0; iters < MAX_ITERS && !Thread.interrupted(); iters++) {
                 // Gettting the meta data
                 final byte[] buf = new byte[METADATA_BYTES];
-                position += buf.length;
 
                 if(reader.read(buf) == -1) {
                     // read only returns -1 if the end of the file has been reached.
@@ -277,7 +275,6 @@ public final class BallisticFileIo {
                 // Going to the next arc
                 reader.reset();
                 reader.skip(dataByteLength);
-                position += dataByteLength;
             }
         } catch(IOException | InnerException exception) {
             throw exception;
@@ -291,9 +288,9 @@ public final class BallisticFileIo {
         // Floats are stored little endian
         final byte[] buf = new byte[floats.length * Float.BYTES];
 
-        for(int bufStartIndex = 0; bufStartIndex < buf.length; bufStartIndex += 4) {
+        for(int bufStartIndex = 0; bufStartIndex < buf.length && !Thread.interrupted(); bufStartIndex += 4) {
             final int bits = Float.floatToIntBits(floats[bufStartIndex >> 2]);
-            for(int i = 0; i < Float.BYTES; i++) {
+            for(int i = 0; i < Float.BYTES && !Thread.interrupted(); i++) {
                 final int shifter = i << 3; // 8 * i
                 buf[bufStartIndex + i] = (byte) ((bits & (0xff << shifter)) >>> shifter);
 
@@ -308,7 +305,7 @@ public final class BallisticFileIo {
         // Serializing into a byte buffer
         // Floats are stored little endian
         final byte[] buf = new byte[Integer.BYTES];
-        for(int i = 0; i < Integer.BYTES; i++) {
+        for(int i = 0; i < Integer.BYTES && !Thread.interrupted(); i++) {
             final int shifter = i << 3; // 8 * i
             buf[i] = (byte) ((bits & (0xff << shifter)) >>> shifter);
         }
