@@ -27,7 +27,6 @@ import org.firstinspires.ftc.teamcode.subsystem.PivotSubsystem;
 
 @TeleOp(group="B - Testing")
 public class ShooterSpeedTest extends OpMode {
-    public static final double INCHES_TO_TICKS = 1300.0 / 250.0;
 
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();    
@@ -149,14 +148,13 @@ public class ShooterSpeedTest extends OpMode {
 
         final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor/* , rightShooterMotor */);
         shootingMotor = flywheels;
-        inchesToTicks = (inches) -> inches * INCHES_TO_TICKS; // TODO: Tune this
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier(leftReload)
-            .setTicksToInches((ticks) -> ticks / INCHES_TO_TICKS)
-            .setInchesToTicks(inchesToTicks)
+            .setTicksToInches(this::ticksToInches)
+            .setInchesToTicks(inchesToTicks = this::inchesToTicks)
             .build();
 
         this.shooter = rightShooter;
@@ -189,6 +187,24 @@ public class ShooterSpeedTest extends OpMode {
 
         // This means that no command will use the same subsystem at the same time.
         CommandScheduler.getInstance().registerSubsystem(rightShooter, pivot);
+    }
+
+    public double ticksToInches(double ticks) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = -2024.19872;
+        final double B =  293.31695;
+        final double H = -634.81204;
+        return K + B * Math.log(ticks - H);
+    }
+
+    public double inchesToTicks(double inches) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = -2024.19872;
+        final double B =  293.31695;
+        final double H = -634.81204;
+        return H + Math.exp((inches - K) / B);
     }
 
     @Override
