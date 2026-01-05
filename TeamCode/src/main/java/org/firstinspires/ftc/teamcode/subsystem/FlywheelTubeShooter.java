@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.function.DoubleUnaryOperator;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
@@ -128,11 +129,15 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public static FlywheelConst FLYWHEEL_CONST = new FlywheelConst();
     public static FeederConst FEEDER_CONST = new FeederConst();
 
+    private final DoubleUnaryOperator ticksToInches;
+    private final DoubleUnaryOperator inchesToTicks;
+
     /**
      * What is responsible for propelling the projectile very quickly
      */
     private final DcMotorGroup flywheels;
     private double targetFlyWheelPower = 0; 
+    private double chargedSpeed = FLYWHEEL_CONST.chargedPower;
     private boolean hasSetFlywheelPower = false;
     
     /**
@@ -176,6 +181,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         this.leftFeeder = builder.leftFeeder;
         this.rightReloadClassifier = builder.rightReloadClassifier;
         this.leftReloadClassifier = builder.leftReloadClassifier;
+        this.inchesToTicks = builder.inchesToTicks;
+        this.ticksToInches = builder.ticksToInches;
     }
 
     public static final class Builder {
@@ -184,6 +191,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         public CRServo leftFeeder = null;
         public ArtifactColorGetter rightReloadClassifier = null;
         public ArtifactColorGetter leftReloadClassifier = null;
+        public DoubleUnaryOperator ticksToInches = DoubleUnaryOperator.identity();
+        public DoubleUnaryOperator inchesToTicks = DoubleUnaryOperator.identity();
         
         public Builder() {
             // Do nothing; everything is initialized with the fields
@@ -220,6 +229,16 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             return this;
         }
 
+        public Builder setTicksToInches(DoubleUnaryOperator ticksToInches) {
+            this.ticksToInches = ticksToInches;
+            return this;
+        }
+        
+        public Builder setInchesToTicks(DoubleUnaryOperator inchesToTicks) {
+            this.inchesToTicks = inchesToTicks ;
+            return this;
+        }
+
         /**
          * Creates the shooter. This throws if no flywheels were added. 
          * 
@@ -239,13 +258,31 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             return false;
         }
 
-        // if(Math.abs(power - targetFlyWheelPower) < powerTolerance) {
-        //     return false;
-        // }
+        if(Math.abs(power - targetFlyWheelPower) < powerTolerance) {
+            return false;
+        }
 
         targetFlyWheelPower = power;
         hasSetFlywheelPower = true;
         return true;
+    }
+    
+    /**
+     * Guarantees that the target flywheel power is set to the given target.
+     * 
+     * @param power The target speed, in ticks per second.
+     * @param powerTolerance Used only in the return value.
+     * @return Whether the power would've been changed were tolerance being used.
+     */
+    private boolean forceFlywheelPower(double power, double powerTolerance) {
+        if(flywheels == null) {
+            return false;
+        }
+
+        final boolean wouldveChanged = Math.abs(power - targetFlyWheelPower) < powerTolerance;
+        targetFlyWheelPower = power;
+        hasSetFlywheelPower = true;
+        return !wouldveChanged;
     }
 
     /**
@@ -324,8 +361,69 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean charge() {
         setFeederPower(FEEDER_CONST.chargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(FLYWHEEL_CONST.chargedPower, FLYWHEEL_CONST.powerTolerance);
+        chargedSpeed = FLYWHEEL_CONST.chargedPower;
         startTimeout(Status.CHARGING, TIMEOUT.charging);
         return transitionTo(Status.CHARGING);
+    }
+
+    /**
+     * Attempst ot get the shooter to shoot at the given speed. The feeders
+     * are not moved. If the current shooter speed is already within 
+     * tolerance, the state remains unchanged. 
+     * 
+     * When true, the `forceTargetUpdate` forces the change of the speed target
+     * even when it is already within tolerance. Keeping it as false can improve
+     * code performance but may decrease accuracy.
+     * 
+     * The shooter becomes charged asynchronously; to wait for the shooter to 
+     * become charged, wait for the state (from `getStatus()` or `getState()`)
+     * to become `CHARGED`. Note that this may fail and become `UNCHARGING` 
+     * or `UNCHARGED` if the shooter cannot get up to speed.
+     * 
+     * @param speed How fast a projectile should exit, in inches per second.
+     * @param forceTargetUpdate True if the target speed should be updated 
+     * even if the current speed is already within tolerance of the new target.
+     * @return Whether the state was changed. False if already near new target
+     */
+    public boolean charge(double inchesPerSec, boolean forceTargetUpdate) {
+        // Setting the correct powers
+        final double nativeTargetSpeed = inchesToTicks.applyAsDouble(inchesPerSec);
+        boolean didChangePower = false; // Placeholder value only
+
+        if(forceTargetUpdate) {
+            didChangePower = forceFlywheelPower(nativeTargetSpeed, FLYWHEEL_CONST.powerTolerance);
+        } else {
+            didChangePower = setFlywheelPower(nativeTargetSpeed,FLYWHEEL_CONST.powerTolerance);
+        }
+
+        chargedSpeed = nativeTargetSpeed;
+        setFeederPower(FEEDER_CONST.chargedPower, FEEDER_CONST.powerTolerance);
+
+        // Changing the state
+        if(didChangePower) {
+            startTimeout(Status.CHARGING, TIMEOUT.charging);
+            transitionTo(Status.CHARGING);
+        }
+
+        return didChangePower;
+    }
+
+    private boolean ticksCharge(double ticksPerSec) {
+        setFeederPower(FEEDER_CONST.chargedPower, FEEDER_CONST.powerTolerance);
+        setFlywheelPower(ticksPerSec, FLYWHEEL_CONST.powerTolerance);
+        chargedSpeed = ticksPerSec;
+        startTimeout(Status.CHARGING, TIMEOUT.charging);
+        return transitionTo(Status.CHARGING);
+    }
+
+    /** 
+     * Gets the speed of the shooter. If there are multiple flywheels, their 
+     * speeds are averaged
+     * 
+     * @return Average speed of the flywheels, in inches per second.
+     */
+    public double getSpeed() {
+        return ticksToInches.applyAsDouble(flywheels.getVelocity());
     }
 
     /**
@@ -374,7 +472,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     @Override
     public boolean reload() {
         setFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.reloading);
         return transitionTo(Status.RELOADING, ReloadingState.RELOADING_BOTH);
     }
@@ -382,7 +480,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean reloadRight() {
         setRightFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
         setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.reloading);
         return transitionTo(Status.RELOADING, ReloadingState.RELOADING_RIGHT);
     }
@@ -390,7 +488,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean reloadLeft() {
         setLeftFeederPower(FEEDER_CONST.reloadingPower, FEEDER_CONST.powerTolerance);
         setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.reloading);
         return transitionTo(Status.RELOADING, ReloadingState.RELOADING_LEFT);
     }
@@ -444,10 +542,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             newReloadState = ReloadingState.RELOADING_RIGHT;
         }
 
-        // Applying the found powers
+        // getAsDoubleing the found powers
         setRightFeederPower(rightFeederPower, FEEDER_CONST.powerTolerance);
         setLeftFeederPower(leftFeederPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.reloadingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.autoReloading);
         return transitionTo(Status.RELOADING, newReloadState);
     }
@@ -472,7 +570,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     @Override
     public boolean fire() {
         setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.firing);
         return transitionTo(Status.FIRING);
     }
@@ -480,7 +578,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean fireRight() {
         setRightFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
         setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.firing);
         return transitionTo(Status.FIRING);
     }
@@ -488,7 +586,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean fireLeft() {
         setLeftFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
         setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.firing);
         return transitionTo(Status.FIRING);
     }
@@ -571,7 +669,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public boolean multiFire() {
         setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.multiFiring);
         return transitionTo(Status.FIRING);
     }
@@ -579,7 +677,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean multiFireRight() {
         setRightFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
         setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.multiFiring);
         return transitionTo(Status.FIRING);
     }
@@ -587,7 +685,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     public boolean multiFireLeft() {
         setLeftFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
         setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
-        setFlywheelPower(FLYWHEEL_CONST.firingPower, FLYWHEEL_CONST.powerTolerance);
+        setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.multiFiring);
         return transitionTo(Status.FIRING);
     }
@@ -654,7 +752,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         // return Math.abs(flywheels.getVelocity() - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
         return Util.any(
             Arrays.asList(flywheels.getMotors()), 
-            (motor) -> Math.abs(motor.getVelocity() - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance
+            (motor) -> Math.abs(motor.getVelocity() - chargedSpeed) < FLYWHEEL_CONST.powerTolerance
         );
     }
 
@@ -664,7 +762,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public boolean checkLeftConsideredCharged() {
         final double velocity = flywheels.getMotors()[1].getVelocity();
-        return Math.abs(velocity - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
+        return Math.abs(velocity - chargedSpeed) < FLYWHEEL_CONST.powerTolerance;
     }
 
     /**
@@ -673,7 +771,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     public boolean checkRightConsideredCharged() {
         final double velocity = flywheels.getMotors()[0].getVelocity();
-        return Math.abs(velocity - FLYWHEEL_CONST.chargedPower) < FLYWHEEL_CONST.powerTolerance;
+        return Math.abs(velocity - chargedSpeed) < FLYWHEEL_CONST.powerTolerance;
     }
 
     /**
@@ -778,9 +876,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         if(checkConsideredUncharged()) {
             transitionTo(Status.UNCHARGED);
         } else if(isTimedOut(Status.UNCHARGING)) {
-            // FIXME: This can still maintain charging power.
-            // FIXME: This can get stuck in an infinite loop!
-            charge();
+            ticksCharge(chargedSpeed);
         }
     }
 
@@ -804,8 +900,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     protected void periodicCharged(Telemetry telemetry) {
         // Going to the charging state if the velocity changes too much
-        if(!Util.near(flywheels.getVelocity(), FLYWHEEL_CONST.chargedPower, FLYWHEEL_CONST.powerTolerance)) {
-            charge();
+        if(!Util.near(flywheels.getVelocity(), chargedSpeed, FLYWHEEL_CONST.powerTolerance)) {
+            ticksCharge(chargedSpeed);
         }
     }
 
@@ -856,7 +952,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         // Exiting from reloading automatically.
         if(isTimedOut(Status.RELOADING)) {
             // Rather than just jumping to CHARGED, we charge again just to be sure.
-            charge();
+            ticksCharge(chargedSpeed);
         } 
     }
 
@@ -872,7 +968,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         
         // TODO: Add check for when a projectile leaves to end before timeout
         if(timedOut && isCharged) {
-            charge(); // Just make sure that the correct powers are set
+            ticksCharge(chargedSpeed); // Just make sure that the correct powers are set
             transitionTo(Status.CHARGED);
         }
         //  else if(timedOut && checkConsideredUncharged()) {
@@ -881,7 +977,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         // } 
         else if(timedOut && !isCharged) {
             // We want to ensure that the shooter is charged because we are likely to fire again.
-            charge();
+            ticksCharge(chargedSpeed); // Just make sure that the correct powers are set
         }
     }
     
@@ -902,7 +998,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         
         // TODO: Add check for when a projectile leaves to end before timeout
         if(timedOut && isCharged) {
-            charge(); // Just making sure the powers are correct.
+            ticksCharge(chargedSpeed); // Just make sure that the correct powers are set
             transitionTo(Status.CHARGED);
         }
         // else if(timedOut && checkConsideredUncharged()) {
