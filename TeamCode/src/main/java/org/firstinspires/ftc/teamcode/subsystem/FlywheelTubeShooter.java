@@ -95,7 +95,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     /**
      * Describes specifcally how the shooter is reloading at the current point in time.
-     * Except for `NONE`, these states will only be seen during `Status.RELOADING` 
+     * Except for `UNKNOWN`, these states will only be seen during `Status.RELOADING` 
      */
     public static enum ReloadingState {
         /**
@@ -124,6 +124,32 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
          * secure under the feeder (because it might have been seen too early otherwise).
          */
         FINISHING_RELOAD
+    }
+
+    /** 
+     * Describes more specifically how the shooter is shooting. Besides `UNKNOWN`,
+     * these states will only be seen during firing
+     */
+    public static enum FiringState {
+        /**
+         * We are not firing.
+         */
+        UNKNOWN,
+
+        /**
+         * Only the left chamber is firing. The right is not
+         */
+        FIRING_LEFT,
+
+        /**
+         * Only the right chamber is firing. The left is not
+         */
+        FIRING_RIGHT,
+
+        /**
+         * Both chambers are being fired
+         */
+        FIRING_BOTH
     }
 
     public static FlywheelConst FLYWHEEL_CONST = new FlywheelConst();
@@ -159,6 +185,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     private Status status = Status.UNKNOWN;
     private ReloadingState reloadingState = ReloadingState.UNKNOWN;
+    private FiringState firingState = FiringState.UNKNOWN;
 
     /**
      * Whether any telemetry data ought to be shown, even if a telemetry has 
@@ -333,20 +360,34 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     private boolean transitionTo(Status newStatus) {
-        // status = newStatus; 
-        // return true;
         return transitionTo(newStatus, ReloadingState.UNKNOWN);
     }
     
     private boolean transitionTo(Status newStatus, ReloadingState newReloadingState) {
         status = newStatus; 
         reloadingState = newReloadingState;
+        firingState = FiringState.UNKNOWN;
+        return true;
+    }
+
+    private boolean transitionTo(Status newStatus, FiringState newFiringState) {
+        status = newStatus; 
+        reloadingState = ReloadingState.UNKNOWN;
+        firingState = newFiringState;
         return true;
     }
 
     @Override
     public Status getStatus() {
         return this.status;
+    }
+
+    public ReloadingState getReloadingState() {
+        return this.reloadingState;
+    }
+
+    public FiringState getFiringState() {
+        return this.firingState;
     }
 
     /**
@@ -572,7 +613,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.firing);
-        return transitionTo(Status.FIRING);
+        return transitionTo(Status.FIRING, FiringState.FIRING_BOTH);
     }
 
     public boolean fireRight() {
@@ -580,7 +621,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.firing);
-        return transitionTo(Status.FIRING);
+        return transitionTo(Status.FIRING, FiringState.FIRING_RIGHT);
     }
     
     public boolean fireLeft() {
@@ -588,7 +629,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.firing);
-        return transitionTo(Status.FIRING);
+        return transitionTo(Status.FIRING, FiringState.FIRING_LEFT);
     }
 
     /**
@@ -671,7 +712,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setFeederPower(FEEDER_CONST.firingPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.multiFiring);
-        return transitionTo(Status.FIRING);
+        return transitionTo(Status.FIRING, FiringState.FIRING_BOTH);
     }
 
     public boolean multiFireRight() {
@@ -679,7 +720,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setLeftFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.multiFiring);
-        return transitionTo(Status.FIRING);
+        return transitionTo(Status.FIRING, FiringState.FIRING_RIGHT);
     }
 
     public boolean multiFireLeft() {
@@ -687,7 +728,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setRightFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
         setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.FIRING, TIMEOUT.multiFiring);
-        return transitionTo(Status.FIRING);
+        return transitionTo(Status.FIRING, FiringState.FIRING_LEFT);
     }
 
     /**
