@@ -441,7 +441,6 @@ public class RippleyColorBlind extends LinearOpMode {
         // Moving to grab artifacts
         // This goes back to shooting afterwards
         intake.intakeGamePieces();
-        shooter.blockMisfire();
         follower.followPath(paths.get("grabArtifactsAndShoot"), false);
 
         boolean hasReloaded = false;
@@ -459,7 +458,6 @@ public class RippleyColorBlind extends LinearOpMode {
         // Moving to grab artifacts
         // This goes back to shooting afterwards
         intake.intakeGamePieces();
-        shooter.blockMisfire();
         follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
 
         // hasReloaded = false;

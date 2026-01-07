@@ -591,14 +591,6 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         return transitionTo(Status.RELOADING, newReloadState);
     }
 
-    public boolean blockMisfire() {
-        return setFeederPower(FEEDER_CONST.preventMisfire, FEEDER_CONST.powerTolerance);
-    }
-    
-    public boolean neutralizeFeeders() {
-        return setFeederPower(FEEDER_CONST.unchargedPower, FEEDER_CONST.powerTolerance);
-    }
-
     /**
      * Moves any loaded projectiles into the shooter (if necessary) and puts the 
      * shooter at the correct power (if necessary). The shooter may already be 

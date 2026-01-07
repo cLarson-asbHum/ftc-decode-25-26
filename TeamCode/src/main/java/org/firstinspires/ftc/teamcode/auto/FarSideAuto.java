@@ -21,7 +21,9 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
+import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -40,6 +42,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive ;
+import org.firstinspires.ftc.teamcode.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem.Status;
@@ -104,6 +107,8 @@ public class FarSideAuto extends LinearOpMode {
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
+    private BlockerSubsystem leftBlocker = null;
+    private BlockerSubsystem rightBlocker = null;
 
     private boolean isRed = false;
     
@@ -178,6 +183,8 @@ public class FarSideAuto extends LinearOpMode {
         // final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
+        final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
+        final ServoImplEx rightBlockerServo = (ServoImplEx) findHardware(Servo.class, "rightBlocker");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
@@ -218,14 +225,24 @@ public class FarSideAuto extends LinearOpMode {
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier( leftReload)
+            .setTicksToInches(this::ticksToInches)
+            .setInchesToTicks(this::inchesToTicks)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
+        final BlockerSubsystem leftBlocker = new BlockerSubsystem(leftBlockerServo, 0.595, 0.575);
+        final BlockerSubsystem rightBlocker = new BlockerSubsystem(rightBlockerServo, 0, 1);
 
         // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(/* rightShooter,  */intake);
+        CommandScheduler.getInstance().registerSubsystem(
+            rightShooter, 
+            intake, 
+            drivetrain, 
+            leftBlocker, 
+            rightBlocker
+        );
 
         // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake, drivetrain };
+        return new Subsystem[] { rightShooter, intake, drivetrain, leftBlocker, rightBlocker };
     }
 
     private Pose mirror(Pose pose, boolean doMirror) {
@@ -263,16 +280,16 @@ public class FarSideAuto extends LinearOpMode {
                 shooting,
                 mirror(new Pose(71.038, 31.500), isRed),
                 mirror(new Pose(54.489, 31.500), isRed),
-                mirror(new Pose(45.089, 31.500), isRed)
+                mirror(new Pose(50.089, 31.500), isRed)
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
-                mirror(new Pose(45.089, 31.5), isRed),
-                mirror(new Pose(35.089, 31.500), isRed)
+                mirror(new Pose(50.089, 31.5), isRed),
+                mirror(new Pose(38.089, 31.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
-                mirror(new Pose(35.089, 31.500), isRed),
+                mirror(new Pose(38.089, 31.500), isRed),
                 mirror(new Pose(29.000, 38.500), isRed),
                 mirror(new Pose(27.000, 38.500), isRed),
                 mirror(new Pose(21, 38.500), isRed)
@@ -341,6 +358,24 @@ public class FarSideAuto extends LinearOpMode {
         return result;
     }
 
+    public double ticksToInches(double ticks) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = -2024.19872;
+        final double B =  293.31695;
+        final double H = -634.81204;
+        return K + B * Math.log(ticks - H);
+    }
+
+    public double inchesToTicks(double inches) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = -2024.19872;
+        final double B =  293.31695;
+        final double H = -634.81204;
+        return H + Math.exp((inches - K) / B);
+    }
+
     @Override
     public void runOpMode() {
 
@@ -351,9 +386,12 @@ public class FarSideAuto extends LinearOpMode {
         shooter = (FlywheelTubeShooter) subsystems[0];
         intake = (CarwashIntake) subsystems[1];
         drivetrain = (BasicMecanumDrive) subsystems[2];
+        leftBlocker = (BlockerSubsystem) subsystems[3];
+        rightBlocker = (BlockerSubsystem) subsystems[4];
         shooter.setTelemetry(telemetry);
 
-        final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
+        final ServoImplEx rampPivot = (ServoImplEx) hardwareMap.get(Servo.class, "rampPivot");
+        rampPivot.setPwmRange(new PwmRange(1050, 1950));
         
         // Creating the webcam
         final WebcamName obeliskViewerCam = null;
@@ -391,8 +429,7 @@ public class FarSideAuto extends LinearOpMode {
         }
         
         waitForStart();
-        // FIXME: Pivot is incorrect, and the PWM range is wrong
-        rampPivot.setPosition(0.58); // Determined emperically
+        rampPivot.setPosition(0.20); // Determined emperically
         follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
@@ -440,18 +477,21 @@ public class FarSideAuto extends LinearOpMode {
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
-        shooter.blockMisfire();
         follower.followPath(paths.get("grabArtifactsAndShoot"), true);
 
         boolean hasReloaded = false;
         // follower.setMaxPower(0.5);
         while(follower.isBusy() && opModeIsActive()) {
             if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
-                follower.setMaxPower(0.5);
+                follower.setMaxPower(0.33);
                 intake.intakeGamePieces();
+                leftBlocker.close();
+                rightBlocker.close();
             } else {
                 follower.setMaxPower(1.0);
                 intake.holdGamePieces();
+                leftBlocker.open();
+                rightBlocker.open();
             }
 
             telemetry.addData("Position", follower.getPose());
@@ -469,7 +509,8 @@ public class FarSideAuto extends LinearOpMode {
         
         // Moving to grab artifacts
         // This goes back to shooting afterwards
-        // shooter.blockMisfire();
+        leftBlocker.close();
+        rightBlocker.close();
         follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
         
         // hasReloaded = false;
@@ -492,6 +533,8 @@ public class FarSideAuto extends LinearOpMode {
 
         // Getting leave points
         intake.holdGamePieces();
+        leftBlocker.close();
+        rightBlocker.close();
         shooter.uncharge();
         follower.followPath(paths.get("park"), false);
 
@@ -554,33 +597,52 @@ public class FarSideAuto extends LinearOpMode {
     }
 
     private void emptyClip(Motif unused) {
-        // runUntilCompleted(shooter.chargeCommand());
-        // final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            FlywheelTubeShooter.Status.CHARGING
+        ));
 
-        // // Shooting depth 1
-        // runUntilCompleted(shooter.fireCommand());
+        // Shooting depth 1
+        leftBlocker.open();
+        rightBlocker.open();
+        runUntilCompleted(shooter.fireCommand());
 
-        // // Reloading and going
-        // runUntilCompleted(shooter.chargeCommand());
+        // Reloading and going
+        runUntilCompleted(new WrapConcurrentCommand(
+            shooter,
+            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            FlywheelTubeShooter.Status.CHARGED
+        ));
         
-        // // Shooting
-        // intake.intakeGamePieces();
-        // runUntilCompleted(shooter.fireCommand());
+        // Shooting
+        intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
 
-        // // Ending
+        // Ending
         intake.holdGamePieces();
         // shooter.charge();
         CommandScheduler.getInstance().run();
     }
     
     private void emptyForefrontClip(Motif unused) {
-        // runUntilCompleted(shooter.chargeCommand());
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            FlywheelTubeShooter.Status.CHARGING
+        ));
         // final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
 
-        // // Shooting depth 1
-        // runUntilCompleted(shooter.fireCommand());
+        // Shooting depth 1
+        leftBlocker.open();
+        rightBlocker.open();
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            FlywheelTubeShooter.Status.CHARGING
+        ));
 
-        // // Ending
+        // Ending
         intake.holdGamePieces();
         // shooter.charge();
         CommandScheduler.getInstance().run();

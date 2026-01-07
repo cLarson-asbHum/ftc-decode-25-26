@@ -750,13 +750,11 @@ public class CompetitionTeleop extends OpMode {
     public boolean intakeFromFloor(boolean startIntake, boolean cancelIntake) {
         if(startIntake) {
             intake.intakeGamePieces();
-            shooter.blockMisfire();
             return true;
         }
         
         if(cancelIntake) {
             intake.holdGamePieces();
-            shooter.neutralizeFeeders();
         } 
 
         return false;
