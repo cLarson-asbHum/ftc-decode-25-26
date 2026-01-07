@@ -56,11 +56,12 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
             BlockerSubsystem.PositionPresets.LEFT
         );
         final BlockerSubsystem rightBlocker = new BlockerSubsystem(
-            leftBlockerServo, 
+            rightBlockerServo, 
             BlockerSubsystem.PositionPresets.RIGHT
         );
         waitForStart();
 
+        resetRuntime();
         double intakePower = 0;
         while(opModeIsActive()) {
             final boolean x = gamepad2.xWasPressed();
@@ -124,6 +125,7 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
             telemetry.addData("lvel", leftShooter.getVelocity());
             telemetry.addData("rvel", rightShooter.getVelocity());
             telemetry.addData("lb state", leftBlocker.getState());
+            telemetry.addData("rb state", rightBlocker.getState());
             telemetry.update();
             leftBlocker.periodic();
             rightBlocker.periodic();
