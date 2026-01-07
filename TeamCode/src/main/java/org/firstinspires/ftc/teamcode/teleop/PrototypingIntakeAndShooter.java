@@ -4,8 +4,16 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
+
+// import clarson.ftc.faker.ServoImplExFake;
+
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+
+import org.firstinspires.ftc.teamcode.subsystem.BlockerSubsystem;
 
 import com.bylazar.configurables.annotations.Configurable;
 
@@ -27,17 +35,46 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
         final DcMotor intake = hardwareMap.get(DcMotor.class, "intake");
         final CRServo rightFeeder = hardwareMap.get(CRServo.class, "rightFeeder");
         final CRServo leftFeeder = hardwareMap.get(CRServo.class, "leftFeeder");
+        final ServoImplEx leftBlockerServo = (ServoImplEx) hardwareMap.get(Servo.class, "leftBlocker"); 
+        final ServoImplEx rightBlockerServo = (ServoImplEx) hardwareMap.get(Servo.class, "rightBlocker"); 
 
+        boolean closed = false;
+        boolean rclosed = false;
+
+        leftBlockerServo.setPwmRange(new PwmRange(500, 2500));
+        rightBlockerServo.setPwmRange(new PwmRange(500, 2500));
         leftShooter.setDirection(DcMotorSimple.Direction.REVERSE);
 
         rightFeeder.setDirection(DcMotorSimple.Direction.FORWARD);
         leftFeeder.setDirection(DcMotorSimple.Direction.REVERSE);
 
         telemetry.setMsTransmissionInterval(33);
+
+        // TODO: Tune these
+        final BlockerSubsystem leftBlocker = new BlockerSubsystem(leftBlockerServo, 0.595, 0.575);
+        final BlockerSubsystem rightBlocker = new BlockerSubsystem(rightBlockerServo, 0.550, 0.575);
+
         waitForStart();
 
         double intakePower = 0;
         while(opModeIsActive()) {
+            final boolean x = gamepad2.xWasPressed();
+            if(x && closed) {
+                leftBlocker.open();
+                closed = !closed;
+            } else if(x) {
+                leftBlocker.close();
+                closed = !closed;
+            }
+            final boolean y = gamepad2.bWasPressed();
+            if(y && rclosed) {
+                rightBlocker.open();
+                rclosed = !rclosed;
+            } else if(y) {
+                rightBlocker.close();
+                rclosed = !rclosed;
+            }
+
             if(gamepad2.right_trigger > 0.1f) {
                 rightShooter.setPower(FULL_POWER);
 
@@ -81,7 +118,10 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
 
             telemetry.addData("lvel", leftShooter.getVelocity());
             telemetry.addData("rvel", rightShooter.getVelocity());
+            telemetry.addData("lb state", leftBlocker.getState());
             telemetry.update();
+            leftBlocker.periodic();
+            rightBlocker.periodic();
         }
     }
 }

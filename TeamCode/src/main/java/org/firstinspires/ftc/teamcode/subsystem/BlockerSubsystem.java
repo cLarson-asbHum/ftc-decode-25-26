@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 public class BlockerSubsystem implements BinaryStateSubsystem {
-    public static double TOLERANCE = 0.05;
+    public static double TOLERANCE = 0.005;
 
     private final Servo servo;
     private final double closedPos;
@@ -79,7 +79,6 @@ public class BlockerSubsystem implements BinaryStateSubsystem {
                 break;
 
             case UNKNOWN:
-            default:
                 // Just open the thing
                 open();
                 break;
