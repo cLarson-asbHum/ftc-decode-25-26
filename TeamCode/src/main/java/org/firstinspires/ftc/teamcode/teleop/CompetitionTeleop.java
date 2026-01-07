@@ -28,6 +28,8 @@ import com.qualcomm.hardware.lynx.LynxModule;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -36,6 +38,7 @@ import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
 import org.firstinspires.ftc.teamcode.util.KeyPoses;
+import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 @Configurable
@@ -55,11 +58,11 @@ public class CompetitionTeleop extends OpMode {
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
+    private LinearHingePivot rampPivot = null;
     private BlockerSubsystem leftBlocker = null;
     private BlockerSubsystem rightBlocker = null;
     private Follower follower = null;
 
-    private Servo rampPivot = null;
 
     private SwitchableLight rightRed;
     private SwitchableLight rightGreen;
@@ -134,6 +137,46 @@ public class CompetitionTeleop extends OpMode {
         }
     }
 
+    private Map<Double, Double> getRampPivotTuning() {
+        return new HashMap<>() {{
+            final double[] dists = new double[] {
+                0.00, 0.03, 0.06, 0.08,   0.11, 0.13, 0.16, 0.18, 
+                0.20, 0.24, 0.26, 0.29,   0.31, 0.36, 0.40, 0.42, 
+                0.46, 0.49, 0.52, 0.54,   0.56, 0.58, 0.60, 0.62, 
+                0.65, 0.70, 0.72, 0.75,   0.77, 0.80, 0.83, 0.86,
+                0.88, 0.90, 0.94, 0.98,   1.00
+            };
+            
+            double angle = 37.0;
+            for(final double dist : dists) {
+                put(dist, Math.toRadians(angle));
+                angle++;
+            }
+            
+            // The following values are just in case we get out of bound values
+            put(-0.1, Math.toRadians(37.001)); // Minimum possible angle
+            put(1.1, Math.toRadians(73.001));  // Maximum possible angle
+        }};
+    }
+
+    public double ticksToInches(double ticks) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = -2024.19872;
+        final double B =  293.31695;
+        final double H = -634.81204;
+        return K + B * Math.log(ticks - H);
+    }
+
+    public double inchesToTicks(double inches) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = -2024.19872;
+        final double B =  293.31695;
+        final double H = -634.81204;
+        return H + Math.exp((inches - K) / B);
+    }
+
     private Subsystem[] createSubsystems(HardwareMap hardwareMap) {
         // Find and create all of the hardware. This uses the hardware map. 
         // When using unit tests, the `hardwareMap` field can be set for dependency injection.
@@ -150,6 +193,8 @@ public class CompetitionTeleop extends OpMode {
         final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
         final ServoImplEx rightBlockerServo = (ServoImplEx) findHardware(Servo.class, "rightBlocker");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
+
+        final ServoImplEx rampPivotServo = (ServoImplEx) findHardware(Servo.class, "rampPivot");
 
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
@@ -173,6 +218,7 @@ public class CompetitionTeleop extends OpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        // leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
@@ -197,12 +243,20 @@ public class CompetitionTeleop extends OpMode {
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
 
+        final LinearInterpolator positionToRadians = new LinearInterpolator(getRampPivotTuning());
+
+        // Creating subsystems. 
+        // Subsystems represent groups of hardware that achieve ONE function.
+        // Subsystems can lead into each other, but they should be able to operate independently 
+        // (even if nothing is achieved, per se).
         final DcMotorGroup flywheels = new DcMotorGroup(/* leftShooterMotor, */ rightShooterMotor);
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier(leftReload)
+            .setTicksToInches(this::ticksToInches)
+            .setInchesToTicks(this::inchesToTicks)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
         final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
@@ -211,6 +265,10 @@ public class CompetitionTeleop extends OpMode {
             frontRightMotor,
             backRightMotor
         );
+        final LinearHingePivot rampPivot = new LinearHingePivot.Builder(rampPivotServo)
+            .setPositionToRadians(positionToRadians)
+            .setRadiansToPosition(positionToRadians.inverse())
+            .build();
         final BlockerSubsystem leftBlocker = new BlockerSubsystem(
             leftBlockerServo, 
             BlockerSubsystem.PositionPresets.LEFT
@@ -221,16 +279,17 @@ public class CompetitionTeleop extends OpMode {
         );
 
         // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(
+        // Return a list of every subsystem that we have created
+        final Subsystem[] subsystems = new Subsystem[] { 
             rightShooter, 
             intake, 
             drivetrain, 
             leftBlocker, 
-            rightBlocker
-        );
-
-        // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake, drivetrain, leftBlocker, rightBlocker };
+            rightBlocker,
+            rampPivot
+        };
+        CommandScheduler.getInstance().registerSubsystem(subsystems);
+        return subsystems;
     }
 
     /**
@@ -245,14 +304,12 @@ public class CompetitionTeleop extends OpMode {
         drivetrain = (BasicMecanumDrive) subsystems[2];
         leftBlocker = (BlockerSubsystem) subsystems[3];
         rightBlocker = (BlockerSubsystem) subsystems[4];
+        rampPivot = (LinearHingePivot) subsystems[5];
 
         shooter.setTelemetry(telemetry);
 
         // Creating the PerdoPathing path follower
         follower = Constants.createFollower(hardwareMap);
-
-        // Getting the rampPivot
-        rampPivot = hardwareMap.get(Servo.class, "rampPivot");
 
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
@@ -366,7 +423,7 @@ public class CompetitionTeleop extends OpMode {
 
     @Override
     public void start() {
-        rampPivot.setPosition(0.58);
+        rampPivot.runToAngle(rampPivot.convertFromPosition(0.66));
 
         // Calling this method multiple times on the same reference will
         // cause any calls after the first one to be ignored.
