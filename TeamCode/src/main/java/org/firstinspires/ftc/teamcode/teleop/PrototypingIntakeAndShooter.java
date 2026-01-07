@@ -51,9 +51,14 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
         telemetry.setMsTransmissionInterval(33);
 
         // TODO: Tune these
-        final BlockerSubsystem leftBlocker = new BlockerSubsystem(leftBlockerServo, 0.595, 0.575);
-        final BlockerSubsystem rightBlocker = new BlockerSubsystem(rightBlockerServo, 0.550, 0.575);
-
+        final BlockerSubsystem leftBlocker = new BlockerSubsystem(
+            leftBlockerServo, 
+            BlockerSubsystem.PositionPresets.LEFT
+        );
+        final BlockerSubsystem rightBlocker = new BlockerSubsystem(
+            leftBlockerServo, 
+            BlockerSubsystem.PositionPresets.RIGHT
+        );
         waitForStart();
 
         double intakePower = 0;

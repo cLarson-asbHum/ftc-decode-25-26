@@ -5,7 +5,36 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 public class BlockerSubsystem implements BinaryStateSubsystem {
-    public static double TOLERANCE = 0.005;
+    public static interface Positions {
+        double getOpen();
+
+        double getClosed();
+    }
+
+    public static enum PositionPresets implements Positions {
+        LEFT(0.595, 0.575),
+
+        RIGHT(0.525, 0.55);
+
+        private final double open;
+        private final double closed;
+        private PositionPresets(double closed, double open) {
+            this.open = open;
+            this.closed = closed;
+        }
+
+        @Override
+        public double getOpen() {
+            return this.open;
+        }
+        
+        @Override
+        public double getClosed() {
+            return this.closed;
+        }
+    }
+
+    public static double TOLERANCE = 0.001;
 
     private final Servo servo;
     private final double closedPos;
@@ -22,6 +51,10 @@ public class BlockerSubsystem implements BinaryStateSubsystem {
         this.servo = servo;
     }
 
+    public BlockerSubsystem(Servo servo, Positions positions) {
+        this(servo, positions.getClosed(), positions.getOpen());
+    }
+
     private boolean setPosition(double position, double tolerance) {
         // If the new target is already close to the last one, we don't set it 
         if(Util.near(position, targetPosition, tolerance)) {
@@ -33,7 +66,7 @@ public class BlockerSubsystem implements BinaryStateSubsystem {
         targetPosition = position;
         return true;
     }
-    
+
     @Override
     public State getState() {
         return this.state;
