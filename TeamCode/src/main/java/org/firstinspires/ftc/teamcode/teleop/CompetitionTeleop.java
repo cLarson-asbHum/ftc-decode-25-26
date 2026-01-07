@@ -20,7 +20,9 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
+import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.hardware.lynx.LynxModule;
 
@@ -53,6 +55,8 @@ public class CompetitionTeleop extends OpMode {
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
+    private BlockerSubsystem leftBlocker = null;
+    private BlockerSubsystem rightBlocker = null;
     private Follower follower = null;
 
     private Servo rampPivot = null;
@@ -143,6 +147,8 @@ public class CompetitionTeleop extends OpMode {
         // final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
+        final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
+        final ServoImplEx rightBlockerServo = (ServoImplEx) findHardware(Servo.class, "rightBlocker");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
@@ -167,16 +173,12 @@ public class CompetitionTeleop extends OpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        // leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
-        // rightShooterMotor.setVelocityPIDFCoefficients(
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
-        // );
         intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
+
+        rightBlockerServo.setPwmRange(new PwmRange(500, 2500));
+        leftBlockerServo.setPwmRange(new PwmRange(500, 2500));
 
         // Creating subsystems. 
         // Subsystems represent groups of hardware that achieve ONE function.
@@ -187,17 +189,12 @@ public class CompetitionTeleop extends OpMode {
             // rightDistanceSensor,
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-            // new double[] { 0.60, 0.16, 0.11, 0.08, 0.05  }
-            // new double[] {1.00}
         );
         leftReload = new ArtifactColorRangeSensor(
             leftReloadSensor,
             // leftDistanceSensor,
             new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-            // new double[] { 0.40, 0.16, 0.11, 0.08, 0.05  }
-            // new double[] {1.00}
-
         );
 
         final DcMotorGroup flywheels = new DcMotorGroup(/* leftShooterMotor, */ rightShooterMotor);
@@ -214,12 +211,26 @@ public class CompetitionTeleop extends OpMode {
             frontRightMotor,
             backRightMotor
         );
+        final BlockerSubsystem leftBlocker = new BlockerSubsystem(
+            leftBlockerServo, 
+            BlockerSubsystem.PositionPresets.LEFT
+        );
+        final BlockerSubsystem rightBlocker = new BlockerSubsystem(
+            rightBlockerServo, 
+            BlockerSubsystem.PositionPresets.RIGHT
+        );
 
         // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake, drivetrain);
+        CommandScheduler.getInstance().registerSubsystem(
+            rightShooter, 
+            intake, 
+            drivetrain, 
+            leftBlocker, 
+            rightBlocker
+        );
 
         // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake, drivetrain };
+        return new Subsystem[] { rightShooter, intake, drivetrain, leftBlocker, rightBlocker };
     }
 
     /**
@@ -232,6 +243,8 @@ public class CompetitionTeleop extends OpMode {
         shooter = (FlywheelTubeShooter) subsystems[0];
         intake = (CarwashIntake) subsystems[1];
         drivetrain = (BasicMecanumDrive) subsystems[2];
+        leftBlocker = (BlockerSubsystem) subsystems[3];
+        rightBlocker = (BlockerSubsystem) subsystems[4];
 
         shooter.setTelemetry(telemetry);
 
@@ -359,11 +372,6 @@ public class CompetitionTeleop extends OpMode {
         // cause any calls after the first one to be ignored.
         follower.setStartingPose(startPosition);
         timer.reset();
-
-        // DEV START: Trying to replicate when artifacts bounce off the intake
-        // isRed = true;
-        // follower.setStartingPose(KeyPoses.Red.BASE.plus(new Pose(48, 0, 0)));
-        // DEV END
     }
 
     @Override
@@ -394,7 +402,6 @@ public class CompetitionTeleop extends OpMode {
         //     !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
         // ); // TODO: Have this only work if it is endgame?
 
-
         // Shooting the given color of artifact
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
 
@@ -409,8 +416,6 @@ public class CompetitionTeleop extends OpMode {
             gamepad2.right_trigger > TRIGGER_PRESSED && !wasPressingRightTrigger, // Begin
             !(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger // Cancel
         );
-
-        // TODO: Fire pattern
 
         // RELOAD
         if(autoReloadEnabled) {
@@ -600,38 +605,74 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
+    public boolean openBlockers(FlywheelTubeShooter.FiringState firingState) {
+        switch(firingState) {
+            case FIRING_BOTH:
+                leftBlocker.open();
+                rightBlocker.close();
+                return true;
+
+            case FIRING_LEFT:
+                leftBlocker.open();
+                rightBlocker.close();
+                return true;
+
+            case FIRING_RIGHT:
+                leftBlocker.close();
+                rightBlocker.open();
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    public boolean closeBlockers() {
+        final boolean closeLeft = leftBlocker.close();
+        final boolean closeRight = rightBlocker.close();
+
+        return closeLeft || closeRight;
+    }
+
     public boolean fireBasedOffColor(boolean fireGreen, boolean firePurple) {
         if(fireGreen) {
             shooter.fireGreen();
+            openBlockers(shooter.getFiringState());
             return true;
         }
         
         if(firePurple) {
             shooter.firePurple();
+            openBlockers(shooter.getFiringState());
             return true;
         }
 
         // Nothing was fired
+        closeBlockers();
         return false;
     }
 
     public boolean fireBasedOffSide(boolean fireRight, boolean fireLeft) {
         if(fireRight) {
             shooter.fireRight();
+            openBlockers(shooter.getFiringState());
             return true;
         }
         if(fireLeft) {
             shooter.fireLeft();
+            openBlockers(shooter.getFiringState());
             return true;
         }
 
         // Nothing was fired
+        closeBlockers();
         return false;
     }
 
     public boolean fireIndiscriminantly(boolean startFiring, boolean cancelFiring) {
         if(startFiring) {
             shooter.multiFire();
+            openBlockers(shooter.getFiringState());
             return true;
         }
 
@@ -639,6 +680,7 @@ public class CompetitionTeleop extends OpMode {
             shooter.charge();
         } 
 
+        closeBlockers();
         return false;
     }
 
