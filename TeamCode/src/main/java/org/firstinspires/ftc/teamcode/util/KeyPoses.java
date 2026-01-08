@@ -17,12 +17,16 @@ public final class KeyPoses {
             AngleUnit.normalizeRadians(Math.toRadians(325))
         );
 
+        private static final double farX = 48 + 11.5;
+        private static final double farY = 0 + 18.1;
         public static final Pose FAR_SHOOTING = new Pose(
-            // TODO: Make red as well
             // Determines from an image
-            48 + 11.5,
-            0 + 18.1,
-            AngleUnit.normalizeRadians(Math.toRadians(110 + 180))
+            farX,
+            farY,
+            AngleUnit.normalizeRadians(Math.PI + Math.atan2(
+                GOAL.getY() - farY,
+                GOAL.getX() - farX
+            ) + Math.toRadians(5))
         );
 
         // Artifacts are on the side closest to the blue goal

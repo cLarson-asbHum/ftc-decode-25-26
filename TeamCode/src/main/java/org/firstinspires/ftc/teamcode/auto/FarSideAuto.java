@@ -180,7 +180,7 @@ public class FarSideAuto extends LinearOpMode {
 
         // FIXME: Left shooter disabled due to hardware fault
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        // final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
+        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
@@ -220,7 +220,7 @@ public class FarSideAuto extends LinearOpMode {
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor/* , leftShooterMotor */) 
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor, leftShooterMotor) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
@@ -229,20 +229,26 @@ public class FarSideAuto extends LinearOpMode {
             .setInchesToTicks(this::inchesToTicks)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        final BlockerSubsystem leftBlocker = new BlockerSubsystem(leftBlockerServo, 0.595, 0.575);
-        final BlockerSubsystem rightBlocker = new BlockerSubsystem(rightBlockerServo, 0, 1);
+        leftBlocker = new BlockerSubsystem(
+            leftBlockerServo, 
+            BlockerSubsystem.PositionPresets.LEFT
+        );
+        rightBlocker = new BlockerSubsystem(
+            rightBlockerServo, 
+            BlockerSubsystem.PositionPresets.RIGHT
+        );
 
         // This means that no command will use the same subsystem at the same time.
         CommandScheduler.getInstance().registerSubsystem(
             rightShooter, 
             intake, 
-            drivetrain, 
+            // drivetrain, 
             leftBlocker, 
             rightBlocker
         );
 
         // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake, drivetrain, leftBlocker, rightBlocker };
+        return new Subsystem[] { rightShooter, intake, /* drivetrain, */ leftBlocker, rightBlocker };
     }
 
     private Pose mirror(Pose pose, boolean doMirror) {
@@ -387,9 +393,9 @@ public class FarSideAuto extends LinearOpMode {
         final Subsystem[] subsystems = createSubsystems(hardwareMap);
         shooter = (FlywheelTubeShooter) subsystems[0];
         intake = (CarwashIntake) subsystems[1];
-        drivetrain = (BasicMecanumDrive) subsystems[2];
-        leftBlocker = (BlockerSubsystem) subsystems[3];
-        rightBlocker = (BlockerSubsystem) subsystems[4];
+        // drivetrain = (BasicMecanumDrive) subsystems[2];
+        leftBlocker = (BlockerSubsystem) subsystems[2];
+        rightBlocker = (BlockerSubsystem) subsystems[3];
         shooter.setTelemetry(telemetry);
 
         final ServoImplEx rampPivot = (ServoImplEx) hardwareMap.get(Servo.class, "rampPivot");
@@ -431,7 +437,7 @@ public class FarSideAuto extends LinearOpMode {
         }
         
         waitForStart();
-        rampPivot.setPosition(0.20); // Determined emperically
+        rampPivot.setPosition(0.44); // 0.2 - 45°; 0.44 - 52.5°
         follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
@@ -507,12 +513,10 @@ public class FarSideAuto extends LinearOpMode {
         // follower.setMaxPower(1.0);
 
         // Shooting once again
-        emptyForefrontClip(motif);
+        emptyClip(motif);
         
         // Moving to grab artifacts
         // This goes back to shooting afterwards
-        leftBlocker.close();
-        rightBlocker.close();
         follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
         
         // hasReloaded = false;
@@ -531,12 +535,10 @@ public class FarSideAuto extends LinearOpMode {
         }
 
         // Shooting once again
-        emptyForefrontClip(motif);
+        emptyClip(motif);
 
         // Getting leave points
         intake.holdGamePieces();
-        leftBlocker.close();
-        rightBlocker.close();
         shooter.uncharge();
         follower.followPath(paths.get("park"), false);
 
@@ -601,7 +603,7 @@ public class FarSideAuto extends LinearOpMode {
     private void emptyClip(Motif unused) {
         runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
             shooter,
-            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            () -> shooter.charge(300, true),
             FlywheelTubeShooter.Status.CHARGING
         ));
 
@@ -613,7 +615,7 @@ public class FarSideAuto extends LinearOpMode {
         // Reloading and going
         runUntilCompleted(new WrapConcurrentCommand(
             shooter,
-            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            () -> shooter.charge(300, true),
             FlywheelTubeShooter.Status.CHARGED
         ));
         
@@ -622,6 +624,8 @@ public class FarSideAuto extends LinearOpMode {
         runUntilCompleted(shooter.fireCommand());
 
         // Ending
+        leftBlocker.close();
+        rightBlocker.close();
         intake.holdGamePieces();
         // shooter.charge();
         CommandScheduler.getInstance().run();
@@ -630,7 +634,7 @@ public class FarSideAuto extends LinearOpMode {
     private void emptyForefrontClip(Motif unused) {
         runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
             shooter,
-            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            () -> shooter.charge(300, true),
             FlywheelTubeShooter.Status.CHARGING
         ));
         // final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
@@ -640,7 +644,7 @@ public class FarSideAuto extends LinearOpMode {
         rightBlocker.open();
         runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
             shooter,
-            () -> shooter.charge(315, true), // FIXME: I don't actually know the correct 
+            () -> shooter.charge(300, true),
             FlywheelTubeShooter.Status.CHARGING
         ));
 

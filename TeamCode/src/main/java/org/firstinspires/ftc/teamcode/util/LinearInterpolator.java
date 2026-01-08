@@ -81,7 +81,7 @@ public class LinearInterpolator implements DoubleUnaryOperator {
 
     @Override
     public double applyAsDouble(double input) {
-        return calculate(input);
+        return clampedCalculate(input);
     }
 
     /**

@@ -673,7 +673,7 @@ public class CompetitionTeleop extends OpMode {
         switch(firingState) {
             case FIRING_BOTH:
                 leftBlocker.open();
-                rightBlocker.close();
+                rightBlocker.open();
                 return true;
 
             case FIRING_LEFT:
@@ -712,7 +712,6 @@ public class CompetitionTeleop extends OpMode {
         }
 
         // Nothing was fired
-        closeBlockers();
         return false;
     }
 
@@ -729,7 +728,6 @@ public class CompetitionTeleop extends OpMode {
         }
 
         // Nothing was fired
-        closeBlockers();
         return false;
     }
 

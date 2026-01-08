@@ -21,6 +21,7 @@ import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -38,7 +39,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
-import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive ;
+import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
+import org.firstinspires.ftc.teamcode.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.subsystem.ShooterSubsystem.Status;
@@ -105,6 +107,8 @@ public class RippleyColorBlind extends LinearOpMode {
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
+    private BlockerSubsystem leftBlocker = null;
+    private BlockerSubsystem rightBlocker = null;
 
     private boolean isRed = false;
     
@@ -174,22 +178,16 @@ public class RippleyColorBlind extends LinearOpMode {
         final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
         final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
 
-        // FIXME: Left shooter disabled due to hardware fault
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        // final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
+        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
+        final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
+        final ServoImplEx rightBlockerServo = (ServoImplEx) findHardware(Servo.class, "rightBlocker");
         final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
 
         final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
         final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
-        
-        // rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
-        // rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
-        
-        // leftRed = hardwareMap.tryGet(SwitchableLight.class, "leftRed");     // Intentionaly not caring if we don't find this
-        // leftGreen = hardwareMap.tryGet(SwitchableLight.class, "leftGreen"); // Intentionaly not caring if we don't find this
-
         // Checking that ALL hardware has been found (aka the nullHardware list is empty)
         // If any are not found, an error is thrown stating which.
         throwAFitIfAnyHardwareIsNotFound();
@@ -201,12 +199,6 @@ public class RippleyColorBlind extends LinearOpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        // rightShooterMotor.setVelocityPIDFCoefficients(
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
-        // );
         intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
@@ -226,25 +218,27 @@ public class RippleyColorBlind extends LinearOpMode {
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
 
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor/* , leftShooterMotor */) 
+        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor, leftShooterMotor) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier( leftReload)
             .build();
         final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        // final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
-        //     frontLeftMotor, 
-        //     backLeftMotor,
-        //     frontRightMotor,
-        //     backRightMotor
-        // );
+        leftBlocker = new BlockerSubsystem(
+            leftBlockerServo, 
+            BlockerSubsystem.PositionPresets.LEFT
+        );
+        rightBlocker = new BlockerSubsystem(
+            rightBlockerServo, 
+            BlockerSubsystem.PositionPresets.RIGHT
+        );
 
         // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake);
+        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake, leftBlocker, rightBlocker);
 
         // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake, drivetrain };
+        return new Subsystem[] { rightShooter, intake };
     }
 
     private Pose mirror(Pose pose, boolean doMirror) {
@@ -273,32 +267,56 @@ public class RippleyColorBlind extends LinearOpMode {
             .build()
         );
 
-        final Path grabArtifacts = new Path(new BezierCurve(
-            mirror(new Pose(40.463 - 4.5, 102.942 - 2), isRed),
-            mirror(new Pose(89.851 - 4.5, 68.430 - 2), isRed),
-            mirror(new Pose(12.496 - 4.5, 100.562 - 2), isRed),
-            mirror(new Pose(25.289 - 4.5, 83.306 - 2), isRed),
-            mirror(new Pose(23.207 - 4.5, 71.405 - 2), isRed),
-            mirror(new Pose(25.207 - 3, 83.488 - 2), isRed) // End point
-        ));
-        // final Path grabArtifacts = new Path(new BezierCurve(
-        //     mirror(new Pose(52.000, 102.000), isRed),
-        //     mirror(new Pose(25.707 - 7, 106.312), isRed),
-        //     mirror(new Pose(26.796 - 7, 89.537), isRed),
-        //     mirror(new Pose(25.053 - 7, 74.505), isRed)
-        // ));
+        final PathChain grabArtifacts = follower
+            .pathBuilder()
+            .addPath(new BezierCurve(
+                shooting,
+                mirror(new Pose(71.038, 79.500), isRed),
+                mirror(new Pose(54.489, 79.500), isRed),
+                mirror(new Pose(50.089, 79.500), isRed)
+            ))
+            .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
+            .addPath(new BezierLine(
+                mirror(new Pose(50.089, 79.5), isRed),
+                mirror(new Pose(38.089, 79.500), isRed)
+            ))
+            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
+            .addPath(new BezierCurve(
+                mirror(new Pose(38.089, 79.500), isRed),
+                mirror(new Pose(29.000, 89.500), isRed),
+                mirror(new Pose(27.000, 89.500), isRed),
+                mirror(new Pose(21,     89.500), isRed)
+            ))
+            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
+            .build();
         final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(25.207 - 3, 83.488 - 2), isRed), 
+            mirror(new Pose(21,   89.500), isRed), 
             shooting
         ));
-        final Path grabArtifactsAgain = new Path(new BezierCurve(
-            mirror(new Pose(52.000, 102.000 - 4), isRed),
-            mirror(new Pose(25.707, 106.312 - 4), isRed),
-            mirror(new Pose(23.092, 70.148 - 4), isRed),
-            mirror(new Pose(23.528, 50.106 - 4), isRed)
-        ));
+        final PathChain grabArtifactsAgain =  follower
+            .pathBuilder()
+            .addPath(new BezierCurve(
+                shooting,
+                mirror(new Pose(71.038, 55.500), isRed),
+                mirror(new Pose(54.489, 55.500), isRed),
+                mirror(new Pose(50.089, 55.500), isRed)
+            ))
+            .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
+            .addPath(new BezierLine(
+                mirror(new Pose(50.089, 55.5), isRed),
+                mirror(new Pose(38.089, 55.500), isRed)
+            ))
+            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
+            .addPath(new BezierCurve(
+                mirror(new Pose(38.089, 79.500), isRed),
+                mirror(new Pose(29.000, 66.500), isRed),
+                mirror(new Pose(27.000, 66.500), isRed),
+                mirror(new Pose(18,     66.500), isRed)
+            ))
+            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
+            .build();
         final Path goBackToShootAgain = new Path(new BezierLine(
-            mirror(new Pose(23.528, 50.106 - 4), isRed), 
+            mirror(new Pose(18,     66.500), isRed), 
             shooting
         ));
         final Path turnSoAsToIntake = new Path(new BezierLine(
@@ -307,16 +325,22 @@ public class RippleyColorBlind extends LinearOpMode {
         ));
 
         // turnSoAsToIntake.setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.PI);
-        grabArtifacts.setConstantHeadingInterpolation(/* start.getHeading(),  */isRed ? 0 : Math.PI);
-        // grabArtifacts.setConstantHeadingInterpolation(isRed ? Math.toRadians(-90) : Math.toRadians(-90));
-        grabArtifactsAgain.setConstantHeadingInterpolation(isRed ? Math.toRadians(-90) : Math.toRadians(-90));
+        final double grabHeading = isRed ? 0 : -Math.PI;
+        grabArtifacts.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
+        grabArtifacts.getPath(1).setConstantHeadingInterpolation(grabHeading);
+        grabArtifacts.getPath(2).setConstantHeadingInterpolation(grabHeading);
+        grabArtifactsAgain.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
+        grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
+        grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
         goBackToShoot.setConstantHeadingInterpolation(shooting.getHeading());
         goBackToShootAgain.setConstantHeadingInterpolation(shooting.getHeading());
 
         result.put("grabArtifactsAndShoot", follower
             .pathBuilder()
             // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
-            .addPath(grabArtifacts)
+            .addPath(grabArtifacts.getPath(0))
+            .addPath(grabArtifacts.getPath(1))
+            .addPath(grabArtifacts.getPath(2))
             .addPath(goBackToShoot)
             .build()
         );
@@ -324,7 +348,9 @@ public class RippleyColorBlind extends LinearOpMode {
         result.put("grabArtifactsAndShootAgain", follower
             .pathBuilder()
             // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
-            .addPath(grabArtifactsAgain)
+            .addPath(grabArtifactsAgain.getPath(0))
+            .addPath(grabArtifactsAgain.getPath(1))
+            .addPath(grabArtifactsAgain.getPath(2))
             .addPath(goBackToShootAgain)
             .build()
         );
@@ -351,7 +377,7 @@ public class RippleyColorBlind extends LinearOpMode {
         final Subsystem[] subsystems = createSubsystems(hardwareMap);
         shooter = (FlywheelTubeShooter) subsystems[0];
         intake = (CarwashIntake) subsystems[1];
-        drivetrain = (BasicMecanumDrive) subsystems[2];
+        // drivetrain = (BasicMecanumDrive) subsystems[2];
         shooter.setTelemetry(telemetry);
 
         final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
@@ -446,6 +472,17 @@ public class RippleyColorBlind extends LinearOpMode {
         boolean hasReloaded = false;
         // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
+            if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
+                follower.setMaxPower(0.33);
+                intake.intakeGamePieces();
+                leftBlocker.close();
+                rightBlocker.close();
+            } else {
+                follower.setMaxPower(1.0);
+                intake.holdGamePieces();
+            }
+
+
             follower.update();
             blackboard.put("startPosition", follower.getPose());
             CommandScheduler.getInstance().run();
@@ -453,7 +490,7 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyForefrontClip(motif);
+        emptyClip(motif);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
@@ -463,6 +500,16 @@ public class RippleyColorBlind extends LinearOpMode {
         // hasReloaded = false;
         // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
+            if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
+                follower.setMaxPower(0.33);
+                intake.intakeGamePieces();
+                leftBlocker.close();
+                rightBlocker.close();
+            } else {
+                follower.setMaxPower(1.0);
+                intake.holdGamePieces();
+            }
+
             follower.update();
             blackboard.put("startPosition", follower.getPose());
             CommandScheduler.getInstance().run();
@@ -470,7 +517,7 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyForefrontClip(motif);
+        emptyClip(motif);
 
         // Getting leave points
         intake.holdGamePieces();
@@ -537,6 +584,8 @@ public class RippleyColorBlind extends LinearOpMode {
 
     private void emptyClip(Motif unused) {
         runUntilCompleted(shooter.chargeCommand());
+        leftBlocker.open();
+        rightBlocker.open();
         final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
 
         // Shooting depth 1
@@ -551,6 +600,8 @@ public class RippleyColorBlind extends LinearOpMode {
 
         // Ending
         intake.holdGamePieces();
+        leftBlocker.close();
+        rightBlocker.close();
         shooter.charge();
         CommandScheduler.getInstance().run();
     }
