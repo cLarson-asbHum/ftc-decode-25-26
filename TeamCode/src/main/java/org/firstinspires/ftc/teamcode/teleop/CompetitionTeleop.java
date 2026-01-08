@@ -162,19 +162,21 @@ public class CompetitionTeleop extends OpMode {
     public double ticksToInches(double ticks) {
         // Determined with some samples and applying a regression using Desmos
         // Because this is experimental, the units will not work out
-        final double K = -2024.19872;
-        final double B =  293.31695;
-        final double H = -634.81204;
-        return K + B * Math.log(ticks - H);
+        final double K = 607.98623;
+        final double B = -7.66965e16;
+        final double H = -3495.02401;
+        final double A = -15.37211;
+        return K + B * Math.pow(Math.log(ticks - H), A);
     }
 
     public double inchesToTicks(double inches) {
         // Determined with some samples and applying a regression using Desmos
         // Because this is experimental, the units will not work out
-        final double K = -2024.19872;
-        final double B =  293.31695;
-        final double H = -634.81204;
-        return H + Math.exp((inches - K) / B);
+        final double K = 607.98623;
+        final double B = -7.66965e16;
+        final double H = -3495.02401;
+        final double A = -15.37211;
+        return H + Math.exp(Math.pow((inches - K) / B, 1 / A));
     }
 
     private Subsystem[] createSubsystems(HardwareMap hardwareMap) {
@@ -187,7 +189,7 @@ public class CompetitionTeleop extends OpMode {
 
         // FIXME: left shootere disabled because of hardware fault
         final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        // final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
+        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
         final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
         final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
         final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
@@ -218,7 +220,7 @@ public class CompetitionTeleop extends OpMode {
         backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
 
         rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        // leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
+        leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         intakeMotor.setDirection(DcMotor.Direction.REVERSE);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
@@ -232,13 +234,13 @@ public class CompetitionTeleop extends OpMode {
         // (even if nothing is achieved, per se).
         rightReload = new ArtifactColorRangeSensor(
             rightReloadSensor,
-            // rightDistanceSensor,
+            rightDistanceSensor,
             new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
         leftReload = new ArtifactColorRangeSensor(
             leftReloadSensor,
-            // leftDistanceSensor,
+            leftDistanceSensor,
             new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
             new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
         );
@@ -249,7 +251,7 @@ public class CompetitionTeleop extends OpMode {
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
         // (even if nothing is achieved, per se).
-        final DcMotorGroup flywheels = new DcMotorGroup(/* leftShooterMotor, */ rightShooterMotor);
+        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
@@ -511,6 +513,11 @@ public class CompetitionTeleop extends OpMode {
             !gamepad2.left_bumper && wasPressingLeftBumper // End
         );
 
+        // Blocking if we aren't firing
+        if(shooter.getFiringState() == FlywheelTubeShooter.FiringState.UNKNOWN) {
+            closeBlockers();
+        }
+
         // LEDs
         // final ArtifactColor artifactcolorL = leftReload.getColor();
         // final ArtifactColor artifactcolorR = rightReload.getColor();
@@ -737,7 +744,6 @@ public class CompetitionTeleop extends OpMode {
             shooter.charge();
         } 
 
-        closeBlockers();
         return false;
     }
 

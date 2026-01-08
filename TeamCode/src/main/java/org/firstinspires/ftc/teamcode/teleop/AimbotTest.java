@@ -39,11 +39,6 @@ import org.firstinspires.ftc.teamcode.subsystem.PivotSubsystem;
 
 @TeleOp(group="B - Testing")
 public class AimbotTest extends OpMode {
-    
-    // public static final double INCHES_TO_TICKS = 1300.0 / 250.0;
-    // TODO: Tune this constants!!!
-    public static final double INCHES_TO_TICKS = 1; // DEV NOTE: So that we can input ticks, not in/s
-
     public static final double DIST_TOLERANCE = 0.5; // inches
     public static final double ANGLE_TOLERANCE = Math.toRadians(0.25);
     public static final double SPEED_TOLERANCE = 2.5;
@@ -182,14 +177,13 @@ public class AimbotTest extends OpMode {
 
         final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor/* , rightShooterMotor */);
         shootingMotor = flywheels;
-        inchesToTicks = (inches) -> inches * INCHES_TO_TICKS; // TODO: Tune this
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier(leftReload)
-            .setTicksToInches((ticks) -> ticks / INCHES_TO_TICKS)
-            .setInchesToTicks(inchesToTicks)
+            .setTicksToInches(this::ticksToInches)
+            .setInchesToTicks(this::inchesToTicks)
             .build();
 
         this.shooter = rightShooter;
@@ -231,6 +225,26 @@ public class AimbotTest extends OpMode {
         } catch(IOException exception) {
             throw new RuntimeException(exception);
         }
+    }
+
+    public double ticksToInches(double ticks) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = 607.98623;
+        final double B = -7.66965e16;
+        final double H = -3495.02401;
+        final double A = -15.37211;
+        return K + B * Math.pow(Math.log(ticks - H), A);
+    }
+
+    public double inchesToTicks(double inches) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        final double K = 607.98623;
+        final double B = -7.66965e16;
+        final double H = -3495.02401;
+        final double A = -15.37211;
+        return H + Math.exp(Math.pow((inches - K) / B, 1 / A));
     }
 
     private byte[] readAll(InputStream stream) throws IOException {

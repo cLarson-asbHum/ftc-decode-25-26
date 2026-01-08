@@ -192,19 +192,21 @@ public class ShooterSpeedTest extends OpMode {
     public double ticksToInches(double ticks) {
         // Determined with some samples and applying a regression using Desmos
         // Because this is experimental, the units will not work out
-        final double K = -2024.19872;
-        final double B =  293.31695;
-        final double H = -634.81204;
-        return K + B * Math.log(ticks - H);
+        final double K = 607.98623;
+        final double B = -7.66965e16;
+        final double H = -3495.02401;
+        final double A = -15.37211;
+        return K + B * Math.pow(Math.log(ticks - H), A);
     }
 
     public double inchesToTicks(double inches) {
         // Determined with some samples and applying a regression using Desmos
         // Because this is experimental, the units will not work out
-        final double K = -2024.19872;
-        final double B =  293.31695;
-        final double H = -634.81204;
-        return H + Math.exp((inches - K) / B);
+        final double K = 607.98623;
+        final double B = -7.66965e16;
+        final double H = -3495.02401;
+        final double A = -15.37211;
+        return H + Math.exp(Math.pow((inches - K) / B, 1 / A));
     }
 
     @Override
