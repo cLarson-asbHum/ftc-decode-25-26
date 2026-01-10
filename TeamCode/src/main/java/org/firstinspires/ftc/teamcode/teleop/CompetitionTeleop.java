@@ -251,7 +251,7 @@ public class CompetitionTeleop extends OpMode {
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
         // (even if nothing is achieved, per se).
-        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
+        final DcMotorGroup flywheels = new DcMotorGroup(/* leftShooterMotor, */ rightShooterMotor);
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
