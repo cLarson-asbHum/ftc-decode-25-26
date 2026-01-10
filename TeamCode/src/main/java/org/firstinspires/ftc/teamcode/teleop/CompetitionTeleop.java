@@ -4,6 +4,8 @@ package org.firstinspires.ftc.teamcode.teleop;
 import com.arcrobotics.ftclib.command.Command;
 import com.arcrobotics.ftclib.command.CommandScheduler;
 import com.arcrobotics.ftclib.command.Subsystem;
+import com.arcrobotics.ftclib.command.SequentialCommandGroup;
+import com.arcrobotics.ftclib.command.InstantCommand;
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
@@ -30,6 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -251,7 +255,7 @@ public class CompetitionTeleop extends OpMode {
         // Subsystems represent groups of hardware that achieve ONE function.
         // Subsystems can lead into each other, but they should be able to operate independently 
         // (even if nothing is achieved, per se).
-        final DcMotorGroup flywheels = new DcMotorGroup(/* leftShooterMotor, */ rightShooterMotor);
+        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
         final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
             .setLeftFeeder(leftFeederServo) 
             .setRightFeeder(rightFeederServo)
@@ -691,6 +695,29 @@ public class CompetitionTeleop extends OpMode {
         }
     }
 
+    private void asyncSleep(Runnable command, double ms) {
+        final ElapsedTime timer = new ElapsedTime() ;// FIXME: timeutil
+        CommandScheduler.getInstance().schedule(new SequentialCommandGroup(
+            new Command() {
+                @Override
+                public Set<Subsystem> getRequirements() {
+                    return new HashSet<Subsystem>();
+                }
+
+                @Override
+                public boolean isFinished() {
+                    return timer.seconds() * 1000 > ms;
+                }
+
+                @Override
+                public void initialize() {
+                    timer.reset();
+                }
+            },
+            new InstantCommand(command) // Quote from an artifact: {d}
+        ));
+    }
+
     public boolean closeBlockers() {
         final boolean closeLeft = leftBlocker.close();
         final boolean closeRight = rightBlocker.close();
@@ -700,14 +727,20 @@ public class CompetitionTeleop extends OpMode {
 
     public boolean fireBasedOffColor(boolean fireGreen, boolean firePurple) {
         if(fireGreen) {
-            shooter.fireGreen();
-            openBlockers(shooter.getFiringState());
+            openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            asyncSleep(() -> {
+                shooter.fireGreen();
+                openBlockers(shooter.getFiringState());
+            }, 500);
             return true;
         }
         
         if(firePurple) {
-            shooter.firePurple();
-            openBlockers(shooter.getFiringState());
+            openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            asyncSleep(() -> {
+                shooter.firePurple();
+                openBlockers(shooter.getFiringState());
+            }, 500);
             return true;
         }
 
@@ -716,14 +749,20 @@ public class CompetitionTeleop extends OpMode {
     }
 
     public boolean fireBasedOffSide(boolean fireRight, boolean fireLeft) {
-        if(fireRight) {
-            shooter.fireRight();
-            openBlockers(shooter.getFiringState());
+        if(fireRight) { // Quote from the artifact that hit my keyboard: 12erre
+            openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            asyncSleep(() -> {
+                shooter.fireRight();
+                openBlockers(shooter.getFiringState());
+            }, 500);
             return true;
         }
         if(fireLeft) {
-            shooter.fireLeft();
-            openBlockers(shooter.getFiringState());
+            openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            asyncSleep(() -> {
+                shooter.fireLeft();
+                openBlockers(shooter.getFiringState());
+            }, 500);
             return true;
         }
 
@@ -733,8 +772,12 @@ public class CompetitionTeleop extends OpMode {
 
     public boolean fireIndiscriminantly(boolean startFiring, boolean cancelFiring) {
         if(startFiring) {
-            shooter.multiFire();
-            openBlockers(shooter.getFiringState());
+            openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            asyncSleep(() -> {
+                shooter.multiFire();
+                intake.intakeGamePieces();
+                openBlockers(shooter.getFiringState());
+            }, 500);
             return true;
         }
 
