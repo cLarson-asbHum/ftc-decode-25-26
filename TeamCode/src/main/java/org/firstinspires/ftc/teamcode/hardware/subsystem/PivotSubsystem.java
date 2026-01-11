@@ -1,9 +1,9 @@
-package org.firstinspires.ftc.teamcode.subsystem;
+package org.firstinspires.ftc.teamcode.hardware.subsystem;
 
 import com.arcrobotics.ftclib.command.Command;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.teamcode.subsystem.StateSubsystem;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.StateSubsystem;
 import org.firstinspires.ftc.teamcode.util.WrapConcurrentCommand;
 
 /**

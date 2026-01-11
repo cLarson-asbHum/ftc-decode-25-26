@@ -5,7 +5,7 @@ import com.arcrobotics.ftclib.command.Subsystem;
 
 import java.util.function.BooleanSupplier;
 
-import org.firstinspires.ftc.teamcode.subsystem.StateSubsystem;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.StateSubsystem;
 
 /**
  * Wraps a method that otherwise acts concurrently. For example, 

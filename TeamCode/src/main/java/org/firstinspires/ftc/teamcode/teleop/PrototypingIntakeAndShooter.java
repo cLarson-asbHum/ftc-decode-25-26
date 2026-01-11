@@ -13,7 +13,7 @@ import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-import org.firstinspires.ftc.teamcode.subsystem.BlockerSubsystem;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 
 import com.bylazar.configurables.annotations.Configurable;
 

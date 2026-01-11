@@ -13,7 +13,7 @@ import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
-import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
 
 @Configurable
 @TeleOp(group="B - Testing")

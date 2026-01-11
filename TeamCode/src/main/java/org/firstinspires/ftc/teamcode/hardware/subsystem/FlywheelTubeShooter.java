@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.subsystem;
+package org.firstinspires.ftc.teamcode.hardware.subsystem;
 
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -16,7 +16,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ArtifactColorGetter;
-import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
+import org.firstinspires.ftc.teamcode.hardware.DcMotorGroup;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 import static org.firstinspires.ftc.teamcode.util.Util.padHeader;

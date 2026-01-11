@@ -17,13 +17,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.function.DoubleUnaryOperator;
 
-import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
+import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.hardware.DcMotorGroup;
 import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
 import org.firstinspires.ftc.teamcode.util.Util;
-import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
-import org.firstinspires.ftc.teamcode.subsystem.LinearHingePivot;
-import org.firstinspires.ftc.teamcode.subsystem.PivotSubsystem;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.LinearHingePivot;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.PivotSubsystem;
 
 @TeleOp(group="B - Testing")
 public class ShooterSpeedTest extends OpMode {

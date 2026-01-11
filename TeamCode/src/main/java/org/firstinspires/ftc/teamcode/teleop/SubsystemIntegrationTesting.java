@@ -12,11 +12,11 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.arcrobotics.ftclib.command.CommandScheduler;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.teamcode.subsystem.CarwashIntake;
-import org.firstinspires.ftc.teamcode.subsystem.FlywheelTubeShooter;
-import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.Util;
-import org.firstinspires.ftc.teamcode.subsystem.BasicMecanumDrive;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 
 @TeleOp(group="B - Testing")
 public class SubsystemIntegrationTesting extends LinearOpMode {

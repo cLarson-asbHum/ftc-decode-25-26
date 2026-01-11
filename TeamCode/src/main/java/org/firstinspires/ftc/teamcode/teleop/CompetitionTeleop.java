@@ -37,10 +37,10 @@ import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
-import org.firstinspires.ftc.teamcode.subsystem.*;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.*;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
-import org.firstinspires.ftc.teamcode.util.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
+import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.hardware.DcMotorGroup;
 import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
 import org.firstinspires.ftc.teamcode.util.Util;

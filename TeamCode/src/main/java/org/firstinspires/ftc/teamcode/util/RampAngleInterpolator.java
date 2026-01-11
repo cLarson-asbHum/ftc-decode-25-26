@@ -5,6 +5,8 @@ import java.util.Map;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
+// TODO: Convert all instances of this class into LinearInterpolator
+@Deprecated
 public class RampAngleInterpolator extends LinearInterpolator implements AngleGetter {
     /**
      * The units the dists array was recorded in.

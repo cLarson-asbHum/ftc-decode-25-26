@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.test.util;
+package org.firstinspires.ftc.teamcode.test.hardware;
 
 import clarson.ftc.faker.DcMotorImplExFake;
 import clarson.ftc.faker.updater.ModularUpdater;
@@ -10,7 +10,7 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 import java.util.Arrays;
 
-import org.firstinspires.ftc.teamcode.util.DcMotorGroup;
+import org.firstinspires.ftc.teamcode.hardware.DcMotorGroup;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 
