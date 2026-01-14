@@ -7,8 +7,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public final class KeyPoses {
     public static final class Blue {
         public static final Pose BASE = new Pose(105, 33);
-        // public static final Pose GOAL = new Pose(12, 144 - 7.25);
-        public static final Pose GOAL = new Pose(24 - 6.57, 120 + 13.0); // Edge of the wall, determines from an image
+        public static final Pose GOAL_WALL = new Pose(24 - 6.57, 120 + 13.0); // Center of wall, determined from an image
+        public static final Pose GOAL_CENTER = new Pose(13.11, 136.32); // Center of opening, determined from an image
         public static final Pose LOADING = new Pose(132, 12);
 
         public static final Pose SHOOTING = new Pose(
@@ -24,8 +24,8 @@ public final class KeyPoses {
             farX,
             farY,
             AngleUnit.normalizeRadians(Math.PI + Math.atan2(
-                GOAL.getY() - farY,
-                GOAL.getX() - farX
+                GOAL_CENTER.getY() - farY,
+                GOAL_CENTER.getX() - farX
             ) + Math.toRadians(5))
         );
 
@@ -41,7 +41,8 @@ public final class KeyPoses {
 
     public static final class Red {
         public static final Pose BASE = Blue.BASE.mirror();
-        public static final Pose GOAL = Blue.GOAL.mirror();
+        public static final Pose GOAL_WALL = Blue.GOAL_WALL.mirror();
+        public static final Pose GOAL_CENTER = Blue.GOAL_CENTER.mirror();
         public static final Pose LOADING = Blue.LOADING.mirror();
         
         public static final Pose SHOOTING = new Pose(
@@ -68,8 +69,13 @@ public final class KeyPoses {
         return isRed ? Red.BASE : Blue.BASE;
     }
 
-    public static Pose goal(boolean isRed) {
-        return isRed ? Red.GOAL : Blue.GOAL;
+    public static Pose goalWall(boolean isRed) {
+        return isRed ? Red.GOAL_WALL : Blue.GOAL_WALL;
+    }
+    
+
+    public static Pose goalCenter(boolean isRed) {
+        return isRed ? Red.GOAL_CENTER : Blue.GOAL_CENTER;
     }
 
     public static Pose loading(boolean isRed) {
