@@ -146,16 +146,16 @@ public class ArtifactColorRangeSensor implements ArtifactColorGetter {
     public ArtifactColor getColor() {
         // Update the sensor values if this is NOT manual and the color is outdated.
         // The color is only ever NOT outdated if we have immediately called clearBulkCache()
-        // if(mode != LynxModule.BulkCachingMode.MANUAL && colorIsOutdated) {
-        //     clearBulkCache();
-        // }
+        if(mode != LynxModule.BulkCachingMode.MANUAL && colorIsOutdated) {
+            clearBulkCache();
+        }
 
-        // colorIsOutdated = true;
-        // TODO: Bring back the bulk cache!
-
+        colorIsOutdated = true;
         clearBulkCache();
+        return calculateArtifactColor(hue, saturation, dist);
+    }
 
-
+    public ArtifactColor lastColor() {
         return calculateArtifactColor(hue, saturation, dist);
     }
 

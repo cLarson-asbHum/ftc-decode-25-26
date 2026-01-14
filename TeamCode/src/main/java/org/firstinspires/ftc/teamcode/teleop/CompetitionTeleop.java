@@ -13,18 +13,7 @@ import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.ColorRangeSensor;
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Gamepad;
-import com.qualcomm.robotcore.hardware.HardwareDevice;
-import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.ServoImplEx;
-import com.qualcomm.robotcore.hardware.SwitchableLight;
-import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.hardware.lynx.LynxModule;
 
@@ -36,11 +25,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.hardware.*;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.*;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
-import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.hardware.DcMotorGroup;
 import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
 import org.firstinspires.ftc.teamcode.util.Util;
@@ -56,24 +44,23 @@ public class CompetitionTeleop extends OpMode {
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
 
-    private ArtifactColorRangeSensor rightReload = null;
-    private ArtifactColorRangeSensor leftReload = null;
+    private List<LynxModule> lynxModules = null;
 
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
     private LinearHingePivot rampPivot = null;
-    private BlockerSubsystem leftBlocker = null;
-    private BlockerSubsystem rightBlocker = null;
     private Follower follower = null;
 
+    private BlockerSubsystem leftBlocker = null;
+    private BlockerSubsystem rightBlocker = null;
+    private ArtifactColorRangeSensor rightReload = null;
+    private ArtifactColorRangeSensor leftReload = null;
+    private ArtifactColorLed rightLed = null;
+    private ArtifactColorLed leftLed = null;
 
-    private SwitchableLight rightRed;
-    private SwitchableLight rightGreen;
-    private SwitchableLight leftRed;
-    private SwitchableLight leftGreen;
-
-    private boolean autoReloadEnabled = false;
+    private boolean autoReloadEnabled = true;
+    private boolean showExtraTelemetry = true;
 
     private boolean wasPressingRightTrigger = false;
     private boolean wasPressingLeftTrigger = false;
@@ -88,229 +75,20 @@ public class CompetitionTeleop extends OpMode {
     private boolean isRed = false;
 
     /**
-     * Attempts to get the given hardware from the hardwareMap. If it cannot be 
-     * found, then it returns null without finding an error.
-     * 
-     * This method should be used instead of hardwareMap.get() because it allows
-     * us to see **all** the hardware that we cannot find.
-     * 
-     * @return The hardware with that name, or null if it cannot be found.
-     */
-    private <T extends HardwareDevice> T findHardware(Class<T> hardwareType, String name) {
-        final T result = hardwareMap.tryGet(hardwareType, name);
-
-        // Adding it to the list if null
-        if(result == null) {
-            nullDeviceNames.add(name);
-            nullDeviceTypes.add(hardwareType);
-        }
-
-        return result;
-    }
-
-    /**
-     * Throws an exception if any devices are in the nullDeviceNames or 
-     * nullDeviceTypes lists. The thrown exception contains the names and types 
-     * of all null hardware devices. 
-     */
-    private void throwAFitIfAnyHardwareIsNotFound() {
-        if(nullDeviceNames.size() != 0 || nullDeviceTypes.size() != 0) {
-            String concat = "";
-
-            for(int i = 0; i < nullDeviceNames.size() || i < nullDeviceNames.size(); i++) {
-                final String name = nullDeviceNames.get(i);
-                final Class type = nullDeviceTypes.get(i); 
-                concat += "\n    ";
-
-                if(name != null) {
-                    concat += '"' + name + '"';
-                } else {
-                    concat += "[null]";
-                }
-
-                concat += " with type ";
-                
-                if(type != null) {
-                    concat += type.getName() + ".class";
-                } else {
-                    concat += "[null]";
-                }
-            }
-
-            throw new RuntimeException("Cannot find hardware:" + concat);
-        }
-    }
-
-    private Map<Double, Double> getRampPivotTuning() {
-        return new HashMap<>() {{
-            final double[] dists = new double[] {
-                0.00, 0.03, 0.06, 0.08,   0.11, 0.13, 0.16, 0.18, 
-                0.20, 0.24, 0.26, 0.29,   0.31, 0.36, 0.40, 0.42, 
-                0.46, 0.49, 0.52, 0.54,   0.56, 0.58, 0.60, 0.62, 
-                0.65, 0.70, 0.72, 0.75,   0.77, 0.80, 0.83, 0.86,
-                0.88, 0.90, 0.94, 0.98,   1.00
-            };
-            
-            double angle = 37.0;
-            for(final double dist : dists) {
-                put(dist, Math.toRadians(angle));
-                angle++;
-            }
-            
-            // The following values are just in case we get out of bound values
-            put(-0.1, Math.toRadians(37.001)); // Minimum possible angle
-            put(1.1, Math.toRadians(73.001));  // Maximum possible angle
-        }};
-    }
-
-    public double ticksToInches(double ticks) {
-        // Determined with some samples and applying a regression using Desmos
-        // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return K + B * Math.pow(Math.log(ticks - H), A);
-    }
-
-    public double inchesToTicks(double inches) {
-        // Determined with some samples and applying a regression using Desmos
-        // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return H + Math.exp(Math.pow((inches - K) / B, 1 / A));
-    }
-
-    private Subsystem[] createSubsystems(HardwareMap hardwareMap) {
-        // Find and create all of the hardware. This uses the hardware map. 
-        // When using unit tests, the `hardwareMap` field can be set for dependency injection.
-        final DcMotorEx frontLeftMotor  = (DcMotorEx) findHardware(DcMotor.class, "frontLeft"); // Null if not found
-        final DcMotorEx backLeftMotor   = (DcMotorEx) findHardware(DcMotor.class, "backLeft"); // Null if not found
-        final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
-        final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
-
-        // FIXME: left shootere disabled because of hardware fault
-        final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
-        final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
-        final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
-        final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
-        final ServoImplEx rightBlockerServo = (ServoImplEx) findHardware(Servo.class, "rightBlocker");
-        final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
-
-        final ServoImplEx rampPivotServo = (ServoImplEx) findHardware(Servo.class, "rampPivot");
-
-        final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
-        final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
-        final DistanceSensor rightDistanceSensor = findHardware(DistanceSensor.class, "rightDistance");
-        final DistanceSensor leftDistanceSensor = findHardware(DistanceSensor.class, "leftDistance");
-        
-        rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
-        rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
-        
-        leftRed = hardwareMap.tryGet(SwitchableLight.class, "leftRed");     // Intentionaly not caring if we don't find this
-        leftGreen = hardwareMap.tryGet(SwitchableLight.class, "leftGreen"); // Intentionaly not caring if we don't find this
-
-        // Checking that ALL hardware has been found (aka the nullHardware list is empty)
-        // If any are not found, an error is thrown stating which.
-        throwAFitIfAnyHardwareIsNotFound();
-
-        // Setting all necessary hardware properties
-        frontLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        backLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-
-        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
-        intakeMotor.setDirection(DcMotor.Direction.REVERSE);
-        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
-        leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
-
-        rightBlockerServo.setPwmRange(new PwmRange(500, 2500));
-        leftBlockerServo.setPwmRange(new PwmRange(500, 2500));
-
-        // Creating subsystems. 
-        // Subsystems represent groups of hardware that achieve ONE function.
-        // Subsystems can lead into each other, but they should be able to operate independently 
-        // (even if nothing is achieved, per se).
-        rightReload = new ArtifactColorRangeSensor(
-            rightReloadSensor,
-            rightDistanceSensor,
-            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-        leftReload = new ArtifactColorRangeSensor(
-            leftReloadSensor,
-            leftDistanceSensor,
-            new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-
-        final LinearInterpolator positionToRadians = new LinearInterpolator(getRampPivotTuning());
-
-        // Creating subsystems. 
-        // Subsystems represent groups of hardware that achieve ONE function.
-        // Subsystems can lead into each other, but they should be able to operate independently 
-        // (even if nothing is achieved, per se).
-        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
-            .setLeftFeeder(leftFeederServo) 
-            .setRightFeeder(rightFeederServo)
-            .setRightReloadClassifier(rightReload)
-            .setLeftReloadClassifier(leftReload)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
-            .build();
-        final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
-            frontLeftMotor, 
-            backLeftMotor,
-            frontRightMotor,
-            backRightMotor
-        );
-        final LinearHingePivot rampPivot = new LinearHingePivot.Builder(rampPivotServo)
-            .setPositionToRadians(positionToRadians)
-            .setRadiansToPosition(positionToRadians.inverse())
-            .build();
-        final BlockerSubsystem leftBlocker = new BlockerSubsystem(
-            leftBlockerServo, 
-            BlockerSubsystem.PositionPresets.LEFT
-        );
-        final BlockerSubsystem rightBlocker = new BlockerSubsystem(
-            rightBlockerServo, 
-            BlockerSubsystem.PositionPresets.RIGHT
-        );
-
-        // This means that no command will use the same subsystem at the same time.
-        // Return a list of every subsystem that we have created
-        final Subsystem[] subsystems = new Subsystem[] { 
-            rightShooter, 
-            intake, 
-            drivetrain, 
-            leftBlocker, 
-            rightBlocker,
-            rampPivot
-        };
-        CommandScheduler.getInstance().registerSubsystem(subsystems);
-        return subsystems;
-    }
-
-    /**
      * Initializing the opmode. This is not expected to be HardwareFaker 
      * compatible.
      */
     @Override
     public void init() {
-        final Subsystem[] subsystems = createSubsystems(hardwareMap);
-        shooter = (FlywheelTubeShooter) subsystems[0];
-        intake = (CarwashIntake) subsystems[1];
-        drivetrain = (BasicMecanumDrive) subsystems[2];
-        leftBlocker = (BlockerSubsystem) subsystems[3];
-        rightBlocker = (BlockerSubsystem) subsystems[4];
-        rampPivot = (LinearHingePivot) subsystems[5];
+        final Robot robot = new Robot(hardwareMap, Robot.TELEOP);
+        shooter      = robot.getShooter();
+        intake       = robot.getIntake();
+        drivetrain   = robot.getDrivetrain();
+        leftBlocker  = robot.getLeftBlocker();
+        rightBlocker = robot.getRightBlocker();
+        rampPivot    = robot.getRampPivot();
+        leftReload   = robot.getLeftReload();
+        rightReload  = robot.getRightReload();
 
         shooter.setTelemetry(telemetry);
 
@@ -318,11 +96,13 @@ public class CompetitionTeleop extends OpMode {
         follower = Constants.createFollower(hardwareMap);
 
         // Bulk caching
-        final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
-
-        for(final LynxModule module : modules) {
-            module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        lynxModules = hardwareMap.getAll(LynxModule.class);
+        for(final LynxModule module : lynxModules) {
+            module.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         }
+        
+        rightReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
+        leftReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
 
         // shooter.uncharge();
         telemetry.addData("Status", "Initialized");
@@ -459,11 +239,11 @@ public class CompetitionTeleop extends OpMode {
         // // Automatic driving
         // goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
         // goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
-        // goParkForthwith(
-        //     gamepad1.dpad_up && gamepad1.y && !wasPressingPark,
-        //     gamepad1.dpad_up && gamepad1.y, 
-        //     !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
-        // ); // TODO: Have this only work if it is endgame?
+        goParkForthwith(
+            gamepad1.dpad_up && gamepad1.y && !wasPressingPark,
+            gamepad1.dpad_up && gamepad1.y, 
+            !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
+        );
 
         // Shooting the given color of artifact
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
@@ -523,13 +303,11 @@ public class CompetitionTeleop extends OpMode {
         }
 
         // LEDs
-        // final ArtifactColor artifactcolorL = leftReload.getColor();
-        // final ArtifactColor artifactcolorR = rightReload.getColor();
-        final ArtifactColor artifactcolorR = ArtifactColor.GREEN;
-        final ArtifactColor artifactcolorL = ArtifactColor.GREEN;
+        final ArtifactColor artifactcolorL = leftReload.lastColor();
+        final ArtifactColor artifactcolorR = rightReload.lastColor();
 
-        // colorLed(rightRed, rightGreen, artifactcolorR);
-        // colorLed(leftRed, leftGreen, artifactcolorL);
+        colorLed(rightLed, artifactcolorR);
+        colorLed(leftLed, artifactcolorL);
 
         // BUTTON PRESSES
         wasPressingRightTrigger = gamepad2.right_trigger > TRIGGER_PRESSED;
@@ -552,22 +330,24 @@ public class CompetitionTeleop extends OpMode {
         telemetry.addData("isRed (Back1 + A)", isRed);
         telemetry.addData("startPosition", startPosition);
         
-        telemetry.addLine();
-        telemetry.addLine(Util.header("Sensors"));
-        telemetry.addLine();
-        telemetry.addData("leftReload Artifact", artifactcolorL);
-        telemetry.addData("rightReload Artifact", artifactcolorR);
-        telemetry.addData("currentPose", () -> {
-            follower.updatePose();
-            return follower.getPose();
-        });
-        telemetry.addLine();
-
-        // if(telemetry.update()) {}
+        if(showExtraTelemetry) {
+            telemetry.addLine();
+            telemetry.addLine(Util.header("Sensors"));
+            telemetry.addLine();
+            telemetry.addData("leftReload Artifact", artifactcolorL);
+            telemetry.addData("rightReload Artifact", artifactcolorR);
+            telemetry.addData("currentPose", () -> {
+                follower.updatePose();
+                return follower.getPose();
+            });
+            telemetry.addLine();
+        }
 
         // COMMAND SCHEDULER
-        CommandScheduler.getInstance().run();
+        leftReload.clearBulkCache();
+        rightReload.clearBulkCache();
 
+        CommandScheduler.getInstance().run();
     }
 
     public boolean toggleIsRed(boolean doToggle) {
@@ -886,37 +666,12 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
-    public boolean colorLed(SwitchableLight redLed, SwitchableLight greenLed, ArtifactColor color) {
-        if(greenLed == null && redLed == null) {
-            return false;
-        }
-
-        switch (color) {
-            case PURPLE:
-                nullSafeLedEnable(greenLed, false);
-                nullSafeLedEnable(redLed, true);
-                return true;
-
-            case GREEN:
-                nullSafeLedEnable(greenLed, true);
-                nullSafeLedEnable(redLed, false);
-                return true;
-
-            case UNKNOWN:
-            default:
-                nullSafeLedEnable(greenLed, false);
-                nullSafeLedEnable(redLed, false);
-                return false;
-        }
-    }
-
-    public boolean nullSafeLedEnable(SwitchableLight led, boolean enable) {
+    public boolean colorLed(ArtifactColorLed led, ArtifactColor color) {
         if(led == null) {
             return false;
         }
 
-        led.enableLight(enable);
-        return true;
+        return led.color(color);
     }
 
     @Override
