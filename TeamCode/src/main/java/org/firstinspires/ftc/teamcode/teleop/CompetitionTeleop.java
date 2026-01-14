@@ -80,7 +80,7 @@ public class CompetitionTeleop extends OpMode {
      */
     @Override
     public void init() {
-        final Robot robot = new Robot(hardwareMap, Robot.TELEOP);
+        final Robot robot = new Robot(hardwareMap, Robot.teleopDevices());
         shooter      = robot.getShooter();
         intake       = robot.getIntake();
         drivetrain   = robot.getDrivetrain();
@@ -90,7 +90,10 @@ public class CompetitionTeleop extends OpMode {
         leftReload   = robot.getLeftReload();
         rightReload  = robot.getRightReload();
 
+        // Doing some work with the subsystems
         shooter.setTelemetry(telemetry);
+        CommandScheduler.getInstance().reset(); // Clear anything from before
+        CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
 
         // Creating the PerdoPathing path follower
         follower = Constants.createFollower(hardwareMap);
@@ -104,7 +107,7 @@ public class CompetitionTeleop extends OpMode {
         rightReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         leftReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
 
-        // shooter.uncharge();
+        // Finishing up
         telemetry.addData("Status", "Initialized");
         telemetry.update();
     }

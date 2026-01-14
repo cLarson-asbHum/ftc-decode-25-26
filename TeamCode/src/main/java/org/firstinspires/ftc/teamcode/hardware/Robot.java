@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.hardware;
 
+import com.arcrobotics.ftclib.command.Subsystem;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.CRServoImplEx;
@@ -15,6 +16,10 @@ import com.qualcomm.robotcore.hardware.SwitchableLight;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
@@ -73,12 +78,32 @@ public class Robot {
         public void requestHardware(HardwareMap hardwareMap) {}
     }
 
-    public static final Set<Device> TELEOP = Set.of(Device.values());
-    public static final Set<Device> AUTO = Set.of(Device.values());
+    public static final Set<Device> teleopDevices() {
+        final Set<Device> result = new LinkedHashSet(Device.values().length);
+        for(final Device device : Device.values()) {
+            result.add(device);
+        }
+
+        result.remove(Device.MOTIF_WEBCAM);
+        result.remove(Device.LEFT_SHOOTER);
+        result.remove(Device.RIGHT_SHOOTER);
+        return result;
+    }
+
+    public static final Set<Device> autoDevices() {
+        final Set<Device> result = new LinkedHashSet(Device.values().length);
+        for(final Device device : Device.values()) {
+            result.add(device);
+        }
+
+        result.remove(Device.DRIVETRAIN);
+        result.remove(Device.LEFT_SHOOTER);
+        result.remove(Device.RIGHT_SHOOTER);
+        return result;
+    }
 
     private final HardwareMap hardwareMap;
-    private ArrayList<String> nullDeviceNames = new ArrayList<>();
-    private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
+    private final LinkedHashMap<String, Class<?>> nullDevices = new LinkedHashMap<>();
 
     private BasicMecanumDrive drivetrain = null;
     private CarwashIntake intake = null;
@@ -92,16 +117,6 @@ public class Robot {
     private CRServo duckSpinner = null;
     private ArtifactColorLed leftLed = null;
     private ArtifactColorLed rightLed = null;
-
-    static {
-        TELEOP.remove(Device.MOTIF_WEBCAM);
-        TELEOP.remove(Device.LEFT_SHOOTER);
-        TELEOP.remove(Device.RIGHT_SHOOTER);
-
-        AUTO.remove(Device.DRIVETRAIN);
-        AUTO.remove(Device.LEFT_SHOOTER);
-        AUTO.remove(Device.RIGHT_SHOOTER);
-    }
 
     public Robot(HardwareMap hardwareMap, Set<Device> devicesToInit) {
         this.hardwareMap = hardwareMap;
@@ -133,8 +148,7 @@ public class Robot {
 
         // Adding it to the list if null
         if(result == null) {
-            nullDeviceNames.add(name);
-            nullDeviceTypes.add(hardwareType);
+            nullDevices.put(name, hardwareType);
         }
 
         return result;
@@ -146,12 +160,15 @@ public class Robot {
      * of all null hardware devices. 
      */
     private void throwAFitIfAnyHardwareIsNotFound() {
-        if(nullDeviceNames.size() != 0 || nullDeviceTypes.size() != 0) {
+        if(nullDevices.size() != 0) {
             String concat = "";
 
-            for(int i = 0; i < nullDeviceNames.size() || i < nullDeviceNames.size(); i++) {
-                final String name = nullDeviceNames.get(i);
-                final Class type = nullDeviceTypes.get(i); 
+            final Iterator<String> nullDeviceNamesIter = nullDevices.keySet().iterator();
+            final Iterator<Class<?>> nullDeviceTypesIter = nullDevices.values().iterator();
+
+            for(int i = 0; i < nullDevices.size(); i++) {
+                final String name = nullDeviceNamesIter.next();
+                final Class type = nullDeviceTypesIter.next(); 
                 concat += "\n    ";
 
                 if(name != null) {
@@ -218,6 +235,7 @@ public class Robot {
 
     private Map<Double, Double> getRampPivotTuning() {
         // These magic numbers were found experimentally 
+        // NOTE: This is a default tuning, from 27 Dec 2025 at 1:28 PM
         return new HashMap<>() {{
             final double[] dists = new double[] {
                 0.00, 0.03, 0.06, 0.08,   0.11, 0.13, 0.16, 0.18, 
@@ -566,5 +584,34 @@ public class Robot {
     public ArtifactColorLed getRightLed() {
         if(rightLed == null) initRightLed();
         return rightLed;
+    }
+
+    /**
+     * Obtains every single non-null subsystem. Each subsystem is guaranteed to 
+     * appear only once. If no subsystems are initialized (they're all null), 
+     * then this returns an empty array.
+     * 
+     * @return All initialized (non-null) subsystems on this robot. Can be empty but 
+     * never null
+     */
+    public Subsystem[] getAllSubsystems() {
+        final LinkedHashSet<Subsystem> possiblyNull = new LinkedHashSet<>() {{
+            add(drivetrain);
+            add(intake);
+            add(rampPivot);
+            add(shooter);
+            add(leftBlocker);
+            add(rightBlocker);
+        }};
+
+        // Removing the null subsystems.
+        for(final Subsystem sub : possiblyNull) {
+            if(sub == null) {
+                possiblyNull.remove(sub);
+            }
+        }
+
+        // Returning what is left
+        return possiblyNull.toArray(new Subsystem[0]);
     }
 }
