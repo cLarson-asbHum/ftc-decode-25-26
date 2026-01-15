@@ -35,6 +35,9 @@ public class AimbotTest extends OpMode {
     public static final double DIST_TOLERANCE = 0.5; // inches
     public static final double ANGLE_TOLERANCE = Math.toRadians(0.25);
     public static final double SPEED_TOLERANCE = 2.5;
+    public static final double MIN_ANGLE = Robot.positionToRadians(0);
+    public static final double MAX_ANGLE = Math.toRadians(62.5); // Any higher, and the shooting is inaccurate
+    public static final double MAX_SPEED = Robot.ticksToInches(2400);
 
     public static final int BUFFER_SIZE = Float.BYTES * 4 * 1000; // A size 1000 arc
 
@@ -159,7 +162,7 @@ public class AimbotTest extends OpMode {
     private void initSelection() {
         try {
             // Getting the arcs
-            final Collection<BallisticArc> arcs = BallisticFileIo.readArcs(stream, this::countArcs);
+            final Collection<BallisticArc> arcs = BallisticFileIo.readArcs(stream, this::filterArc);
             
             // Ending if we have been interrupted
             if(Thread.interrupted()) {
@@ -197,16 +200,29 @@ public class AimbotTest extends OpMode {
     }
 
     private void selectArcs() {
-        arc = selection
+        final BallisticArc longest = selection.minDistance().first();
+        final BallisticArc shortest = selection.maxDistance().first();
+        final BallisticArcSelection subsel = selection
             .withinDistance(targetDist, DIST_TOLERANCE)
-            .minSpeed(SPEED_TOLERANCE)    // First Tiebreaker,  so as to make charging easiest
-            .maxAngle(ANGLE_TOLERANCE)    // Second Tiebreaker, so as to increase shot success probability
-            .maxDistance()                // Third Tiebreaker,  to get as far as possible
-            .first();      // to get an arc rather than a selection
+            .minSpeed(SPEED_TOLERANCE)  // First Tiebreaker,  so as to make charging easiest
+            .minAngle(ANGLE_TOLERANCE)  // Second Tiebreaker, so as to avoid losing speed at high angles
+            .maxDistance();             // Third Tiebreaker,  to get as far as possible
+
+        BallisticArc arc = null;
+
+        // Clamping our results if it is not in the data set
+        if(subsel.size() == 0 && targetDist > Criterion.DISTANCE.of(longest)) {
+            arc = longest;
+        } else if(subsel.size() == 0 && targetDist < Criterion.DISTANCE.of(shortest)) {
+            arc = shortest;
+        } else {
+            arc = subsel.first();
+        }
 
         // Sending this data to the shooter and pivot
+        this.arc = arc;
         pivot.runToAngle(Criterion.ANGLE.of(arc), ANGLE_TOLERANCE);
-        shooter.charge(Criterion.DISTANCE.of(arc), true); // NOTE: The second arg should be false for CompetitionTeleop
+        shooter.charge(Criterion.SPEED.of(arc), true); // NOTE: The second arg should be false for CompetitionTeleop
     }
 
     @Override
@@ -239,7 +255,7 @@ public class AimbotTest extends OpMode {
         }
 
         if(gamepad1.xWasPressed()) {
-            // shooter.fire();
+            shooter.fire();
         }
         
         if(gamepad1.bWasPressed()) {
@@ -302,7 +318,20 @@ public class AimbotTest extends OpMode {
         CommandScheduler.getInstance().reset();
     }
 
-    private Boolean countArcs(BallisticArc arc) {
+    private boolean filterArc(BallisticArc arc) {
+        countArc(arc);
+        final double theta = Criterion.ANGLE.of(arc);
+        
+        // Filter based off angle
+        if(MIN_ANGLE <= theta && theta <= MAX_ANGLE) {
+            return true;
+        }
+
+        final double speed = Criterion.SPEED.of(arc);
+        return speed <= MAX_SPEED;
+    }
+
+    private boolean countArc(BallisticArc arc) {
         boolean update = false;
         parsedArcs++;
 

@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.DoubleUnaryOperator;
 
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
@@ -233,7 +234,7 @@ public class Robot {
         return true;
     }
 
-    private Map<Double, Double> getRampPivotTuning() {
+    private static final Map<Double, Double> getRampPivotTuning() {
         // These magic numbers were found experimentally 
         // NOTE: This is a default tuning, from 27 Dec 2025 at 1:28 PM
         return new HashMap<>() {{
@@ -257,6 +258,18 @@ public class Robot {
         }};
     }
 
+    private static LinearInterpolator positionToRadians = new LinearInterpolator(getRampPivotTuning());
+    private static LinearInterpolator radiansToPosition = positionToRadians.inverse();
+
+
+    public static final double radiansToPosition(double radians) {
+        return radiansToPosition.applyAsDouble(radians);
+    }
+    
+    public static final double positionToRadians(double position) {
+        return positionToRadians.applyAsDouble(position);
+    }
+
     private boolean initRampPivot() {
         if(rampPivot != null) {
             return false;
@@ -267,33 +280,36 @@ public class Robot {
         throwAFitIfAnyHardwareIsNotFound();
 
         // Creating the subsystem
-        final LinearInterpolator positionToRadians = new LinearInterpolator(getRampPivotTuning());
         rampPivotServo.setPwmRange(new PwmRange(1050, 1950));
         this.rampPivot = new LinearHingePivot.Builder(rampPivotServo)
-            .setPositionToRadians(positionToRadians)
-            .setRadiansToPosition(positionToRadians.inverse())
+            .setPositionToRadians(Robot::radiansToPosition)
+            .setRadiansToPosition(Robot::positionToRadians)
             .build();
         return true;
     }
 
-    public double ticksToInches(double ticks) {
-        // Determined with some samples and applying a regression using Desmos
-        // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return K + B * Math.pow(Math.log(ticks - H), A);
+    private static final class Regression {
+        // DEV NOTE: This overshoots at long distances:
+        // public static final double K  = -3740.06922;
+        // public static final double B  = 497.24437;
+        // public static final double H  = -1457.45051;
+
+        // DEV NOTE: This is the updated version, with larger distances more accurate
+        public static final double K  = -3740.06922;
+        public static final double B  = 643.77047;
+        public static final double H  = -2158.76154;
     }
 
-    public double inchesToTicks(double inches) {
+    public static final double ticksToInches(double ticks) {
         // Determined with some samples and applying a regression using Desmos
         // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return H + Math.exp(Math.pow((inches - K) / B, 1 / A));
+        return Regression.K + Regression.B * Math.log(ticks - Regression.H);
+    }
+
+    public static final double inchesToTicks(double inches) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        return Regression.H + Math.exp((inches - Regression.K) / Regression.B);
     }
 
     private boolean initShooter() {
@@ -325,8 +341,8 @@ public class Robot {
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier(leftReload)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
+            .setTicksToInches(Robot::ticksToInches)
+            .setInchesToTicks(Robot::inchesToTicks)
             .build();
         return true;
     }
@@ -354,8 +370,8 @@ public class Robot {
             .setRightFeeder(null) // FlywheelTubeShooter is null safe for feeders
             .setLeftReloadClassifier(leftReload)
             .setRightReloadClassifier(() -> ArtifactColor.UNKNOWN)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
+            .setTicksToInches(Robot::ticksToInches)
+            .setInchesToTicks(Robot::inchesToTicks)
             .build();
         return true;
     }
@@ -383,8 +399,8 @@ public class Robot {
             .setRightFeeder(rightFeederServo) 
             .setLeftReloadClassifier(() -> ArtifactColor.UNKNOWN)
             .setRightReloadClassifier(rightReload)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
+            .setTicksToInches(Robot::ticksToInches)
+            .setInchesToTicks(Robot::inchesToTicks)
             .build();
         return true;
     }
