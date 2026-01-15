@@ -3,15 +3,6 @@ package org.firstinspires.ftc.teamcode.teleop;
 import com.arcrobotics.ftclib.command.CommandScheduler;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.HardwareDevice;
-import com.qualcomm.robotcore.hardware.ColorRangeSensor;
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.ServoImplEx;
-import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -21,21 +12,23 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Set;
 import java.util.function.DoubleUnaryOperator;
 
-import org.firstinspires.ftc.teamcode.res.R;
 import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArc;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection.Criterion;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticFileIo;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.hardware.DcMotorGroup;
-import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
-import org.firstinspires.ftc.teamcode.util.Util;
+import org.firstinspires.ftc.teamcode.hardware.Robot;
+import org.firstinspires.ftc.teamcode.hardware.Robot.Device;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.LinearHingePivot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.PivotSubsystem;
+import org.firstinspires.ftc.teamcode.res.R;
+import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
+import org.firstinspires.ftc.teamcode.util.Util;
 
 @TeleOp(group="B - Testing")
 public class AimbotTest extends OpMode {
@@ -45,18 +38,13 @@ public class AimbotTest extends OpMode {
 
     public static final int BUFFER_SIZE = Float.BYTES * 4 * 1000; // A size 1000 arc
 
-    private ArrayList<String> nullDeviceNames = new ArrayList<>();
-    private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();    
-
     private FlywheelTubeShooter shooter = null;
-    private DoubleUnaryOperator inchesToTicks = null;
     private PivotSubsystem pivot = null;
 
     private boolean areControlsHidden = true;
 
     private double targetDist = 0;
     private double newTargetDist = 0;
-    private DcMotorEx shootingMotor = null;
 
     public static final int MAJOR_ARCS_INCREMENT = 250;
     public static final int MINOR_ARCS_INCREMENT = 50;
@@ -70,156 +58,21 @@ public class AimbotTest extends OpMode {
     private InputStream stream = null;
     private Thread readFiles = null;
 
-    /**
-     * Attempts to get the given hardware from the hardwareMap. If it cannot be 
-     * found, then it returns null without finding an error.
-     * 
-     * This method should be used instead of hardwareMap.get() because it allows
-     * us to see **all** the hardware that we cannot find.
-     * 
-     * @return The hardware with that name, or null if it cannot be found.
-     */
-    private <T extends HardwareDevice> T findHardware(Class<T> hardwareType, String name) {
-        final T result = hardwareMap.tryGet(hardwareType, name);
-
-        // Adding it to the list if null
-        if(result == null) {
-            nullDeviceNames.add(name);
-            nullDeviceTypes.add(hardwareType);
-        }
-
-        return result;
-    }
-
-    /**
-     * Throws an exception if any devices are in the nullDeviceNames or 
-     * nullDeviceTypes lists. The thrown exception contains the names and types 
-     * of all null hardware devices. 
-     */
-    private void throwAFitIfAnyHardwareIsNotFound() {
-        if(nullDeviceNames.size() != 0 || nullDeviceTypes.size() != 0) {
-            String concat = "";
-
-            for(int i = 0; i < nullDeviceNames.size() || i < nullDeviceNames.size(); i++) {
-                final String name = nullDeviceNames.get(i);
-                final Class type = nullDeviceTypes.get(i); 
-                concat += "\n    ";
-
-                if(name != null) {
-                    concat += '"' + name + '"';
-                } else {
-                    concat += "[null]";
-                }
-
-                concat += " with type ";
-                
-                if(type != null) {
-                    concat += type.getName() + ".class";
-                } else {
-                    concat += "[null]";
-                }
-            }
-
-            throw new RuntimeException("Cannot find hardware:" + concat);
-        }
-    }
-
     @Override
     public void init() {
-        CommandScheduler.getInstance().reset();
-
-        // Find and create all of the hardware. This uses the hardware map. 
-        // When using unit tests, the `hardwareMap` field can be set for dependency injection.
-        final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
-        final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
-        final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
-
-        final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
-        final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
-        final DistanceSensor rightDistanceSensor = findHardware(DistanceSensor.class, "rightDistance");
-        final DistanceSensor leftDistanceSensor = findHardware(DistanceSensor.class, "leftDistance");
-        
-        final ServoImplEx rampPivotServo = (ServoImplEx) findHardware(Servo.class, "rampPivot");
-
-        // Checking that ALL hardware has been found (aka the nullHardware list is empty)
-        // If any are not found, an error is thrown stating which.
-        throwAFitIfAnyHardwareIsNotFound();
-
-        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
-        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
-        leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
-
-        rampPivotServo.setPwmRange(new PwmRange(1050, 1950));
-
-        // Creating subsystems. 
-        // Subsystems represent groups of hardware that achieve ONE function.
-        // Subsystems can lead into each other, but they should be able to operate independently 
-        // (even if nothing is achieved, per se).
-        final ArtifactColorRangeSensor rightReload = new ArtifactColorRangeSensor(
-            rightReloadSensor,
-            rightDistanceSensor,
-            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-            // new double[] { 0.60, 0.16, 0.11, 0.08, 0.05  }
-            // new double[] {1.00}
-        );
-        final ArtifactColorRangeSensor leftReload = new ArtifactColorRangeSensor(
-            leftReloadSensor,
-            leftDistanceSensor,
-            new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-            // new double[] { 0.40, 0.16, 0.11, 0.08, 0.05  }
-            // new double[] {1.00}
-
-        );
-
-        final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor/* , rightShooterMotor */);
-        shootingMotor = flywheels;
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(flywheels) 
-            .setLeftFeeder(leftFeederServo) 
-            .setRightFeeder(rightFeederServo)
-            .setRightReloadClassifier(rightReload)
-            .setLeftReloadClassifier(leftReload)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
-            .build();
-
-        this.shooter = rightShooter;
-
-        
-        // NOTE: This is a default tuning, from 27 Dec 2025 at 1:28 PM
-        final HashMap<Double, Double> pretunedData = new HashMap<>() {{
-            final double[] dists = new double[] {
-                0.00, 0.03, 0.06, 0.08,   0.11, 0.13, 0.16, 0.18, 
-                0.20, 0.24, 0.26, 0.29,   0.31, 0.36, 0.40, 0.42, 
-                0.46, 0.49, 0.52, 0.54,   0.56, 0.58, 0.60, 0.62, 
-                0.65, 0.70, 0.72, 0.75,   0.77, 0.80, 0.83, 0.86,
-                0.88, 0.90, 0.94, 0.98,   1.00
-            };
-            
-            double angle = 37.0;
-            for(final double dist : dists) {
-                put(dist, Math.toRadians(angle));
-                angle++;
-            }
-        }};
-        final LinearInterpolator positionToRadians = new LinearInterpolator(pretunedData);
-        final LinearInterpolator radiansToPosition = positionToRadians.inverse();
-        pivot = new LinearHingePivot.Builder(rampPivotServo)
-            .setPositionToRadians((pos) -> positionToRadians.clampedCalculate(pos))
-            .setRadiansToPosition((ang) -> radiansToPosition.clampedCalculate(ang))
-            .build();
-
-        telemetry.setMsTransmissionInterval(33);
+        final Robot robot = new Robot(hardwareMap, Set.of(Device.LEFT_SHOOTER, Device.RAMP_PIVOT));
+        shooter = robot.getShooter();
+        pivot = robot.getRampPivot();
 
         // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(rightShooter, pivot);
-
+        CommandScheduler.getInstance().reset();
+        CommandScheduler.getInstance().registerSubsystem(shooter, pivot);
+        
         // Getting the source selection
+        telemetry.setMsTransmissionInterval(33);
         telemetry.addData("Status", "Reading ballistic arcs...");
         telemetry.update();
+        
         try {
             createSourceArcs();
         } catch(IOException exception) {
