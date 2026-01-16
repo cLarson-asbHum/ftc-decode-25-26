@@ -85,6 +85,7 @@ public class Robot {
             result.add(device);
         }
 
+        result.remove(Device.ULTIMATE_POINT_EARNER);
         result.remove(Device.MOTIF_WEBCAM);
         result.remove(Device.LEFT_SHOOTER);
         result.remove(Device.RIGHT_SHOOTER);
@@ -282,8 +283,8 @@ public class Robot {
         // Creating the subsystem
         rampPivotServo.setPwmRange(new PwmRange(1050, 1950));
         this.rampPivot = new LinearHingePivot.Builder(rampPivotServo)
-            .setPositionToRadians(Robot::radiansToPosition)
-            .setRadiansToPosition(Robot::positionToRadians)
+            .setPositionToRadians(Robot::positionToRadians)
+            .setRadiansToPosition(Robot::radiansToPosition)
             .build();
         return true;
     }
@@ -295,7 +296,7 @@ public class Robot {
         // public static final double H  = -1457.45051;
 
         // DEV NOTE: This is the updated version, with larger distances more accurate
-        public static final double K  = -3740.06922;
+        public static final double K  = -5047.22041;
         public static final double B  = 643.77047;
         public static final double H  = -2158.76154;
     }
