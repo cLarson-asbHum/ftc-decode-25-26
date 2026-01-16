@@ -27,29 +27,37 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
+import org.firstinspires.ftc.teamcode.ballistics.BallisticArc;
+import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection.Criterion;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
-import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive ;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.LinearHingePivot;
+import org.firstinspires.ftc.teamcode.hardware.Robot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.ShooterSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.ShooterSubsystem.Status;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.res.R;
 import org.firstinspires.ftc.teamcode.teleop.ClearCommandScheduler;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
+import org.firstinspires.ftc.teamcode.util.AimbotManager;
 import org.firstinspires.ftc.teamcode.util.ConfigPose;
 import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.MotifGetter;
@@ -81,6 +89,9 @@ public class FarSideAuto extends LinearOpMode {
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
+    public static double SHOT_SPEED = 338; // Determined using the ballistic arc text user interface
+    public static double SHOT_ANGLE = Math.toRadians(51.1); // Determined using the ballistic arc text user interface
+
     public static ConfigPose START_POS = new ConfigPose(
         // In Inches. Coveriing the jigsaw covering the center line
         48 + ROBOT_WIDTH / 2,
@@ -111,6 +122,7 @@ public class FarSideAuto extends LinearOpMode {
     private BlockerSubsystem rightBlocker = null;
 
     private boolean isRed = false;
+    private boolean inCompetitonMode = false;
     
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
@@ -168,87 +180,6 @@ public class FarSideAuto extends LinearOpMode {
 
             throw new RuntimeException("Cannot find hardware:" + concat);
         }
-    }
-
-    private Subsystem[] createSubsystems(HardwareMap hardwareMap) {
-        // Find and create all of the hardware. This uses the hardware map. 
-        // When using unit tests, the `hardwareMap` field can be set for dependency injection.
-        final DcMotorEx frontLeftMotor  = (DcMotorEx) findHardware(DcMotor.class, "frontLeft"); // Null if not found
-        final DcMotorEx backLeftMotor   = (DcMotorEx) findHardware(DcMotor.class, "backLeft"); // Null if not found
-        final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
-        final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
-
-        // FIXME: Left shooter disabled due to hardware fault
-        final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
-        final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
-        final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
-        final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
-        final ServoImplEx rightBlockerServo = (ServoImplEx) findHardware(Servo.class, "rightBlocker");
-        final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
-
-        final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
-        final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
-        
-        // Checking that ALL hardware has been found (aka the nullHardware list is empty)
-        // If any are not found, an error is thrown stating which.
-        throwAFitIfAnyHardwareIsNotFound();
-
-        // Setting all necessary hardware properties
-        frontLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        backLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-
-        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        intakeMotor.setDirection(DcMotor.Direction.REVERSE);
-        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
-        leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
-
-        // Creating subsystems. 
-        // Subsystems represent groups of hardware that achieve ONE function.
-        // Subsystems can lead into each other, but they should be able to operate independently 
-        // (even if nothing is achieved, per se).
-        rightReload = new ArtifactColorRangeSensor(
-            rightReloadSensor,
-            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-        leftReload = new ArtifactColorRangeSensor(
-            leftReloadSensor,
-            new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor, leftShooterMotor) 
-            .setLeftFeeder(leftFeederServo) 
-            .setRightFeeder(rightFeederServo)
-            .setRightReloadClassifier(rightReload)
-            .setLeftReloadClassifier( leftReload)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
-            .build();
-        final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        leftBlocker = new BlockerSubsystem(
-            leftBlockerServo, 
-            BlockerSubsystem.PositionPresets.LEFT
-        );
-        rightBlocker = new BlockerSubsystem(
-            rightBlockerServo, 
-            BlockerSubsystem.PositionPresets.RIGHT
-        );
-
-        // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(
-            rightShooter, 
-            intake, 
-            // drivetrain, 
-            leftBlocker, 
-            rightBlocker
-        );
-
-        // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake, /* drivetrain, */ leftBlocker, rightBlocker };
     }
 
     private Pose mirror(Pose pose, boolean doMirror) {
@@ -364,42 +295,26 @@ public class FarSideAuto extends LinearOpMode {
         return result;
     }
 
-    public double ticksToInches(double ticks) {
-        // Determined with some samples and applying a regression using Desmos
-        // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return K + B * Math.pow(Math.log(ticks - H), A);
-    }
-
-    public double inchesToTicks(double inches) {
-        // Determined with some samples and applying a regression using Desmos
-        // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return H + Math.exp(Math.pow((inches - K) / B, 1 / A));
-    }
-
     @Override
     public void runOpMode() {
 
         telemetry.setMsTransmissionInterval(30);
 
         // Creating subsystems
-        final Subsystem[] subsystems = createSubsystems(hardwareMap);
-        shooter = (FlywheelTubeShooter) subsystems[0];
-        intake = (CarwashIntake) subsystems[1];
-        // drivetrain = (BasicMecanumDrive) subsystems[2];
-        leftBlocker = (BlockerSubsystem) subsystems[2];
-        rightBlocker = (BlockerSubsystem) subsystems[3];
+        // final Subsystem[] subsystems = createSubsystems(hardwareMap);
+        final Robot robot = new Robot(hardwareMap, Set.of(
+            Robot.Device.SHOOTER,
+            Robot.Device.INTAKE,
+            Robot.Device.LEFT_BLOCKER,
+            Robot.Device.RIGHT_BLOCKER,
+            Robot.Device.RAMP_PIVOT
+        ));
+        shooter      = robot.getShooter();
+        intake       = robot.getIntake();
+        leftBlocker  = robot.getLeftBlocker();
+        rightBlocker = robot.getRightBlocker();
+        final LinearHingePivot rampPivot = robot.getRampPivot();
         shooter.setTelemetry(telemetry);
-
-        final ServoImplEx rampPivot = (ServoImplEx) hardwareMap.get(Servo.class, "rampPivot");
-        rampPivot.setPwmRange(new PwmRange(1050, 1950));
         
         // Creating the webcam
         final WebcamName obeliskViewerCam = null;
@@ -417,27 +332,53 @@ public class FarSideAuto extends LinearOpMode {
         // Creating paths
         final Follower follower = Constants.createFollower(hardwareMap);
         Map<String, PathChain> paths = createPaths(follower, isRed);
-        // follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
+        OpModeData.follower = follower;
+
+        // Creating the aimbot
+        // This isn't used by the auto, but we want to save time for teleop
+        final AimbotManager aimbot = new AimbotManager(shooter, rampPivot, OpModeData.selection);
+
+        if(OpModeData.selection == null) {
+            try {
+                aimbot.init(R.raw.arcs, this::filterArc, telemetry);
+            } catch(IOException exc) {
+                throw new RuntimeException(exc);
+            }
+        }
 
         // Init loop
         while(opModeInInit()) {
-            telemetry.addData("Status", "Initialized");
-            telemetry.addLine();
-            telemetry.addLine(Util.header("Settings"));
-            telemetry.addLine();
-            telemetry.addData("Toggle isRed", "A");
-            telemetry.addData("isRed", isRed);
-            telemetry.update();
+            if(aimbot.isInitialized()) {
+                OpModeData.selection = aimbot.getSelection();
+                OpModeData.isRed = isRed;
+                OpModeData.inCompetitonMode = inCompetitonMode;
 
-            if(gamepad1.aWasPressed()) {
-                isRed = !isRed;
-                paths = createPaths(follower, isRed);
-            }
-            
+                telemetry.addData("Status", "Initialized");
+                telemetry.addLine();
+                telemetry.addData("Total arcs", OpModeData.selection.size());
+                telemetry.addLine();
+                telemetry.addLine(Util.header("Settings"));
+                telemetry.addLine();
+                telemetry.addData("Toggle isRed", "A");
+                telemetry.addData("isRed", isRed);
+                telemetry.addLine();
+                telemetry.addData("Toggle competiton mode", "Y");
+                telemetry.addData("Competiton mode", OpModeData.inCompetitonMode);
+                telemetry.update();
+
+                if(gamepad1.aWasPressed()) {
+                    isRed = !isRed;
+                    paths = createPaths(follower, isRed);
+                }
+                
+                if(gamepad1.yWasPressed()) {
+                    inCompetitonMode = !inCompetitonMode;
+                }
+            }    
         }
         
         waitForStart();
-        rampPivot.setPosition(0.44); // 0.2 - 45°; 0.44 - 52.5°
+        rampPivot.runToAngle(SHOT_ANGLE);
         follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
@@ -603,7 +544,7 @@ public class FarSideAuto extends LinearOpMode {
     private void emptyClip(Motif unused) {
         runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
             shooter,
-            () -> shooter.charge(300, true),
+            () -> shooter.charge(SHOT_SPEED, true),
             FlywheelTubeShooter.Status.CHARGING
         ));
 
@@ -615,7 +556,7 @@ public class FarSideAuto extends LinearOpMode {
         // Reloading and going
         runUntilCompleted(new WrapConcurrentCommand<ShooterSubsystem.Status>(
             shooter,
-            () -> shooter.charge(300, true),
+            () -> shooter.charge(SHOT_SPEED, true),
             FlywheelTubeShooter.Status.CHARGED
         ));
         
@@ -634,7 +575,7 @@ public class FarSideAuto extends LinearOpMode {
     private void emptyForefrontClip(Motif unused) {
         runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
             shooter,
-            () -> shooter.charge(300, true),
+            () -> shooter.charge(SHOT_SPEED, true),
             FlywheelTubeShooter.Status.CHARGING
         ));
         // final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
@@ -644,7 +585,7 @@ public class FarSideAuto extends LinearOpMode {
         rightBlocker.open();
         runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
             shooter,
-            () -> shooter.charge(300, true),
+            () -> shooter.charge(SHOT_SPEED, true),
             FlywheelTubeShooter.Status.CHARGING
         ));
 
@@ -745,4 +686,23 @@ public class FarSideAuto extends LinearOpMode {
     }
     
     private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);
+
+    
+    public static final double DIST_TOLERANCE = 0.5; // inches
+    public static final double MIN_ANGLE = Robot.positionToRadians(0);
+    public static final double MAX_ANGLE = Math.toRadians(62.5); // Any higher, and the shooting is inaccurate
+    public static final double MAX_SPEED = Robot.ticksToInches(2400);
+
+    private boolean filterArc(BallisticArc arc) {
+        final double theta = Criterion.ANGLE.of(arc);
+        
+        // Filter based off angle
+        if(MIN_ANGLE <= theta && theta <= MAX_ANGLE) {
+            return true;
+        }
+
+        final double speed = Criterion.SPEED.of(arc);
+        return speed <= MAX_SPEED;
+    }
+
 }

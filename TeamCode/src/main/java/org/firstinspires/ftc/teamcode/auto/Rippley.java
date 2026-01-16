@@ -345,8 +345,8 @@ public class Rippley extends LinearOpMode {
         // Creating paths
         final Follower follower = Constants.createFollower(hardwareMap);
         Map<String, PathChain> paths = createPaths(follower, isRed);
-        // follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
-
+        OpModeData.follower = follower;
+        
         // Init loop
         while(opModeInInit()) {
             telemetry.addData("Status", "Initialized");

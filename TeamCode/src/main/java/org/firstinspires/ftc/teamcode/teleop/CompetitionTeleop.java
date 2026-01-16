@@ -17,6 +17,7 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.hardware.lynx.LynxModule;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +26,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.ballistics.BallisticArc;
+import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection.Criterion;
 import org.firstinspires.ftc.teamcode.hardware.*;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.*;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.res.R;
+import org.firstinspires.ftc.teamcode.util.AimbotManager;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
@@ -51,7 +56,9 @@ public class CompetitionTeleop extends OpMode {
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
     private LinearHingePivot rampPivot = null;
+
     private Follower follower = null;
+    private AimbotManager aimbot = null;
 
     private BlockerSubsystem leftBlocker = null;
     private BlockerSubsystem rightBlocker = null;
@@ -61,12 +68,14 @@ public class CompetitionTeleop extends OpMode {
     private ArtifactColorLed leftLed = null;
 
     private boolean autoReloadEnabled = true;
+    private boolean autoAimEnabled = true;
     private boolean showExtraTelemetry = true;
 
     private boolean wasPressingRightTrigger = false;
     private boolean wasPressingLeftTrigger = false;
     private boolean wasPressingLeftBumper = false;
     private boolean wasTogglingAutoReload = false;
+    private boolean wasTogglingAimbot = false;
     private boolean wasPressingIsRed = false;
     private boolean wasPressingX = false;
     private boolean wasPressingA = false;
@@ -92,31 +101,41 @@ public class CompetitionTeleop extends OpMode {
         rightReload  = robot.getRightReload();
 
         // Doing some work with the subsystems
+        showExtraTelemetry = OpModeData.inCompetitonMode;
         shooter.setTelemetry(telemetry);
         CommandScheduler.getInstance().reset(); // Clear anything from before
         CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
 
-        // Creating the PerdoPathing path follower
-        follower = Constants.createFollower(hardwareMap);
+        // Creating the PedroPathing path follower
+        if(OpModeData.follower == null) {
+            follower = Constants.createFollower(hardwareMap);
+        } else {
+            follower = OpModeData.follower;
+            startPosition = follower.getPose();
+        }
 
         // Bulk caching
+        rightReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
+        leftReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         lynxModules = hardwareMap.getAll(LynxModule.class);
         for(final LynxModule module : lynxModules) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         }
         
-        rightReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
-        leftReload.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
-
         // Finishing up
-        telemetry.addData("Status", "Initialized");
-        telemetry.update();
+        aimbot = new AimbotManager(shooter, rampPivot, OpModeData.selection);
+        if(OpModeData.selection == null) {
+            try {
+                aimbot.init(R.raw.arcs, this::filterArc, telemetry);
+            } catch(IOException exc) {
+                throw new RuntimeException(exc);
+            }
+        }
     }
 
     public void adjustSettings(Gamepad gamepad) {
         // Adjusting whether we are blue or red
-        final Boolean opModeDataIsRed = OpModeData.isRed;
-        isRed = opModeDataIsRed == null ? false : opModeDataIsRed;
+        final boolean opModeDataIsRed = OpModeData.isRed;
 
         if(gamepad.aWasPressed()) {
             isRed = !isRed;
@@ -125,6 +144,12 @@ public class CompetitionTeleop extends OpMode {
         OpModeData.isRed = isRed;
         
         // Adjusting where we start the opmode
+        if(OpModeData.follower != null) {
+            adjustStartPosition(gamepad);
+        }
+    }
+
+    private void adjustStartPosition(Gamepad gamepad) {
         startPosition = OpModeData.startPosition;
         if(startPosition == null) {
             startPosition = new Pose(72, 72, 0);
@@ -207,17 +232,28 @@ public class CompetitionTeleop extends OpMode {
 
     @Override
     public void init_loop() {
-        adjustSettings(gamepad1);
-        displaySettings();
+        if(aimbot.isInitialized()) {
+            telemetry.addData("Status", "Initialized");
+            telemetry.update();
+            adjustSettings(gamepad1);
+            displaySettings();
+        }
     }
 
     @Override
     public void start() {
         rampPivot.runToAngle(rampPivot.convertFromPosition(0.66));
 
-        // Calling this method multiple times on the same reference will
-        // cause any calls after the first one to be ignored.
-        follower.setStartingPose(startPosition);
+        if(startPosition != null) {
+            // Calling this method times on the same reference will
+            // cause any calls after the first one to be ignored.
+            follower.setStartingPose(startPosition);
+        }
+
+        if(OpModeData.follower == null) {
+            OpModeData.follower = follower;
+        }
+
         timer.reset();
     }
 
@@ -263,6 +299,19 @@ public class CompetitionTeleop extends OpMode {
             gamepad2.right_trigger > TRIGGER_PRESSED && !wasPressingRightTrigger, // Begin
             !(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger // Cancel
         );
+
+
+        // AUTOAIM
+        final BallisticArc arc = aimbot.selectArc(
+            getDistance(follower, KeyPoses.goalCenter(isRed)), 
+            DIST_TOLERANCE
+        );
+
+        if(autoAimEnabled) {
+            aimbot.followArc(arc);
+        }
+
+        toggleAutoAim(gamepad2.back && gamepad2.dpad_left && !wasTogglingAimbot);
 
         // RELOAD
         if(autoReloadEnabled) {
@@ -318,6 +367,7 @@ public class CompetitionTeleop extends OpMode {
         wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
         wasPressingLeftBumper = gamepad2.left_bumper;
         wasTogglingAutoReload = gamepad2.back && gamepad2.y;
+        wasTogglingAimbot = gamepad2.back && gamepad2.dpad_left; 
         wasPressingIsRed = gamepad1.back && gamepad1.a;
         wasPressingX = gamepad1.x;
         wasPressingA = gamepad1.a;
@@ -572,6 +622,22 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
+    public double getDistance(Follower follower, Pose goal) {
+        return Math.hypot(
+            follower.getPose().getX() - goal.getX(), 
+            follower.getPose().getY() - goal.getY()
+        );
+    }
+
+    public boolean toggleAutoAim(boolean doToggle) {
+        if(doToggle) {
+            autoAimEnabled = !autoAimEnabled;
+            return true;
+        }
+
+        return false;
+    }
+
     public boolean reloadBothSides(boolean doReload) {
         if(doReload) {
             shooter.reload();
@@ -681,5 +747,31 @@ public class CompetitionTeleop extends OpMode {
     @Override
     public void stop() {
         CommandScheduler.getInstance().reset();
+
+        try {
+            aimbot.close();
+        } catch(IOException exc) {
+            // If we get an exception... that sucks! We would rather continue to clean up
+        } 
+
+        aimbot = null;
+    }
+
+    
+    public static final double DIST_TOLERANCE = 0.5; // inches
+    public static final double MIN_ANGLE = Robot.positionToRadians(0);
+    public static final double MAX_ANGLE = Math.toRadians(62.5); // Any higher, and the shooting is inaccurate
+    public static final double MAX_SPEED = Robot.ticksToInches(2400);
+
+    private boolean filterArc(BallisticArc arc) {
+        final double theta = Criterion.ANGLE.of(arc);
+        
+        // Filter based off angle
+        if(MIN_ANGLE <= theta && theta <= MAX_ANGLE) {
+            return true;
+        }
+
+        final double speed = Criterion.SPEED.of(arc);
+        return speed <= MAX_SPEED;
     }
 }
