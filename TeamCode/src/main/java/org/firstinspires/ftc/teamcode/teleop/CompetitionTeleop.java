@@ -31,6 +31,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
+import org.firstinspires.ftc.teamcode.util.OpModeData;
 import org.firstinspires.ftc.teamcode.util.Util;
 
 @Configurable
@@ -114,17 +115,17 @@ public class CompetitionTeleop extends OpMode {
 
     public void adjustSettings(Gamepad gamepad) {
         // Adjusting whether we are blue or red
-        final Boolean blackboardIsRed = (Boolean) blackboard.get("isRed");
-        isRed = blackboardIsRed == null ? false : blackboardIsRed.booleanValue();
+        final Boolean opModeDataIsRed = OpModeData.isRed;
+        isRed = opModeDataIsRed == null ? false : opModeDataIsRed;
 
         if(gamepad.aWasPressed()) {
             isRed = !isRed;
         }
 
-        blackboard.put("isRed", isRed);
+        OpModeData.isRed = isRed;
         
         // Adjusting where we start the opmode
-        startPosition = (Pose) blackboard.get("startPosition");
+        startPosition = OpModeData.startPosition;
         if(startPosition == null) {
             startPosition = new Pose(72, 72, 0);
         }
@@ -164,7 +165,7 @@ public class CompetitionTeleop extends OpMode {
             startPosition = startPosition.withHeading(newYaw);
         }
 
-        blackboard.put("startPosition", startPosition);
+        OpModeData.startPosition = startPosition;
     }
 
     public void displaySettings() {

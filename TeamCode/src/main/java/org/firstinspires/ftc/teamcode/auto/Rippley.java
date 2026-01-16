@@ -1,8 +1,8 @@
 package org.firstinspires.ftc.teamcode.auto;
 
-import com.arcrobotics.ftclib.command.Subsystem;
 import com.arcrobotics.ftclib.command.Command;
 import com.arcrobotics.ftclib.command.CommandScheduler;
+import com.arcrobotics.ftclib.command.Subsystem;
 import com.arcrobotics.ftclib.command.WaitUntilCommand;
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
@@ -11,6 +11,7 @@ import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -18,44 +19,42 @@ import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.IMU;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import java.util.List;
-
-import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
-
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive ;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.ShooterSubsystem.Status;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
-import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.util.ConfigPose;
 import org.firstinspires.ftc.teamcode.util.MotifGetter;
 import org.firstinspires.ftc.teamcode.util.MotifGetter.Motif;
-import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
+import org.firstinspires.ftc.teamcode.util.OpModeData;
 import org.firstinspires.ftc.teamcode.util.RrCoordinates;
 import org.firstinspires.ftc.teamcode.util.Util;
 import org.firstinspires.ftc.teamcode.util.WrapConcurrentCommand;
+import org.firstinspires.ftc.vision.VisionPortal;
 
-import org.firstinspires.ftc.teamcode.pedro.Constants;
+import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
 @Disabled
 @Configurable
@@ -381,7 +380,7 @@ public class Rippley extends LinearOpMode {
         follower.followPath(paths.get("goFromCameraToShooting"), true);
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
-            blackboard.put("startPosition", follower.getPose());
+            OpModeData.startPosition = follower.getPose();
 
             // Snapping a photo of the motif if we are facing it
             // The camera sees 60 degrees, but we subtract a bit to fully see the motif
@@ -418,7 +417,7 @@ public class Rippley extends LinearOpMode {
         // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
-            blackboard.put("startPosition", follower.getPose());
+            OpModeData.startPosition = follower.getPose();
 
             // Slowing down and reloading when in the correct part
             if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
@@ -439,7 +438,7 @@ public class Rippley extends LinearOpMode {
 
         // while(follower.isBusy() && opModeIsActive()) {
         //     follower.update();
-        //     blackboard.put("startPosition", follower.getPose());
+        //     OpModeData.startPosition = follower.getPose();
         // 
         // }
 
@@ -453,7 +452,7 @@ public class Rippley extends LinearOpMode {
 
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
-            blackboard.put("startPosition", follower.getPose());
+            OpModeData.startPosition = follower.getPose();
         }
 
 
