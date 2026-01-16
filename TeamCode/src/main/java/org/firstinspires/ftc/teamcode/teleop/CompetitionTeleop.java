@@ -3,25 +3,25 @@ package org.firstinspires.ftc.teamcode.teleop;
 // import com.qualcomm.robotcore.hardware
 import com.arcrobotics.ftclib.command.Command;
 import com.arcrobotics.ftclib.command.CommandScheduler;
-import com.arcrobotics.ftclib.command.Subsystem;
-import com.arcrobotics.ftclib.command.SequentialCommandGroup;
 import com.arcrobotics.ftclib.command.InstantCommand;
+import com.arcrobotics.ftclib.command.SequentialCommandGroup;
+import com.arcrobotics.ftclib.command.Subsystem;
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.hardware.lynx.LynxModule;
 
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -226,20 +226,19 @@ public class CompetitionTeleop extends OpMode {
         final double deltaTime = timestamp - lastTime;
         lastTime = timestamp;
 
-        // Driving the drivetrain            
+        // MANUAL DRIVING            
         drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
         changeDrivetrainSpeed(
             gamepad1.left_trigger > TRIGGER_PRESSED || gamepad1.right_trigger > TRIGGER_PRESSED, // Fast
             gamepad1.left_bumper || gamepad1.right_bumper, // Slow
             gamepad1.left_bumper && gamepad1.right_bumper // Slowest, has precedent over the above
         );      
-        
         reverseDrivingDirection(gamepad1.bWasPressed());
-
+        
         // Team change
         toggleIsRed(gamepad1.back && gamepad1.a && !wasPressingIsRed);   
 
-        // // Automatic driving
+        // Automatic driving
         // goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
         // goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
         goParkForthwith(
@@ -248,22 +247,18 @@ public class CompetitionTeleop extends OpMode {
             !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
         );
 
-        // Shooting the given color of artifact
+        // FIRING: color, side, and multi
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
-
-        // Firing the given side if anything goes wrong
         fireBasedOffSide(
             gamepad2.rightStickButtonWasPressed(), // Right
             gamepad2.leftStickButtonWasPressed() // Left
         );
-
-        // MULTIFIRE (hold right trigger)
         fireIndiscriminantly(
             gamepad2.right_trigger > TRIGGER_PRESSED && !wasPressingRightTrigger, // Begin
             !(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger // Cancel
         );
 
-        // RELOAD
+        // MANUAL RELOAD
         if(autoReloadEnabled) {
             // Because we assume that if we're reloading manually, something's wrong
             reloadBothSides(gamepad2.yWasPressed());
@@ -276,31 +271,26 @@ public class CompetitionTeleop extends OpMode {
         // We check that we are charged so that we don't automaticcally exit, say, 
         // `UNCHARGING` and cause the shooter to instantly speed up again.
         autoReloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
-
-        // Toggling auto reload upon p
         toggleAutoReload(gamepad2.back && gamepad2.y && !wasTogglingAutoReload);
 
-        // CHARGE
+        // CHARGE / UNCHARGE
         chargeShooter(gamepad2.dpadUpWasPressed());
-        
-        // UNCHARGE
         unchargeShooter(gamepad2.dpadDownWasPressed());
 
         // ABORT
         bringArtifactsOutOfShooter(gamepad2.bWasPressed());
 
-        // INATKE (hold)
+        // INTAKE / EJECT
         intakeFromFloor(
             gamepad2.left_trigger > TRIGGER_PRESSED && !wasPressingLeftTrigger, // Begin
             !(gamepad2.left_trigger > TRIGGER_PRESSED) && wasPressingLeftTrigger // End
         );
-        
         ejectToFloor(
             gamepad2.left_bumper && !wasPressingLeftBumper, // Begin
             !gamepad2.left_bumper && wasPressingLeftBumper // End
         );
 
-        // Blocking if we aren't firing
+        // BLOCKING
         if(shooter.getFiringState() == FlywheelTubeShooter.FiringState.UNKNOWN) {
             closeBlockers();
         }
@@ -308,11 +298,18 @@ public class CompetitionTeleop extends OpMode {
         // LEDs
         final ArtifactColor artifactcolorL = leftReload.lastColor();
         final ArtifactColor artifactcolorR = rightReload.lastColor();
-
         colorLed(rightLed, artifactcolorR);
         colorLed(leftLed, artifactcolorL);
 
-        // BUTTON PRESSES
+        // FINISHING UP
+        updateButtonPresses();
+        logTelemetry(deltaTime, artifactcolorL, artifactcolorR);
+        leftReload.clearBulkCache();
+        rightReload.clearBulkCache();
+        CommandScheduler.getInstance().run();
+    }
+
+    private void updateButtonPresses() {
         wasPressingRightTrigger = gamepad2.right_trigger > TRIGGER_PRESSED;
         wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
         wasPressingLeftBumper = gamepad2.left_bumper;
@@ -321,8 +318,9 @@ public class CompetitionTeleop extends OpMode {
         wasPressingX = gamepad1.x;
         wasPressingA = gamepad1.a;
         wasPressingPark = gamepad1.dpad_up && gamepad1.y;
+    }
 
-        // TELELEMETRY
+    private void logTelemetry(double deltaTime, ArtifactColor l, ArtifactColor r) {
         telemetry.clearAll();
         telemetry.addData("deltaTime (seconds)", deltaTime);
         telemetry.addLine();
@@ -337,20 +335,14 @@ public class CompetitionTeleop extends OpMode {
             telemetry.addLine();
             telemetry.addLine(Util.header("Sensors"));
             telemetry.addLine();
-            telemetry.addData("leftReload Artifact", artifactcolorL);
-            telemetry.addData("rightReload Artifact", artifactcolorR);
+            telemetry.addData("leftReload Artifact", l);
+            telemetry.addData("rightReload Artifact", r);
             telemetry.addData("currentPose", () -> {
                 follower.updatePose();
                 return follower.getPose();
             });
             telemetry.addLine();
         }
-
-        // COMMAND SCHEDULER
-        leftReload.clearBulkCache();
-        rightReload.clearBulkCache();
-
-        CommandScheduler.getInstance().run();
     }
 
     public boolean toggleIsRed(boolean doToggle) {

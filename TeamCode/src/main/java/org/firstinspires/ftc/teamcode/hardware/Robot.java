@@ -79,7 +79,7 @@ public class Robot {
     }
 
     public static final Set<Device> teleopDevices() {
-        final Set<Device> result = new LinkedHashSet(Device.values().length);
+        final Set<Device> result = new LinkedHashSet<Device>(Device.values().length);
         for(final Device device : Device.values()) {
             result.add(device);
         }
@@ -91,7 +91,7 @@ public class Robot {
     }
 
     public static final Set<Device> autoDevices() {
-        final Set<Device> result = new LinkedHashSet(Device.values().length);
+        final Set<Device> result = new LinkedHashSet<Device>(Device.values().length);
         for(final Device device : Device.values()) {
             result.add(device);
         }
