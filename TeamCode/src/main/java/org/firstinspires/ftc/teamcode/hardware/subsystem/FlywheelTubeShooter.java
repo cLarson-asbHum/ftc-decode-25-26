@@ -52,7 +52,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         public double firingPower = chargedPower; // Ticks / sec
         public double abortingPower = 0.3 * ticksPerSec(); // Ticks / sec
 
-        public double powerTolerance = 25; // Ticks / sec
+        public double powerTolerance = 50; // Ticks / sec
     };
 
     /**
@@ -203,7 +203,8 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
     private FlywheelTubeShooter(Builder builder) {
         this.lifetime = TimeInjectionUtil.getElapsedTime();
-        this.flywheels = new DcMotorGroup(builder.flywheels.toArray(new DcMotorEx[0]));
+        final DcMotorEx[] array = new DcMotorEx[builder.flywheels.size()];
+        this.flywheels = new DcMotorGroup(builder.flywheels.toArray(array));
         this.rightFeeder = builder.rightFeeder;
         this.leftFeeder = builder.leftFeeder;
         this.rightReloadClassifier = builder.rightReloadClassifier;
@@ -438,10 +439,10 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         }
 
         chargedSpeed = nativeTargetSpeed;
-        setFeederPower(FEEDER_CONST.chargedPower, FEEDER_CONST.powerTolerance);
-
+        
         // Changing the state
         if(didChangePower) {
+            setFeederPower(FEEDER_CONST.chargedPower, FEEDER_CONST.powerTolerance);
             startTimeout(Status.CHARGING, TIMEOUT.charging);
             transitionTo(Status.CHARGING);
         }

@@ -3,9 +3,10 @@ package org.firstinspires.ftc.teamcode.teleop;
 // import com.qualcomm.robotcore.hardware
 import com.arcrobotics.ftclib.command.Command;
 import com.arcrobotics.ftclib.command.CommandScheduler;
+import com.arcrobotics.ftclib.command.InstantCommand;
 import com.arcrobotics.ftclib.command.Subsystem;
 import com.arcrobotics.ftclib.command.SequentialCommandGroup;
-import com.arcrobotics.ftclib.command.InstantCommand;
+import com.arcrobotics.ftclib.command.WaitCommand;
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
@@ -30,6 +31,7 @@ import org.firstinspires.ftc.teamcode.ballistics.BallisticArc;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection.Criterion;
 import org.firstinspires.ftc.teamcode.hardware.*;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.*;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.ShooterSubsystem.Status;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.res.R;
 import org.firstinspires.ftc.teamcode.util.AimbotManager;
@@ -43,10 +45,17 @@ import org.firstinspires.ftc.teamcode.util.Util;
 @TeleOp(group="A - Main")
 public class CompetitionTeleop extends OpMode {
     public static double TRIGGER_PRESSED = 0.1;
+    
+    public static final double DISTANCE_OFFSET = -8; // Odom measures from center, but it should be from back of bot
+    public static final double DIST_TOLERANCE = 0.4; // inches
+    public static final double MIN_ANGLE = Robot.positionToRadians(0);
+    public static final double MAX_ANGLE = Math.toRadians(62.5); // Any higher, and the shooting is inaccurate
+    public static final double MAX_SPEED = Robot.ticksToInches(2400);
 
     private ElapsedTime timer = new ElapsedTime();
     private double lastTime = 0;
-    
+    private Command fireAfterBlockers = null;
+
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
 
@@ -67,7 +76,7 @@ public class CompetitionTeleop extends OpMode {
     private ArtifactColorLed rightLed = null;
     private ArtifactColorLed leftLed = null;
 
-    private boolean autoReloadEnabled = true;
+    private boolean autoReloadEnabled = false;
     private boolean autoAimEnabled = true;
     private boolean showExtraTelemetry = true;
 
@@ -101,7 +110,7 @@ public class CompetitionTeleop extends OpMode {
         rightReload  = robot.getRightReload();
 
         // Doing some work with the subsystems
-        showExtraTelemetry = OpModeData.inCompetitonMode;
+        showExtraTelemetry = !OpModeData.inCompetitonMode;
         shooter.setTelemetry(telemetry);
         CommandScheduler.getInstance().reset(); // Clear anything from before
         CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
@@ -111,7 +120,7 @@ public class CompetitionTeleop extends OpMode {
             follower = Constants.createFollower(hardwareMap);
         } else {
             follower = OpModeData.follower;
-            startPosition = follower.getPose();
+            // startPosition = follower.getPose();
         }
 
         // Bulk caching
@@ -233,10 +242,11 @@ public class CompetitionTeleop extends OpMode {
     @Override
     public void init_loop() {
         if(aimbot.isInitialized()) {
+            OpModeData.selection = aimbot.getSelection();
             telemetry.addData("Status", "Initialized");
-            telemetry.update();
             adjustSettings(gamepad1);
             displaySettings();
+            telemetry.update();
         }
     }
 
@@ -253,6 +263,8 @@ public class CompetitionTeleop extends OpMode {
         if(OpModeData.follower == null) {
             OpModeData.follower = follower;
         }
+
+        // follower.breakFollowing();
 
         timer.reset();
     }
@@ -307,7 +319,14 @@ public class CompetitionTeleop extends OpMode {
             DIST_TOLERANCE
         );
 
-        if(autoAimEnabled) {
+        // TODO: Use an array or collection to do this
+        if(
+            autoAimEnabled
+            && shooter.getStatus() != Status.UNCHARGING 
+            && shooter.getStatus() != Status.UNCHARGED
+            && shooter.getStatus() != Status.UNKNOWN
+            && shooter.getStatus() != Status.FIRING
+        ) {
             aimbot.followArc(arc);
         }
 
@@ -391,16 +410,26 @@ public class CompetitionTeleop extends OpMode {
             telemetry.addData("leftReload Artifact", artifactcolorL);
             telemetry.addData("rightReload Artifact", artifactcolorR);
             telemetry.addData("currentPose", () -> {
-                follower.updatePose();
                 return follower.getPose();
             });
+            telemetry.addData("shooting distance", () -> {
+                return getDistance(follower, KeyPoses.goalCenter(isRed));
+            });
+            telemetry.addLine("arc");
+            telemetry.addData("  |    dist ",  "%.1f in", Criterion.DISTANCE.of(arc));
+            telemetry.addData("  |    angle",  "%.1f°", Math.toDegrees(Criterion.ANGLE.of(arc)));
+            telemetry.addData("  |    speed",  "%.1f in s⁻¹", Criterion.SPEED.of(arc));
+            telemetry.addData("  \\    time ", "%.3f s", arc.getElapsedTime());
+            telemetry.addLine();
             telemetry.addLine();
         }
 
         // COMMAND SCHEDULER
         leftReload.clearBulkCache();
         rightReload.clearBulkCache();
-
+        for(final LynxModule module : lynxModules) {
+            module.clearBulkCache();
+        }
         CommandScheduler.getInstance().run();
     }
 
@@ -529,27 +558,13 @@ public class CompetitionTeleop extends OpMode {
         }
     }
 
-    private void asyncSleep(Runnable command, double ms) {
-        final ElapsedTime timer = new ElapsedTime() ;// FIXME: timeutil
-        CommandScheduler.getInstance().schedule(new SequentialCommandGroup(
-            new Command() {
-                @Override
-                public Set<Subsystem> getRequirements() {
-                    return new HashSet<Subsystem>();
-                }
-
-                @Override
-                public boolean isFinished() {
-                    return timer.seconds() * 1000 > ms;
-                }
-
-                @Override
-                public void initialize() {
-                    timer.reset();
-                }
-            },
+    private Command asyncSleep(Runnable command, long ms) {
+        final Command sleepCommand = new SequentialCommandGroup(
+            new WaitCommand(ms), // FIXME: Time util?
             new InstantCommand(command) // Quote from an artifact: {d}
-        ));
+        );
+        CommandScheduler.getInstance().schedule(sleepCommand);
+        return sleepCommand;
     }
 
     public boolean closeBlockers() {
@@ -560,9 +575,13 @@ public class CompetitionTeleop extends OpMode {
     }
 
     public boolean fireBasedOffColor(boolean fireGreen, boolean firePurple) {
+        if((fireGreen || firePurple) && fireAfterBlockers != null) {
+            CommandScheduler.getInstance().cancel(fireAfterBlockers);
+        }
+
         if(fireGreen) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
-            asyncSleep(() -> {
+            fireAfterBlockers = asyncSleep(() -> {
                 shooter.fireGreen();
                 openBlockers(shooter.getFiringState());
             }, 500);
@@ -571,7 +590,7 @@ public class CompetitionTeleop extends OpMode {
         
         if(firePurple) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
-            asyncSleep(() -> {
+            fireAfterBlockers = asyncSleep(() -> {
                 shooter.firePurple();
                 openBlockers(shooter.getFiringState());
             }, 500);
@@ -583,17 +602,22 @@ public class CompetitionTeleop extends OpMode {
     }
 
     public boolean fireBasedOffSide(boolean fireRight, boolean fireLeft) {
+        if((fireRight || fireLeft) && fireAfterBlockers != null) {
+            CommandScheduler.getInstance().cancel(fireAfterBlockers);
+        }
+
         if(fireRight) { // Quote from the artifact that hit my keyboard: 12erre
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
-            asyncSleep(() -> {
+            fireAfterBlockers = asyncSleep(() -> {
                 shooter.fireRight();
                 openBlockers(shooter.getFiringState());
             }, 500);
             return true;
         }
+
         if(fireLeft) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
-            asyncSleep(() -> {
+            fireAfterBlockers = asyncSleep(() -> {
                 shooter.fireLeft();
                 openBlockers(shooter.getFiringState());
             }, 500);
@@ -605,9 +629,13 @@ public class CompetitionTeleop extends OpMode {
     }
 
     public boolean fireIndiscriminantly(boolean startFiring, boolean cancelFiring) {
+        if(startFiring && fireAfterBlockers != null) {
+            CommandScheduler.getInstance().cancel(fireAfterBlockers);
+        }
+
         if(startFiring) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
-            asyncSleep(() -> {
+            fireAfterBlockers = asyncSleep(() -> {
                 shooter.multiFire();
                 intake.intakeGamePieces();
                 openBlockers(shooter.getFiringState());
@@ -617,13 +645,17 @@ public class CompetitionTeleop extends OpMode {
 
         if(cancelFiring) {
             shooter.charge();
+            CommandScheduler.getInstance().cancel(fireAfterBlockers);
         } 
 
         return false;
     }
 
     public double getDistance(Follower follower, Pose goal) {
-        return Math.hypot(
+        // if(!follower.isBusy()) {
+            follower.updatePose();
+        // }
+        return DISTANCE_OFFSET + Math.hypot(
             follower.getPose().getX() - goal.getX(), 
             follower.getPose().getY() - goal.getY()
         );
@@ -756,12 +788,6 @@ public class CompetitionTeleop extends OpMode {
 
         aimbot = null;
     }
-
-    
-    public static final double DIST_TOLERANCE = 0.5; // inches
-    public static final double MIN_ANGLE = Robot.positionToRadians(0);
-    public static final double MAX_ANGLE = Math.toRadians(62.5); // Any higher, and the shooting is inaccurate
-    public static final double MAX_SPEED = Robot.ticksToInches(2400);
 
     private boolean filterArc(BallisticArc arc) {
         final double theta = Criterion.ANGLE.of(arc);
