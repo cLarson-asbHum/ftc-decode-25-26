@@ -5,8 +5,9 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorImplEx;
-import com.qualcomm.robotcore.hardware.PIDFCoefficients;
+import com.qualcomm.robotcore.hardware.MotorControlAlgorithm;
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.hardware.Robot;
@@ -42,7 +43,15 @@ public final class PidfTest extends OpMode {
         rightMotor = (DcMotorImplEx) hardwareMap.get(DcMotor.class, "rightShooter");
         leftMotor = (DcMotorImplEx) hardwareMap.get(DcMotor.class, "leftShooter");
         shootingMotor = leftMotor;
-        newTarget = target = shootingMotor.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightMotor.setDirection(DcMotor.Direction.REVERSE);
+        clonePidf(target = shootingMotor.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER));
+        telemetry.setMsTransmissionInterval(33);
+
+        // LEFT & RIGHT
+        //    P = 400
+        //    I = 11.2
+        //    D = 65
+        //    F = 1
     }
     
     @Override
@@ -82,14 +91,19 @@ public final class PidfTest extends OpMode {
         if(gamepad1.aWasPressed()) {
             switchMotor();
         }
+        
+        if(gamepad1.xWasPressed()) {
+            switchTarget();
+        }
 
         // Controls
         if(!areControlsHidden) {
             telemetry.addLine(Util.header("Controls (Back to hide)"));
+            telemetry.addLine();
             telemetry.addData("Increase speed/coeff", "RB");
             telemetry.addData("Decrement speed/coeff", "LB");
             telemetry.addLine();
-            telemetry.addData("Switch target", "A");
+            telemetry.addData("Switch target", "X");
             telemetry.addData("Update speed/coeff", "Y");
             telemetry.addLine();
             telemetry.addData("Fast mode", "RT");
@@ -111,7 +125,12 @@ public final class PidfTest extends OpMode {
         telemetry.addLine(Util.header("Motor Speed"));
         telemetry.addLine();
 
-        if(!equalPidfs(newTarget, target) && mode == Target.PIDF) {
+        final String motorIndicator = shootingMotor == rightMotor ? "[RIGHT]" : "[LEFT]";
+        final String targetIndicator = mode == Target.PIDF ? "[PIDF]" : "[SPEED]";
+        telemetry.addLine(motorIndicator + " - " + targetIndicator);
+        telemetry.addLine();
+
+        if(/* !equalPidfs(newTarget, target) && */ mode == Target.PIDF) {
             displayNewPidfTarget();
         }
 
@@ -120,15 +139,15 @@ public final class PidfTest extends OpMode {
             telemetry.addLine();
         }
 
-        telemetry.addData("Time", "%.2f s", timer.seconds());
+        telemetry.addData("Time", "%.1f s", timer.seconds());
         telemetry.addData("Target speed", "%.0f ticks s⁻¹", targetSpeed);
         telemetry.addData("Current speed", "%.0f ticks s⁻¹", shootingMotor.getVelocity());
         telemetry.addLine();
         telemetry.addLine("Coefficients");
-        telemetry.addData( "    | p", target.p);
-        telemetry.addData( "    | i", target.i);
-        telemetry.addData( "    | d", target.d);
-        telemetry.addData("    \\ f", target.f);
+        telemetry.addData( "    |   P", target.p);
+        telemetry.addData( "    |   I", target.i);
+        telemetry.addData( "    |   D", target.d);
+        telemetry.addData("    \\   F", target.f);
 
 
         CommandScheduler.getInstance().run();
@@ -144,7 +163,8 @@ public final class PidfTest extends OpMode {
     private void displayNewPidfTarget() {
         telemetry.addLine(Util.header("PIDF"));
         telemetry.addLine();
-        telemetry.addLine("New Coefficients");
+        telemetry.addData("Increment", coeffIncrement);
+        telemetry.addLine("New Coefficients:");
 
         final String pCursor = cursor == Cursor.P ? ">" : " ";
         final String iCursor = cursor == Cursor.I ? ">" : " ";
@@ -186,6 +206,15 @@ public final class PidfTest extends OpMode {
             delta -= coeffIncrement;
         }
 
+        // Updating the cursor
+        if(gamepad.dpadDownWasPressed()) {
+            cursor = Cursor.values()[Math.floorMod(cursor.ordinal() + 1, 4)]; 
+        }
+
+        if(gamepad.dpadUpWasPressed()) {
+            cursor = Cursor.values()[Math.floorMod(cursor.ordinal() - 1, 4)]; 
+        }
+
         switch(cursor) {
             case P:
                 newTarget.p += delta;
@@ -212,7 +241,7 @@ public final class PidfTest extends OpMode {
         }
 
         // Changing the increment
-        double increment = 1;
+        double increment = speedIncrement;
         if(gamepad.right_trigger > 0.1) {
             increment *= 2.5;
         }
@@ -250,6 +279,14 @@ public final class PidfTest extends OpMode {
         target = shootingMotor.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER);
     }
 
+    private void switchTarget() {
+        if(mode == Target.PIDF) {
+            mode = Target.SPEED;
+        } else {
+            mode = Target.PIDF;
+        }
+    }
+
     @Override
     public void stop() {
         CommandScheduler.getInstance().reset();
@@ -262,5 +299,15 @@ public final class PidfTest extends OpMode {
             && p1.d == p2.d
             && p1.f == p2.f
             && p1.algorithm == p2.algorithm;
+    }
+
+    private PIDFCoefficients clonePidf(PIDFCoefficients p) {
+        return new PIDFCoefficients(
+            p.p,
+            p.i,
+            p.d,
+            p.f,
+            MotorControlAlgorithm.PIDF
+        );
     }
 }

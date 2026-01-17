@@ -9,6 +9,8 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.MotorControlAlgorithm;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
@@ -313,6 +315,17 @@ public class Robot {
         return Regression.H + Math.exp((inches - Regression.K) / Regression.B);
     }
 
+    private PIDFCoefficients getShooterPidf() {
+        // Tuned by Connor Larson at 1:20 PM, 17 Jan 2026. 
+        return new PIDFCoefficients(
+            400,
+            11.2,
+            65,
+            1,
+            MotorControlAlgorithm.PIDF
+        );
+    }
+
     private boolean initShooter() {
         if(shooter != null) {
             return false;
@@ -334,6 +347,9 @@ public class Robot {
         leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
+
+        rightShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
+        leftShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
 
         // Wrapping these with subsystems.
         final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
@@ -363,6 +379,7 @@ public class Robot {
         // Setting the necessary states
         leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
+        leftShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
 
         // Wrapping these with subsystems.
         final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor);
@@ -392,6 +409,7 @@ public class Robot {
         // Setting the necessary states
         rightShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         rightFeederServo.setDirection(DcMotor.Direction.FORWARD);
+        rightShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
 
         // Wrapping these with subsystems.
         final DcMotorGroup flywheels = new DcMotorGroup(rightShooterMotor);
