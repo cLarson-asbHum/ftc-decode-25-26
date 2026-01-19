@@ -30,7 +30,6 @@ public class AimbotManager implements Closeable {
     private Thread readFiles = null;
     private String readStatus = "";
     private int parsedArcs = 0;
-    private volatile boolean isFinished = false;
     private volatile boolean inProgress = false;
 
     private final FlywheelTubeShooter shooter;
@@ -120,7 +119,7 @@ public class AimbotManager implements Closeable {
                 throw new RuntimeException(exc);
             }
         });
-        readFiles.run();
+        readFiles.start();
     }
 
     /**
@@ -148,7 +147,7 @@ public class AimbotManager implements Closeable {
      * @return Whether the selection of ballistic arcs has been initialized
      */
     public synchronized boolean isInitialized() {
-        return selection == null;
+        return selection != null;
     }
 
     /**

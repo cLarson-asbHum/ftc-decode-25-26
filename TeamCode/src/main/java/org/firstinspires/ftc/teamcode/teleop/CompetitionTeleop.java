@@ -56,8 +56,8 @@ public class CompetitionTeleop extends OpMode {
     private double lastTime = 0;
     private Command fireAfterBlockers = null;
 
-    private ArrayList<String> nullDeviceNames = new ArrayList<>();
-    private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
+    private final ArrayList<String> nullDeviceNames = new ArrayList<>();
+    private final ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
 
     private List<LynxModule> lynxModules = null;
 
@@ -87,9 +87,11 @@ public class CompetitionTeleop extends OpMode {
     private boolean wasTogglingAimbot = false;
     private boolean wasPressingIsRed = false;
     private boolean wasPressingX = false;
+    private boolean wasPressingY = false;
     private boolean wasPressingA = false;
     private boolean wasPressingPark = false;
 
+    private boolean updateStartPosition = false;
     private Pose startPosition = null;
     private boolean isRed = false;
 
@@ -111,16 +113,22 @@ public class CompetitionTeleop extends OpMode {
 
         // Doing some work with the subsystems
         showExtraTelemetry = !OpModeData.inCompetitonMode;
-        shooter.setTelemetry(telemetry);
         CommandScheduler.getInstance().reset(); // Clear anything from before
         CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
 
         // Creating the PedroPathing path follower
         if(OpModeData.follower == null) {
             follower = Constants.createFollower(hardwareMap);
+            updateStartPosition = true;
+
+            // Create a start position if we need one
+            if(startPosition == null) {
+                startPosition = new Pose(72, 72, 0);
+            }
         } else {
             follower = OpModeData.follower;
-            // startPosition = follower.getPose();
+            startPosition = follower.getPose();
+            updateStartPosition = false; // Setting it twice can do weird things
         }
 
         // Bulk caching
@@ -150,39 +158,39 @@ public class CompetitionTeleop extends OpMode {
             isRed = !isRed;
         }
 
+        
+        if(gamepad.bWasPressed()) {
+            showExtraTelemetry = !showExtraTelemetry;
+        }
+
+        OpModeData.inCompetitonMode = !showExtraTelemetry;
         OpModeData.isRed = isRed;
         
         // Adjusting where we start the opmode
-        if(OpModeData.follower != null) {
+        if(updateStartPosition) {
             adjustStartPosition(gamepad);
         }
     }
 
     private void adjustStartPosition(Gamepad gamepad) {
-        startPosition = OpModeData.startPosition;
-        if(startPosition == null) {
-            startPosition = new Pose(72, 72, 0);
-        }
-        
         // X
         final double X_STEP = 6;
-        if(gamepad.dpadUpWasPressed()) {
+        if(gamepad.dpadRightWasPressed()) {
             startPosition = startPosition.withX(Util.clamp(0, startPosition.getX() + X_STEP, 144));
         }
 
-        if(gamepad.dpadDownWasPressed()) {
+        if(gamepad.dpadLeftWasPressed()) {
             startPosition = startPosition.withX(Util.clamp(0, startPosition.getX() - X_STEP, 144));
         }
         
-        
         // Y
         final double Y_STEP = 6;
-        if(gamepad.dpadRightWasPressed()) {
+        if(gamepad.dpadUpWasPressed()) {
             startPosition = startPosition.withY(Util.clamp(0, startPosition.getY() + Y_STEP, 144));
         }
         
         
-        if(gamepad.dpadLeftWasPressed()) {
+        if(gamepad.dpadDownWasPressed()) {
             startPosition = startPosition.withY(Util.clamp(0, startPosition.getY() - Y_STEP, 144));
         }
 
@@ -192,7 +200,6 @@ public class CompetitionTeleop extends OpMode {
             final double newYaw = AngleUnit.normalizeRadians(startPosition.getHeading() + YAW_STEP);
             startPosition = startPosition.withHeading(newYaw);
         }
-        
         
         if(gamepad.rightBumperWasPressed()) {
             final double newYaw = AngleUnit.normalizeRadians(startPosition.getHeading() - YAW_STEP);
@@ -204,10 +211,10 @@ public class CompetitionTeleop extends OpMode {
 
     public void displaySettings() {
         final String format = Util.lines(
-            "",
             "========== Settings ==========",
             "",
             "isRed: %b",
+            "isCompetitionMode: %b",
             "",
             "startPos", 
             "    x: %.2f;",
@@ -217,21 +224,23 @@ public class CompetitionTeleop extends OpMode {
             "========== Controls ==========",
             "",
             "Toggle isRed: A",
+            "Toggle isCompetitionMode: B",
             "",
-            "Add   X: dpad_up",
-            "minus X: dpad_down",
+            "Add   X: →",
+            "Minus X: ←",
             "",
-            "Add   Y: dpad_up",
-            "Minus Y: dpad_left",
+            "Add   Y: ↑",
+            "Minus Y: ↓",
             "",
-            "Add   θ: left_bumper",
-            "Minus θ: right_bumper",
+            "Add   θ: LB",
+            "Minus θ: RB",
             ""
         );
 
         telemetry.addLine(String.format(
             format, 
             isRed,
+            !showExtraTelemetry,
             startPosition.getX(),
             startPosition.getY(),
             Math.toDegrees(startPosition.getHeading())
@@ -244,6 +253,9 @@ public class CompetitionTeleop extends OpMode {
         if(aimbot.isInitialized()) {
             OpModeData.selection = aimbot.getSelection();
             telemetry.addData("Status", "Initialized");
+            telemetry.addLine();
+            telemetry.addData("Selection Size", aimbot.getSelection().size());
+            telemetry.addLine();
             adjustSettings(gamepad1);
             displaySettings();
             telemetry.update();
@@ -253,11 +265,13 @@ public class CompetitionTeleop extends OpMode {
     @Override
     public void start() {
         rampPivot.runToAngle(rampPivot.convertFromPosition(0.66));
+        
+        if(showExtraTelemetry) {
+            shooter.setTelemetry(telemetry);
+        }
 
-        if(startPosition != null) {
-            // Calling this method times on the same reference will
-            // cause any calls after the first one to be ignored.
-            follower.setStartingPose(startPosition);
+        if(updateStartPosition) {
+            follower.setPose(startPosition);
         }
 
         if(OpModeData.follower == null) {
@@ -644,6 +658,7 @@ public class CompetitionTeleop extends OpMode {
         }
 
         if(cancelFiring) {
+            intake.holdGamePieces();
             shooter.charge();
             CommandScheduler.getInstance().cancel(fireAfterBlockers);
         } 
