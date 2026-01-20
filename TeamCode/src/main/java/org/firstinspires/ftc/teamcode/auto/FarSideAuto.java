@@ -697,8 +697,8 @@ public class FarSideAuto extends LinearOpMode {
         final double theta = Criterion.ANGLE.of(arc);
         
         // Filter based off angle
-        if(MIN_ANGLE <= theta && theta <= MAX_ANGLE) {
-            return true;
+        if(!(MIN_ANGLE <= theta && theta <= MAX_ANGLE)) {
+            return false;
         }
 
         final double speed = Criterion.SPEED.of(arc);

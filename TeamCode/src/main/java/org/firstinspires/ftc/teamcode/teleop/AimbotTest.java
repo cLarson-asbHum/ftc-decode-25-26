@@ -51,7 +51,9 @@ public class AimbotTest extends OpMode {
 
     @Override
     public void init() {
-        final Robot robot = new Robot(hardwareMap, Set.of(Device.LEFT_SHOOTER, Device.RAMP_PIVOT));
+        final Device shooterDevice = Device.RIGHT_SHOOTER;
+        // final Device shooterDevice = Device.LEFT_SHOOTER;
+        final Robot robot = new Robot(hardwareMap, Set.of(shooterDevice, Device.RAMP_PIVOT));
         shooter = robot.getShooter();
         pivot = robot.getRampPivot();
 
@@ -61,7 +63,7 @@ public class AimbotTest extends OpMode {
         aimbot = new AimbotManager(shooter, pivot);
         
         // Getting the source selection
-        telemetry.setMsTransmissionInterval(33);
+        telemetry.setMsTransmissionInterval(100);
         telemetry.addData("Status", "Reading ballistic arcs...");
         telemetry.update();
 
@@ -116,7 +118,7 @@ public class AimbotTest extends OpMode {
 
         if(gamepad1.yWasPressed()) {
             targetDist = newTargetDist;
-            aimbot.followArc(arc = aimbot.selectArc(targetDist, DIST_TOLERANCE));
+            aimbot.followArc(arc = aimbot.selectArcByDistance(targetDist, DIST_TOLERANCE));
         }
 
         if(gamepad1.xWasPressed()) {
@@ -186,8 +188,8 @@ public class AimbotTest extends OpMode {
         final double theta = Criterion.ANGLE.of(arc);
         
         // Filter based off angle
-        if(MIN_ANGLE <= theta && theta <= MAX_ANGLE) {
-            return true;
+        if(!(MIN_ANGLE <= theta && theta <= MAX_ANGLE)) {
+            return false;
         }
 
         final double speed = Criterion.SPEED.of(arc);

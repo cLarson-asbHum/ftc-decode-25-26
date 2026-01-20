@@ -407,8 +407,8 @@ public class Robot {
         throwAFitIfAnyHardwareIsNotFound();
         
         // Setting the necessary states
-        rightShooterMotor.setDirection(DcMotor.Direction.FORWARD);
-        rightFeederServo.setDirection(DcMotor.Direction.FORWARD);
+        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         rightShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
 
         // Wrapping these with subsystems.

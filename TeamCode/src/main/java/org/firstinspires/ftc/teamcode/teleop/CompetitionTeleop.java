@@ -328,22 +328,8 @@ public class CompetitionTeleop extends OpMode {
 
 
         // AUTOAIM
-        final BallisticArc arc = aimbot.selectArc(
-            getDistance(follower, KeyPoses.goalCenter(isRed)), 
-            DIST_TOLERANCE
-        );
-
-        // TODO: Use an array or collection to do this
-        if(
-            autoAimEnabled
-            && shooter.getStatus() != Status.UNCHARGING 
-            && shooter.getStatus() != Status.UNCHARGED
-            && shooter.getStatus() != Status.UNKNOWN
-            && shooter.getStatus() != Status.FIRING
-        ) {
-            aimbot.followArc(arc);
-        }
-
+        final BallisticArc arc = getArc(shooter.getStatus());
+        followArc(autoAimEnabled && arc != null, arc, shooter.getStatus());
         toggleAutoAim(gamepad2.back && gamepad2.dpad_left && !wasTogglingAimbot);
 
         // RELOAD
@@ -413,6 +399,7 @@ public class CompetitionTeleop extends OpMode {
         telemetry.addLine(Util.header("Settings"));
         telemetry.addLine();
         telemetry.addData("autoReloadEnabled (Back2 + Y)", autoReloadEnabled);
+        telemetry.addData("autoAimEnabled (Back2 + ←)", autoAimEnabled);
         telemetry.addLine();
         telemetry.addData("isRed (Back1 + A)", isRed);
         telemetry.addData("startPosition", startPosition);
@@ -429,12 +416,17 @@ public class CompetitionTeleop extends OpMode {
             telemetry.addData("shooting distance", () -> {
                 return getDistance(follower, KeyPoses.goalCenter(isRed));
             });
-            telemetry.addLine("arc");
-            telemetry.addData("  |    dist ",  "%.1f in", Criterion.DISTANCE.of(arc));
-            telemetry.addData("  |    angle",  "%.1f°", Math.toDegrees(Criterion.ANGLE.of(arc)));
-            telemetry.addData("  |    speed",  "%.1f in s⁻¹", Criterion.SPEED.of(arc));
-            telemetry.addData("  \\    time ", "%.3f s", arc.getElapsedTime());
-            telemetry.addLine();
+            
+            if(arc != null) {
+                telemetry.addLine("arc:");
+                telemetry.addData("  |    dist ",  "%.1f in", Criterion.DISTANCE.of(arc));
+                telemetry.addData("  |    angle",  "%.1f°", Math.toDegrees(Criterion.ANGLE.of(arc)));
+                telemetry.addData("  |    speed",  "%.1f in s⁻¹", Criterion.SPEED.of(arc));
+                telemetry.addData("  \\    time ", "%.3f s", arc.getElapsedTime());
+            } else {
+                telemetry.addData("arc", "null");
+            }
+
             telemetry.addLine();
         }
 
@@ -676,9 +668,66 @@ public class CompetitionTeleop extends OpMode {
         );
     }
 
+    public BallisticArc getArc(ShooterSubsystem.Status status) {
+        switch(status) {
+            case FIRING:
+            case CHARGING:
+            case RELOADING:
+            case CHARGED: 
+                // Getting the arc as a function of distance
+                return aimbot.selectArcByDistance(
+                    getDistance(follower, KeyPoses.goalCenter(isRed)), 
+                    DIST_TOLERANCE
+                );
+            
+            default:
+                // Nothing is returned
+                return null;
+        }
+    }
+
+    public boolean followArc(boolean doFollow, BallisticArc arc, ShooterSubsystem.Status status) {
+        if(!doFollow) {
+            return false;
+        }
+
+        switch(status) {
+            case FIRING:
+            case RELOADING:
+            case CHARGED:
+            case CHARGING:
+                // Changing the pivot and the shooter speed
+                aimbot.followArc(arc);
+                return true;
+
+            default: 
+                // Autoaim is not allowed in the current state
+                return false;
+        }
+    }
+
     public boolean toggleAutoAim(boolean doToggle) {
-        if(doToggle) {
-            autoAimEnabled = !autoAimEnabled;
+        // Resetting a few parameters if we disable aimbot
+        if(doToggle && autoAimEnabled) {
+            autoAimEnabled = false;
+            rampPivot.runToAngle(rampPivot.convertFromPosition(0.66));
+            switch(shooter.getStatus()) {
+                case UNCHARGED:
+                case UNCHARGING:
+                    // Keep the shooter uncharged
+                    break;
+                
+                default:
+                    // charge the shooter
+                    shooter.charge();
+                    break;
+            }
+            return true;
+        }
+
+        // Enabling auto reload. 
+        if(doToggle && !autoAimEnabled) {
+            autoAimEnabled = true;
             return true;
         }
 
@@ -808,8 +857,8 @@ public class CompetitionTeleop extends OpMode {
         final double theta = Criterion.ANGLE.of(arc);
         
         // Filter based off angle
-        if(MIN_ANGLE <= theta && theta <= MAX_ANGLE) {
-            return true;
+        if(!(MIN_ANGLE <= theta && theta <= MAX_ANGLE)) {
+            return false;
         }
 
         final double speed = Criterion.SPEED.of(arc);

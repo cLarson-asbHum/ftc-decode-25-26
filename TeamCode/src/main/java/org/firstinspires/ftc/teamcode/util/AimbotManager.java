@@ -178,24 +178,22 @@ public class AimbotManager implements Closeable {
      * 
      * The shooter and pivot are not updated by this method.
      * 
-     * @param targetDist - The target to reach, in inches
-     * @param tolerance - Tolerance the arc can be within the distance, in inches
+     * @param targetDist The target to reach, in inches
+     * @param tolerance Tolerance the arc can be within the distance, in inches
      * @return The arc that best matches, or null if none was found (incredibly rare!).
      */
-    public BallisticArc selectArc(double targetDist, double tolerance) {
+    public BallisticArc selectArcByDistance(double targetDist, double tolerance) {
         final double min = Criterion.DISTANCE.of(selection.minDistance().first());
         final double max = Criterion.DISTANCE.of(selection.maxDistance().first());
-        
-        // Sending this data to the shooter and pivot
         return selection
             .withinDistance(Util.clamp(min, targetDist, max), tolerance)
             .minSpeed(SPEED_TOLERANCE)  // First Tiebreaker,  so as to make charging easiest
             .maxAngle(ANGLE_TOLERANCE)  // Second tiebreaker, so as to maximize tolerance
-            .maxDistance()             // Third Tiebreaker,  to get as far as possible
+            .maxDistance()              // Third Tiebreaker,  to get as far as possible
             .first();
             // .minAngle(ANGLE_TOLERANCE)  // Second Tiebreaker, so as to avoid losing speed at high angles
     }
-    
+
     /**
      * Gives the shooter and the pivot subsystems the arc's speed and angle 
      * respectively.
