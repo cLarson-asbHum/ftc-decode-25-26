@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import com.arcrobotics.ftclib.command.CommandScheduler;
 
-@TeleOp(group="B - Testing")
+@TeleOp(group="C - Util")
 public class ClearCommandScheduler extends LinearOpMode {
     @Override
     public void runOpMode() {

@@ -9,6 +9,8 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.MotorControlAlgorithm;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
@@ -22,6 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.DoubleUnaryOperator;
 
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
@@ -84,6 +87,7 @@ public class Robot {
             result.add(device);
         }
 
+        result.remove(Device.ULTIMATE_POINT_EARNER);
         result.remove(Device.MOTIF_WEBCAM);
         result.remove(Device.LEFT_SHOOTER);
         result.remove(Device.RIGHT_SHOOTER);
@@ -233,7 +237,7 @@ public class Robot {
         return true;
     }
 
-    private Map<Double, Double> getRampPivotTuning() {
+    private static final Map<Double, Double> getRampPivotTuning() {
         // These magic numbers were found experimentally 
         // NOTE: This is a default tuning, from 27 Dec 2025 at 1:28 PM
         return new HashMap<>() {{
@@ -257,6 +261,18 @@ public class Robot {
         }};
     }
 
+    private static LinearInterpolator positionToRadians = new LinearInterpolator(getRampPivotTuning());
+    private static LinearInterpolator radiansToPosition = positionToRadians.inverse();
+
+
+    public static final double radiansToPosition(double radians) {
+        return radiansToPosition.applyAsDouble(radians);
+    }
+    
+    public static final double positionToRadians(double position) {
+        return positionToRadians.applyAsDouble(position);
+    }
+
     private boolean initRampPivot() {
         if(rampPivot != null) {
             return false;
@@ -267,33 +283,47 @@ public class Robot {
         throwAFitIfAnyHardwareIsNotFound();
 
         // Creating the subsystem
-        final LinearInterpolator positionToRadians = new LinearInterpolator(getRampPivotTuning());
         rampPivotServo.setPwmRange(new PwmRange(1050, 1950));
         this.rampPivot = new LinearHingePivot.Builder(rampPivotServo)
-            .setPositionToRadians(positionToRadians)
-            .setRadiansToPosition(positionToRadians.inverse())
+            .setPositionToRadians(Robot::positionToRadians)
+            .setRadiansToPosition(Robot::radiansToPosition)
             .build();
         return true;
     }
 
-    public double ticksToInches(double ticks) {
-        // Determined with some samples and applying a regression using Desmos
-        // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return K + B * Math.pow(Math.log(ticks - H), A);
+    private static final class Regression {
+        // DEV NOTE: This overshoots at long distances:
+        // public static final double K  = -3740.06922;
+        // public static final double B  = 497.24437;
+        // public static final double H  = -1457.45051;
+
+        // DEV NOTE: This is the updated version, with larger distances more accurate
+        public static final double K  = -5047.22041;
+        public static final double B  = 643.77047;
+        public static final double H  = -2158.76154;
     }
 
-    public double inchesToTicks(double inches) {
+    public static final double ticksToInches(double ticks) {
         // Determined with some samples and applying a regression using Desmos
         // Because this is experimental, the units will not work out
-        final double K = 607.98623;
-        final double B = -7.66965e16;
-        final double H = -3495.02401;
-        final double A = -15.37211;
-        return H + Math.exp(Math.pow((inches - K) / B, 1 / A));
+        return Regression.K + Regression.B * Math.log(ticks - Regression.H);
+    }
+
+    public static final double inchesToTicks(double inches) {
+        // Determined with some samples and applying a regression using Desmos
+        // Because this is experimental, the units will not work out
+        return Regression.H + Math.exp((inches - Regression.K) / Regression.B);
+    }
+
+    private PIDFCoefficients getShooterPidf() {
+        // Tuned by Connor Larson at 1:20 PM, 17 Jan 2026. 
+        return new PIDFCoefficients(
+            200,
+            11.2,
+            65,
+            1,
+            MotorControlAlgorithm.PIDF
+        );
     }
 
     private boolean initShooter() {
@@ -318,6 +348,9 @@ public class Robot {
         rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
 
+        rightShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
+        leftShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
+
         // Wrapping these with subsystems.
         final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor, rightShooterMotor);
         this.shooter = new FlywheelTubeShooter.Builder(flywheels) 
@@ -325,8 +358,8 @@ public class Robot {
             .setRightFeeder(rightFeederServo)
             .setRightReloadClassifier(rightReload)
             .setLeftReloadClassifier(leftReload)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
+            .setTicksToInches(Robot::ticksToInches)
+            .setInchesToTicks(Robot::inchesToTicks)
             .build();
         return true;
     }
@@ -346,6 +379,7 @@ public class Robot {
         // Setting the necessary states
         leftShooterMotor.setDirection(DcMotor.Direction.FORWARD);
         leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
+        leftShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
 
         // Wrapping these with subsystems.
         final DcMotorGroup flywheels = new DcMotorGroup(leftShooterMotor);
@@ -354,8 +388,8 @@ public class Robot {
             .setRightFeeder(null) // FlywheelTubeShooter is null safe for feeders
             .setLeftReloadClassifier(leftReload)
             .setRightReloadClassifier(() -> ArtifactColor.UNKNOWN)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
+            .setTicksToInches(Robot::ticksToInches)
+            .setInchesToTicks(Robot::inchesToTicks)
             .build();
         return true;
     }
@@ -373,8 +407,9 @@ public class Robot {
         throwAFitIfAnyHardwareIsNotFound();
         
         // Setting the necessary states
-        rightShooterMotor.setDirection(DcMotor.Direction.FORWARD);
-        rightFeederServo.setDirection(DcMotor.Direction.FORWARD);
+        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
+        rightShooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, getShooterPidf());
 
         // Wrapping these with subsystems.
         final DcMotorGroup flywheels = new DcMotorGroup(rightShooterMotor);
@@ -383,8 +418,8 @@ public class Robot {
             .setRightFeeder(rightFeederServo) 
             .setLeftReloadClassifier(() -> ArtifactColor.UNKNOWN)
             .setRightReloadClassifier(rightReload)
-            .setTicksToInches(this::ticksToInches)
-            .setInchesToTicks(this::inchesToTicks)
+            .setTicksToInches(Robot::ticksToInches)
+            .setInchesToTicks(Robot::inchesToTicks)
             .build();
         return true;
     }
