@@ -286,10 +286,28 @@ public class ConvexHull {
             }
         }
 
+        // If no egdes intersected, check the vertices
+        for(final Pose otherVert : other.boundary) {
+            if(this.contains(otherVert)) {
+                return true;
+            }
+        }
+
+        for(final Pose thisVert : this.boundary) {
+            if(other.contains(thisVert)) {
+                return true;
+            }
+        }
+
+        // Nothing registered as intersecting, so it doesn't
         return false;
     }
 
     public boolean intersectsCircle(Pose center, double radius) {
+        if(this.contains(center)) {
+            return true;
+        }
+
         return sqrMagnitude(center.minus(closestPointTo(center))) <= radius * radius;
     } 
 }
