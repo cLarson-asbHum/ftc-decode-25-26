@@ -10,6 +10,9 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.util.Arrays;
+import java.util.LinkedList;
+
 import org.firstinspires.ftc.teamcode.hardware.Robot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
 import org.firstinspires.ftc.teamcode.util.Util;
@@ -35,8 +38,16 @@ public final class PidfTest extends OpMode {
     private double newTargetSpeed = 0;
     private final double speedIncrement = 100;
 
+    private final LinkedList<Double> recordedVels = new LinkedList<>();
+    private double avgVel = 0;
+    private double velSe = 0;
+    private double minVel = Double.POSITIVE_INFINITY;
+    private double maxVel = Double.NEGATIVE_INFINITY;
+    private double medianVel = 0;
+
     private boolean wasPressingRightTrigger = false;
     private boolean wasPressingLeftTrigger = false;
+    private boolean wasPressingRightStickButton = false;
 
     @Override
     public void init() {
@@ -96,6 +107,8 @@ public final class PidfTest extends OpMode {
             switchTarget();
         }
 
+        final boolean recording = recordVelocity(gamepad1);
+
         // Controls
         if(!areControlsHidden) {
             telemetry.addLine(Util.header("Controls (Back to hide)"));
@@ -114,12 +127,15 @@ public final class PidfTest extends OpMode {
             telemetry.addLine();
             telemetry.addData("Move cursor up", "↑");
             telemetry.addData("Move cursor down", "↓");
+            telemetry.addLine();
+            telemetry.addData("Record velocities", "RT (hold)");
         } else {
             telemetry.addLine(Util.header("Controls (Back to show)"));
         }
 
         wasPressingRightTrigger = gamepad1.right_trigger > 0.1;
         wasPressingLeftTrigger = gamepad1.left_trigger > 0.1;
+        wasPressingRightStickButton = gamepad1.right_stick_button;
 
         telemetry.addLine();
         telemetry.addLine(Util.header("Motor Speed"));
@@ -149,6 +165,20 @@ public final class PidfTest extends OpMode {
         telemetry.addData( "    |   D", target.d);
         telemetry.addData("    \\   F", target.f);
 
+        if(recordedVels.size() > 0 && !recording) {
+            telemetry.addLine();
+            telemetry.addLine("Recorded data");
+            telemetry.addData( "    |   Avg", "%.1f ticks s⁻¹ (± %.2f)", avgVel, velSe);
+            telemetry.addData( "    |   Min", "%.0f ticks s⁻¹", minVel);
+            telemetry.addData( "    |   Max", "%.0f ticks s⁻¹", maxVel);
+            telemetry.addData("    \\   Median", "%.0f", medianVel);
+        } else if(recordedVels.size() > 0 && recording) {
+            telemetry.addLine();
+            telemetry.addLine("⏺ Recording...");
+            telemetry.addData( "    |   Avg", "%.1f ticks s⁻¹", avgVel / recordedVels.size());
+            telemetry.addData( "    |   Min", "%.0f ticks s⁻¹", minVel);
+            telemetry.addData("    \\   Max", "%.0f ticks s⁻¹", maxVel);
+        }
 
         CommandScheduler.getInstance().run();
     }
@@ -285,6 +315,65 @@ public final class PidfTest extends OpMode {
         } else {
             mode = Target.PIDF;
         }
+    }
+
+    private boolean recordVelocity(Gamepad gamepad) {
+        // Start the recording
+        if(gamepad.rightStickButtonWasPressed()) {
+            recordedVels.clear();
+            avgVel = 0; // Represents total until the recording is done
+            velSe = 0;
+            minVel = Double.POSITIVE_INFINITY;
+            maxVel = Double.NEGATIVE_INFINITY;
+            medianVel = 0;
+        }
+
+        // Record the curent velocity
+        if(gamepad.right_stick_button) {
+            final double currentVel = shootingMotor.getVelocity();
+            recordedVels.add(currentVel);
+            avgVel += currentVel;
+
+            if(currentVel < minVel) {
+                minVel = currentVel;
+            }
+
+            if(currentVel > maxVel) {
+                maxVel = currentVel;
+            }
+
+            return true;
+        }
+
+        // Calculate the stats
+        if(!gamepad.right_stick_button && wasPressingRightStickButton) {
+            avgVel /= recordedVels.size();
+
+            // Getting the median and standard error
+            //
+            // For statistics turbo-nerds, the unbiased sample standard deviation is 
+            // approximated by subtracting 1.5 from the number of elements. The 
+            // calculated error is thus the estimator of the standard error of the mean.
+            // A 0.95 confidence interval is used (2 SEs).
+            final double SE_CONFIDENCE = 2;
+            final int n = recordedVels.size();
+            final Double[] sorted = new Double[n];
+            
+            recordedVels.toArray(sorted);
+            Arrays.sort(sorted);
+            
+            double sumOfSquares = 0;
+            for(final double vel : sorted) {
+                sumOfSquares += (vel - avgVel) * (vel - avgVel);
+            }
+
+            velSe = SE_CONFIDENCE * Math.sqrt( sumOfSquares / (n * (n - 1.5)) );
+            return false;
+        }
+
+
+        // Nothing was done, which means we definitely are not recording
+        return false;
     }
 
     @Override
