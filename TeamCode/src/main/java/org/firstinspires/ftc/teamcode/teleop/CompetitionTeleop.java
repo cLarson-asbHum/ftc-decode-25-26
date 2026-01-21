@@ -37,6 +37,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.res.R;
 import org.firstinspires.ftc.teamcode.util.AimbotManager;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
+import org.firstinspires.ftc.teamcode.util.ConvexHull;
 import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.LinearInterpolator;
 import org.firstinspires.ftc.teamcode.util.OpModeData;
@@ -69,6 +70,16 @@ public class CompetitionTeleop extends OpMode {
 
     private Follower follower = null;
     private AimbotManager aimbot = null;
+    private ConvexHull closeShootingZone = ConvexHull.of(new Pose[] {
+        new Pose(0, 144),
+        new Pose(72, 72),
+        new Pose(144, 144)
+    });
+    private ConvexHull farShootingZone = ConvexHull.of(new Pose[] {
+        new Pose(48, 0),
+        new Pose(72, 24),
+        new Pose(96, 0)
+    });
 
     private BlockerSubsystem leftBlocker = null;
     private BlockerSubsystem rightBlocker = null;
@@ -307,7 +318,7 @@ public class CompetitionTeleop extends OpMode {
 
         // Automatic driving
         final boolean doPark = gamepad1.dpad_up && gamepad1.y;
-        // goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
+        goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
         goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
         goParkForthwith(doPark && !wasPressingPark, doPark, !doPark && wasPressingPark);
         faceGoal(
@@ -506,6 +517,18 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
+    public Pose getClosestShootingPoint(Pose currentPose) {
+        final Pose closeSide = closeShootingZone.closestPointTo(currentPose);
+        final Pose farSide = farShootingZone.closestPointTo(currentPose);
+
+        if(closeSide.distSquared(currentPose) >= farSide.distSquared(currentPose)) {
+            // Equality is included, as we would rather should close in case of tie
+            return closeSide;
+        } else {
+            return farSide;
+        }
+    }
+
     public boolean goToShootingZone(boolean doStart, boolean doFollow, boolean cancel) {
         if(cancel && follower != null) {
             follower.breakFollowing();
@@ -514,8 +537,25 @@ public class CompetitionTeleop extends OpMode {
         }
 
         if(doStart && follower != null) {
-            final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
-            path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
+            // We check auto aim because having it disabled means we have to 
+            // shoot from the same spot (or, more accurately, distance)
+            Path path = null; // Placeholder
+
+            if(autoAimEnabled) {
+                // Getting the closest shooting location
+                // The robot will choose between close-side and far-side (relative to the goal)
+                final Pose currentPose = follower.getPose();
+                final Pose closest = getClosestShootingPoint(currentPose);
+                path = new Path(new BezierLine(currentPose, closest)); 
+                path.setConstantHeadingInterpolation(Math.PI + Math.atan2(
+                    closest.getY() - currentPose.getY(),
+                    closest.getX() - currentPose.getX()
+                ));
+            } else {
+                path = new Path(new BezierLine(follower.getPose(), KeyPoses.shooting(isRed)));
+                path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
+            }
+            
             follower.followPath(path);
         }
         
@@ -566,7 +606,7 @@ public class CompetitionTeleop extends OpMode {
         }
 
         if(doStart && follower != null) {
-            final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
+            final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.loading(isRed)));
             path.setConstantHeadingInterpolation(KeyPoses.loading(isRed).getHeading());
             follower.followPath(path);
         }
