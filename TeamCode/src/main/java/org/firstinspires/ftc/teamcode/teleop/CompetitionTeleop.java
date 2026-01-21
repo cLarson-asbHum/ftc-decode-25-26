@@ -48,11 +48,17 @@ import org.firstinspires.ftc.teamcode.util.Util;
 public class CompetitionTeleop extends OpMode {
     public static double TRIGGER_PRESSED = 0.1;
     
+    // Auto aiming constants
     public static final double DISTANCE_OFFSET = -8; // Odom measures from center, but it should be from back of bot
     public static final double DIST_TOLERANCE = 0.4; // inches
     public static final double MIN_ANGLE = Robot.positionToRadians(0);
     public static final double MAX_ANGLE = Math.toRadians(62.5); // Any higher, and the shooting is inaccurate
     public static final double MAX_SPEED = Robot.ticksToInches(2400);
+
+    // Auto firing constants
+    public static final double ROBOT_WIDTH = 16; // In inches
+    public static final double ROBOT_LENGTH = 18; // In inches
+    public static final double MAX_DISPLACEMENT = 5; // In inches
 
     private ElapsedTime timer = new ElapsedTime();
     private double lastTime = 0;
@@ -90,6 +96,7 @@ public class CompetitionTeleop extends OpMode {
 
     private boolean autoReloadEnabled = false;
     private boolean autoAimEnabled = true;
+    private boolean autoFiringEnabled = true;
     private boolean showExtraTelemetry = true;
 
     private boolean wasPressingRightTrigger = false;
@@ -97,11 +104,13 @@ public class CompetitionTeleop extends OpMode {
     private boolean wasPressingLeftBumper = false;
     private boolean wasTogglingAutoReload = false;
     private boolean wasTogglingAimbot = false;
+    private boolean wasTogglingAutoFiring = false;
     private boolean wasPressingIsRed = false;
     private boolean wasPressingX = false;
     private boolean wasPressingY = false;
     private boolean wasPressingA = false;
     private boolean wasPressingPark = false;
+    private boolean autoFiringWasFeasible = false;
 
     private boolean updateStartPosition = false;
     private Pose startPosition = null;
@@ -342,6 +351,16 @@ public class CompetitionTeleop extends OpMode {
             !(gamepad2.right_trigger > TRIGGER_PRESSED) && wasPressingRightTrigger // Cancel
         );
 
+        // Firing automatically
+        final boolean autoFiringIsFeasible = 
+            autoFiringEnabled 
+            && insideAnyShootingZone(follower.getPose(), ROBOT_WIDTH, ROBOT_LENGTH)
+            && isAccuratelyFacingGoal(follower.getPose(), MAX_DISPLACEMENT);
+        fireIndiscriminantly(
+            autoFiringIsFeasible && shooter.getStatus() == Status.CHARGED,
+            !(autoFiringIsFeasible && shooter.getStatus() == Status.FIRING) && autoFiringWasFeasible
+        );
+        toggleAutoFiring(gamepad2.back && gamepad2.left_trigger > TRIGGER_PRESSED && !wasTogglingAutoFiring);
 
         // AUTOAIM
         final BallisticArc arc = getArc(shooter.getStatus());
@@ -402,12 +421,14 @@ public class CompetitionTeleop extends OpMode {
         wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
         wasPressingLeftBumper = gamepad2.left_bumper;
         wasTogglingAutoReload = gamepad2.back && gamepad2.y;
-        wasTogglingAimbot = gamepad2.back && gamepad2.dpad_left; 
+        wasTogglingAimbot     = gamepad2.back && gamepad2.dpad_left; 
+        wasTogglingAutoFiring = gamepad2.back && gamepad2.left_trigger > TRIGGER_PRESSED; 
         wasPressingIsRed = gamepad1.back && gamepad1.a;
         wasPressingX = gamepad1.x;
         wasPressingY = gamepad1.y;
         wasPressingA = gamepad1.a;
         wasPressingPark = gamepad1.dpad_up && gamepad1.y;
+        autoFiringWasFeasible = autoFiringIsFeasible;
 
         // TELELEMETRY
         telemetry.clearAll();
@@ -431,7 +452,7 @@ public class CompetitionTeleop extends OpMode {
                 return follower.getPose();
             });
             telemetry.addData("shooting distance", () -> {
-                return getDistance(follower, KeyPoses.goalCenter(isRed));
+                return getDistance(follower.getPose(), KeyPoses.goalCenter(isRed));
             });
             
             if(arc != null) {
@@ -448,6 +469,7 @@ public class CompetitionTeleop extends OpMode {
         }
 
         // COMMAND SCHEDULER
+        follower.updatePose();
         leftReload.clearBulkCache();
         rightReload.clearBulkCache();
         for(final LynxModule module : lynxModules) {
@@ -529,6 +551,13 @@ public class CompetitionTeleop extends OpMode {
         }
     }
 
+    public double shootingAngleToGoal(Pose currentPose) {
+        return AngleUnit.normalizeRadians(Math.PI + Math.atan2(
+            KeyPoses.goalCenter(isRed).getY() - currentPose.getY(),
+            KeyPoses.goalCenter(isRed).getX() - currentPose.getX()
+        ));
+    }
+
     public boolean goToShootingZone(boolean doStart, boolean doFollow, boolean cancel) {
         if(cancel && follower != null) {
             follower.breakFollowing();
@@ -547,10 +576,7 @@ public class CompetitionTeleop extends OpMode {
                 final Pose currentPose = follower.getPose();
                 final Pose closest = getClosestShootingPoint(currentPose);
                 path = new Path(new BezierLine(currentPose, closest)); 
-                path.setConstantHeadingInterpolation(Math.PI + Math.atan2(
-                    closest.getY() - currentPose.getY(),
-                    closest.getX() - currentPose.getX()
-                ));
+                path.setConstantHeadingInterpolation(shootingAngleToGoal(currentPose));
             } else {
                 path = new Path(new BezierLine(follower.getPose(), KeyPoses.shooting(isRed)));
                 path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
@@ -575,17 +601,10 @@ public class CompetitionTeleop extends OpMode {
         }
 
         if(doStart && follower != null) {
-            // final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
-            // path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
-            // follower.followPath(path);
-            follower.updatePose();
             final Pose currentPose = follower.getPose();
             follower.holdPoint(
                 new BezierPoint(currentPose),
-                Math.PI + Math.atan2(
-                    KeyPoses.goalCenter(isRed).getY() - currentPose.getY(),
-                    KeyPoses.goalCenter(isRed).getX() - currentPose.getX()
-                ),
+                shootingAngleToGoal(currentPose),
                 false
             );
         }
@@ -735,13 +754,10 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
-    public double getDistance(Follower follower, Pose goal) {
-        // if(!follower.isBusy()) {
-            follower.updatePose();
-        // }
+    public double getDistance(Pose currentPose, Pose goal) {
         return DISTANCE_OFFSET + Math.hypot(
-            follower.getPose().getX() - goal.getX(), 
-            follower.getPose().getY() - goal.getY()
+            currentPose.getX() - goal.getX(), 
+            currentPose.getY() - goal.getY()
         );
     }
 
@@ -753,7 +769,7 @@ public class CompetitionTeleop extends OpMode {
             case CHARGED: 
                 // Getting the arc as a function of distance
                 return aimbot.selectArcByDistance(
-                    getDistance(follower, KeyPoses.goalCenter(isRed)), 
+                    getDistance(follower.getPose(), KeyPoses.goalCenter(isRed)), 
                     DIST_TOLERANCE
                 );
             
@@ -781,6 +797,46 @@ public class CompetitionTeleop extends OpMode {
                 // Autoaim is not allowed in the current state
                 return false;
         }
+    }
+
+    public boolean insideAnyShootingZone(Pose currentPose, double robotWidth, double robotLength) {
+        // Getting the profile of the robot.
+        final double hWidth = 0.5 * robotWidth; // Half Width
+        final double hLength = 0.5 * robotLength; // Half Length
+        final ConvexHull robot = ConvexHull.of(new Pose[] {
+            new Pose(-hWidth, -hLength).rotate(currentPose.getHeading(), false).plus(currentPose),
+            new Pose( hWidth, -hLength).rotate(currentPose.getHeading(), false).plus(currentPose),
+            new Pose( hWidth, hLength) .rotate(currentPose.getHeading(), false).plus(currentPose),
+            new Pose(-hWidth, hLength) .rotate(currentPose.getHeading(), false).plus(currentPose)
+        });
+
+        // Checking if this is touching either shooting zone
+        return closeShootingZone.intersects(robot) || farShootingZone.intersects(robot);
+    }
+
+    public boolean isAccuratelyFacingGoal(Pose currentPose, double maxDisplacement) {
+        final double distance = currentPose.distSquared(KeyPoses.goalCenter(isRed));
+
+        // The the difference in angle measure (guaranteed to be in range [0, pi])
+        final double targetAngle = shootingAngleToGoal(currentPose);
+        final double unnormError = currentPose.getHeading() - targetAngle;
+        final double angleErr = Math.abs(AngleUnit.normalizeRadians(unnormError));
+
+        // Using the law of cosines to get the displacement to the goal
+        // The known side lengths are both equal to distance, i.e: a = b = distance
+        // 
+        // NOTE: The actual formula used is equivalent to the law of cosines,
+        //       mathematically but is better for small angles 
+        //       (refer to https://en.wikipedia.org/wiki/Law_of_cosines#Version_suited_to_small_angles)
+        return 2 * distance * Math.sin(0.5 * angleErr) <= maxDisplacement;
+    }
+
+    public boolean toggleAutoFiring(boolean doToggle) {
+        if(doToggle) {
+            autoFiringEnabled = !autoFiringEnabled;
+        }
+
+        return false;
     }
 
     public boolean toggleAutoAim(boolean doToggle) {
