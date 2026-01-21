@@ -10,6 +10,7 @@ import com.arcrobotics.ftclib.command.WaitCommand;
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.BezierPoint;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -289,8 +290,10 @@ public class CompetitionTeleop extends OpMode {
         final double deltaTime = timestamp - lastTime;
         lastTime = timestamp;
 
-        // Driving the drivetrain            
-        drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
+        // Driving the drivetrain
+        if(!follower.isBusy()) {            
+            drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
+        }
         changeDrivetrainSpeed(
             gamepad1.left_trigger > TRIGGER_PRESSED || gamepad1.right_trigger > TRIGGER_PRESSED, // Fast
             gamepad1.left_bumper || gamepad1.right_bumper, // Slow
@@ -302,13 +305,15 @@ public class CompetitionTeleop extends OpMode {
         // Team change
         toggleIsRed(gamepad1.back && gamepad1.a && !wasPressingIsRed);   
 
-        // // Automatic driving
-        // goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
+        // Automatic driving
+        final boolean doPark = gamepad1.dpad_up && gamepad1.y;
         // goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
-        goParkForthwith(
-            gamepad1.dpad_up && gamepad1.y && !wasPressingPark,
-            gamepad1.dpad_up && gamepad1.y, 
-            !(gamepad1.dpad_up && gamepad1.y) && wasPressingPark
+        goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
+        goParkForthwith(doPark && !wasPressingPark, doPark, !doPark && wasPressingPark);
+        faceGoal(
+            gamepad1.y && !wasPressingY && !doPark, 
+            gamepad1.y && !doPark, 
+            (!gamepad1.y && wasPressingY) || (doPark && !wasPressingPark)
         );
 
         // Shooting the given color of artifact
@@ -335,9 +340,9 @@ public class CompetitionTeleop extends OpMode {
         // RELOAD
         if(autoReloadEnabled) {
             // Because we assume that if we're reloading manually, something's wrong
-            reloadBothSides(gamepad2.yWasPressed());
+            reloadBothSides(gamepad2.yWasPressed() && !gamepad2.back);
         } else {
-            manualReloadEmptySides(gamepad2.yWasPressed());
+            manualReloadEmptySides(gamepad2.yWasPressed() && !gamepad2.back);
         }
 
         // AUTO RELOAD
@@ -356,7 +361,7 @@ public class CompetitionTeleop extends OpMode {
         unchargeShooter(gamepad2.dpadDownWasPressed());
 
         // ABORT
-        bringArtifactsOutOfShooter(gamepad2.bWasPressed());
+        bringArtifactsOutOfShooter(gamepad2.bWasPressed() && !gamepad2.start);
 
         // INATKE (hold)
         intakeFromFloor(
@@ -389,6 +394,7 @@ public class CompetitionTeleop extends OpMode {
         wasTogglingAimbot = gamepad2.back && gamepad2.dpad_left; 
         wasPressingIsRed = gamepad1.back && gamepad1.a;
         wasPressingX = gamepad1.x;
+        wasPressingY = gamepad1.y;
         wasPressingA = gamepad1.a;
         wasPressingPark = gamepad1.dpad_up && gamepad1.y;
 
@@ -511,6 +517,37 @@ public class CompetitionTeleop extends OpMode {
             final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
             path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
             follower.followPath(path);
+        }
+        
+        if((doStart || doFollow) && follower != null) {
+            follower.update();
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean faceGoal(boolean doStart, boolean doFollow, boolean cancel) {
+        if(cancel && follower != null) {
+            follower.breakFollowing();
+            follower.update();
+            return false;            
+        }
+
+        if(doStart && follower != null) {
+            // final Path path = new Path(new BezierLine(follower.getPose(), KeyPoses.base(isRed)));
+            // path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
+            // follower.followPath(path);
+            follower.updatePose();
+            final Pose currentPose = follower.getPose();
+            follower.holdPoint(
+                new BezierPoint(currentPose),
+                Math.PI + Math.atan2(
+                    KeyPoses.goalCenter(isRed).getY() - currentPose.getY(),
+                    KeyPoses.goalCenter(isRed).getX() - currentPose.getX()
+                ),
+                false
+            );
         }
         
         if((doStart || doFollow) && follower != null) {
