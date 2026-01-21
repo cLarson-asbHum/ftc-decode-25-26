@@ -318,7 +318,7 @@ public class Robot {
     private PIDFCoefficients getShooterPidf() {
         // Tuned by Connor Larson at 1:20 PM, 17 Jan 2026. 
         return new PIDFCoefficients(
-            400,
+            200,
             11.2,
             65,
             1,
