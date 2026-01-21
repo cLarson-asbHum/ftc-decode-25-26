@@ -205,6 +205,18 @@ public class AimbotManager implements Closeable {
         shooter.charge(Criterion.SPEED.of(arc), false);
     }
 
+    
+    /**
+     * Gives the shooter and the pivot subsystems the arc's speed and angle 
+     * respectively. This preserves the shooter's current state and feeder speed.
+     * 
+     * @param arc What angle and speed to use for the shooter.
+     */
+    public void softFollowArc(BallisticArc arc) {
+        pivot.runToAngle(Criterion.ANGLE.of(arc), ANGLE_TOLERANCE);
+        shooter.softCharge(Criterion.SPEED.of(arc), false);
+    }
+
     @Override
     public synchronized void close() throws IOException {
         if(readFiles != null) { 

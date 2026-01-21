@@ -357,8 +357,14 @@ public class CompetitionTeleop extends OpMode {
             && insideAnyShootingZone(follower.getPose(), ROBOT_WIDTH, ROBOT_LENGTH)
             && isAccuratelyFacingGoal(follower.getPose(), MAX_DISPLACEMENT);
         fireIndiscriminantly(
-            autoFiringIsFeasible && shooter.getStatus() == Status.CHARGED,
-            !(autoFiringIsFeasible && shooter.getStatus() == Status.FIRING) && autoFiringWasFeasible
+            autoFiringIsFeasible 
+                && shooter.getStatus() == Status.CHARGED 
+                && shooter.getFiringState() != FlywheelTubeShooter.FiringState.WAITING,
+            !autoFiringIsFeasible && autoFiringWasFeasible && (
+                shooter.getStatus() == Status.CHARGED 
+                || shooter.getStatus() == Status.CHARGING 
+                || shooter.getStatus() == Status.FIRING
+            )
         );
         toggleAutoFiring(gamepad2.back && gamepad2.left_trigger > TRIGGER_PRESSED && !wasTogglingAutoFiring);
 
@@ -438,6 +444,7 @@ public class CompetitionTeleop extends OpMode {
         telemetry.addLine();
         telemetry.addData("autoReloadEnabled (Back2 + Y)", autoReloadEnabled);
         telemetry.addData("autoAimEnabled (Back2 + ←)", autoAimEnabled);
+        telemetry.addData("autoFiringEnabled (Back2 + LT)", autoFiringEnabled);
         telemetry.addLine();
         telemetry.addData("isRed (Back1 + A)", isRed);
         telemetry.addData("startPosition", startPosition);
@@ -457,6 +464,12 @@ public class CompetitionTeleop extends OpMode {
             telemetry.addData("in shooting zone", () -> {
                 return insideAnyShootingZone(follower.getPose(), ROBOT_WIDTH, ROBOT_LENGTH);
             });
+            telemetry.addData("facing goal", () -> {
+                return isAccuratelyFacingGoal(follower.getPose(), MAX_DISPLACEMENT);
+            });
+            telemetry.addData("autoFiringIsFeasible", autoFiringIsFeasible);
+            telemetry.addData("autoFiringWasFeasible", autoFiringWasFeasible);
+
             
             if(arc != null) {
                 telemetry.addLine("arc:");
@@ -690,19 +703,21 @@ public class CompetitionTeleop extends OpMode {
 
         if(fireGreen) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            shooter.awaitFiring();
             fireAfterBlockers = asyncSleep(() -> {
                 shooter.fireGreen();
                 openBlockers(shooter.getFiringState());
-            }, 500);
+            }, 150);
             return true;
         }
         
         if(firePurple) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            shooter.awaitFiring();
             fireAfterBlockers = asyncSleep(() -> {
                 shooter.firePurple();
                 openBlockers(shooter.getFiringState());
-            }, 500);
+            }, 150);
             return true;
         }
 
@@ -717,19 +732,21 @@ public class CompetitionTeleop extends OpMode {
 
         if(fireRight) { // Quote from the artifact that hit my keyboard: 12erre
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            shooter.awaitFiring();
             fireAfterBlockers = asyncSleep(() -> {
                 shooter.fireRight();
                 openBlockers(shooter.getFiringState());
-            }, 500);
+            }, 150);
             return true;
         }
 
         if(fireLeft) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            shooter.awaitFiring();
             fireAfterBlockers = asyncSleep(() -> {
                 shooter.fireLeft();
                 openBlockers(shooter.getFiringState());
-            }, 500);
+            }, 150);
             return true;
         }
 
@@ -744,11 +761,12 @@ public class CompetitionTeleop extends OpMode {
 
         if(startFiring) {
             openBlockers(FlywheelTubeShooter.FiringState.FIRING_BOTH);
+            shooter.awaitFiring();
             fireAfterBlockers = asyncSleep(() -> {
                 shooter.multiFire();
                 intake.intakeGamePieces();
                 openBlockers(shooter.getFiringState());
-            }, 500);
+            }, 150);
             return true;
         }
 
@@ -794,6 +812,10 @@ public class CompetitionTeleop extends OpMode {
         switch(status) {
             case FIRING:
             case RELOADING:
+                // Changing the pivot and the shooter speed, but not the state
+                aimbot.softFollowArc(arc);
+                return true;
+                
             case CHARGED:
             case CHARGING:
                 // Changing the pivot and the shooter speed
@@ -811,10 +833,10 @@ public class CompetitionTeleop extends OpMode {
         final double hWidth = 0.5 * robotWidth; // Half Width
         final double hLength = 0.5 * robotLength; // Half Length
         final ConvexHull robot = ConvexHull.of(new Pose[] {
-            new Pose(-hWidth, -hLength).rotate(currentPose.getHeading(), false).plus(currentPose),
-            new Pose( hWidth, -hLength).rotate(currentPose.getHeading(), false).plus(currentPose),
-            new Pose( hWidth, hLength) .rotate(currentPose.getHeading(), false).plus(currentPose),
-            new Pose(-hWidth, hLength) .rotate(currentPose.getHeading(), false).plus(currentPose)
+            new Pose(-hLength, -hWidth).rotate(currentPose.getHeading(), false).plus(currentPose),
+            new Pose( hLength, -hWidth).rotate(currentPose.getHeading(), false).plus(currentPose),
+            new Pose( hLength,  hWidth).rotate(currentPose.getHeading(), false).plus(currentPose),
+            new Pose(-hLength,  hWidth).rotate(currentPose.getHeading(), false).plus(currentPose)
         });
 
         // Checking if this is touching either shooting zone
@@ -822,7 +844,7 @@ public class CompetitionTeleop extends OpMode {
     }
 
     public boolean isAccuratelyFacingGoal(Pose currentPose, double maxDisplacement) {
-        final double distance = currentPose.distSquared(KeyPoses.goalCenter(isRed));
+        final double distance = currentPose.distanceFrom(KeyPoses.goalCenter(isRed));
 
         // The the difference in angle measure (guaranteed to be in range [0, pi])
         final double targetAngle = shootingAngleToGoal(currentPose);

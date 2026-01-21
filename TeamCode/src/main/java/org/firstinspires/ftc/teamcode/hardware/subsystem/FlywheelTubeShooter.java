@@ -137,6 +137,12 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         UNKNOWN,
 
         /**
+         * The shooter is about to fire. This is primarily caused by a call to 
+         * `awaitFiring()`. This should be overridden upon a state change.
+         */
+        WAITING,
+
+        /**
          * Only the left chamber is firing. The right is not
          */
         FIRING_LEFT,
@@ -409,7 +415,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
     }
 
     /**
-     * Attempst ot get the shooter to shoot at the given speed. The feeders
+     * Attempts tp get the shooter to shoot at the given speed. The feeders
      * are not moved. If the current shooter speed is already within 
      * tolerance, the state remains unchanged. 
      * 
@@ -447,6 +453,38 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
             transitionTo(Status.CHARGING);
         }
 
+        return didChangePower;
+    }
+
+    /**
+     * Attempst ot get the shooter to shoot at the given speed. If the current 
+     * shooter speed is already within tolerance, the state remains unchanged. 
+     * 
+     * When true, the `forceTargetUpdate` forces the change of the speed target
+     * even when it is already within tolerance. Keeping it as false can improve
+     * code performance but may decrease accuracy.
+     * 
+     * This does not change the state, keeping it as it was. Because both feeder
+     * powers and the current state are preserved, this should only be used by
+     * automatic aiming code when we're in a delicate state, such as firing.
+     * 
+     * @param speed How fast a projectile should exit, in inches per second.
+     * @param forceTargetUpdate True if the target speed should be updated 
+     * even if the current speed is already within tolerance of the new target.
+     * @return Whether the state was changed. False if already near new target
+     */
+    public boolean softCharge(double inchesPerSec, boolean forceTargetUpdate) {
+        // Setting the correct powers
+        final double nativeTargetSpeed = inchesToTicks.applyAsDouble(inchesPerSec);
+        boolean didChangePower = false; // Placeholder value only
+
+        if(forceTargetUpdate) {
+            didChangePower = forceFlywheelPower(nativeTargetSpeed, FLYWHEEL_CONST.powerTolerance);
+        } else {
+            didChangePower = setFlywheelPower(nativeTargetSpeed,FLYWHEEL_CONST.powerTolerance);
+        }
+
+        chargedSpeed = nativeTargetSpeed;
         return didChangePower;
     }
 
@@ -590,6 +628,11 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         setFlywheelPower(chargedSpeed, FLYWHEEL_CONST.powerTolerance);
         startTimeout(Status.RELOADING, TIMEOUT.autoReloading);
         return transitionTo(Status.RELOADING, newReloadState);
+    }
+
+    public boolean awaitFiring() {
+        this.firingState = FiringState.WAITING;
+        return true;
     }
 
     /**
