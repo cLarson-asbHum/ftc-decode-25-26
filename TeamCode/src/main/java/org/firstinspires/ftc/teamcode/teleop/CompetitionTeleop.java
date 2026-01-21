@@ -329,12 +329,12 @@ public class CompetitionTeleop extends OpMode {
         final boolean doPark = gamepad1.dpad_up && gamepad1.y;
         goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
         goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
-        goParkForthwith(doPark && !wasPressingPark, doPark, !doPark && wasPressingPark);
         faceGoal(
             gamepad1.y && !wasPressingY && !doPark, 
             gamepad1.y && !doPark, 
             (!gamepad1.y && wasPressingY) || (doPark && !wasPressingPark)
         );
+        goParkForthwith(doPark && !wasPressingPark, doPark, !doPark && wasPressingPark);
 
         // Shooting the given color of artifact
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
@@ -454,6 +454,9 @@ public class CompetitionTeleop extends OpMode {
             telemetry.addData("shooting distance", () -> {
                 return getDistance(follower.getPose(), KeyPoses.goalCenter(isRed));
             });
+            telemetry.addData("in shooting zone", () -> {
+                return insideAnyShootingZone(follower.getPose(), ROBOT_WIDTH, ROBOT_LENGTH);
+            });
             
             if(arc != null) {
                 telemetry.addLine("arc:");
@@ -543,7 +546,7 @@ public class CompetitionTeleop extends OpMode {
         final Pose closeSide = closeShootingZone.closestPointTo(currentPose);
         final Pose farSide = farShootingZone.closestPointTo(currentPose);
 
-        if(closeSide.distSquared(currentPose) >= farSide.distSquared(currentPose)) {
+        if(closeSide.distSquared(currentPose) <= farSide.distSquared(currentPose)) {
             // Equality is included, as we would rather should close in case of tie
             return closeSide;
         } else {
@@ -575,17 +578,21 @@ public class CompetitionTeleop extends OpMode {
                 // The robot will choose between close-side and far-side (relative to the goal)
                 final Pose currentPose = follower.getPose();
                 final Pose closest = getClosestShootingPoint(currentPose);
-                path = new Path(new BezierLine(currentPose, closest)); 
-                path.setConstantHeadingInterpolation(shootingAngleToGoal(currentPose));
+                final double targetHeading = shootingAngleToGoal(closest);
+                path = new Path(new BezierLine(currentPose, closest.withHeading(targetHeading))); 
+                path.setConstantHeadingInterpolation(targetHeading);
             } else {
                 path = new Path(new BezierLine(follower.getPose(), KeyPoses.shooting(isRed)));
                 path.setConstantHeadingInterpolation(KeyPoses.shooting(isRed).getHeading());
             }
             
-            follower.followPath(path);
+            follower.followPath(path, false);
         }
         
-        if((doStart || doFollow) && follower != null) {
+        final boolean continueFollowing = (doStart || doFollow) && follower != null;
+
+        // Follow the current path, be it a line or just turning
+        if(continueFollowing) {
             follower.update();
             return true;
         }
