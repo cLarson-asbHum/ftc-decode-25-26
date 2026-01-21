@@ -64,9 +64,6 @@ public class CompetitionTeleop extends OpMode {
     private double lastTime = 0;
     private Command fireAfterBlockers = null;
 
-    private final ArrayList<String> nullDeviceNames = new ArrayList<>();
-    private final ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
-
     private List<LynxModule> lynxModules = null;
 
     private FlywheelTubeShooter shooter = null;
@@ -131,6 +128,8 @@ public class CompetitionTeleop extends OpMode {
         rampPivot    = robot.getRampPivot();
         leftReload   = robot.getLeftReload();
         rightReload  = robot.getRightReload();
+        leftLed      = robot.getLeftLed();
+        rightLed     = robot.getRightLed();
 
         // Doing some work with the subsystems
         showExtraTelemetry = !OpModeData.inCompetitonMode;
@@ -412,10 +411,19 @@ public class CompetitionTeleop extends OpMode {
         colorLed(leftLed, artifactcolorL);
 
         // FINISHING UP
+        // TODO: This requires that the start button is pressed second
+        toggleExtraTelemetry(
+            gamepad1.back && gamepad1.startWasPressed() 
+            || gamepad2.back && gamepad2.startWasPressed()
+        ); 
         updateButtonPresses(autoFiringIsFeasible);
-        logTelemetry(deltaTime, artifactcolorL, artifactcolorR, autoFiringIsFeasible, arc);
+        follower.updatePose();
         leftReload.clearBulkCache();
         rightReload.clearBulkCache();
+        for(final LynxModule module : lynxModules) { 
+            module.clearBulkCache(); 
+        } 
+        logTelemetry(deltaTime, artifactcolorL, artifactcolorR, autoFiringIsFeasible, arc);
         CommandScheduler.getInstance().run();
     }
 
@@ -436,7 +444,7 @@ public class CompetitionTeleop extends OpMode {
 
     private void logTelemetry(double deltaTime, ArtifactColor l, ArtifactColor r, boolean autoFiringIsFeasible, BallisticArc arc) {
         telemetry.clearAll();
-        telemetry.addData("deltaTime (seconds)", deltaTime);
+        telemetry.addData("deltaTime ", "%.0f ms", 1000 * deltaTime);
         telemetry.addLine();
         telemetry.addLine(Util.header("Settings"));
         telemetry.addLine();
@@ -449,7 +457,7 @@ public class CompetitionTeleop extends OpMode {
         
         if(showExtraTelemetry) {
             telemetry.addLine();
-            telemetry.addLine(Util.header("Sensors"));
+            telemetry.addLine(Util.header("Sensors  (Back + Start to hide)"));
             telemetry.addLine();
             telemetry.addData("leftReload Artifact", l);
             telemetry.addData("rightReload Artifact", r);
@@ -480,6 +488,9 @@ public class CompetitionTeleop extends OpMode {
             }
 
             telemetry.addLine();
+        } else {
+            telemetry.addLine();
+            telemetry.addLine(Util.header("Sensors (Back + Start to show)"));
         }
     }
 
@@ -989,6 +1000,22 @@ public class CompetitionTeleop extends OpMode {
         }
 
         return led.color(color);
+    }
+
+    public boolean toggleExtraTelemetry(boolean doToggle) {
+        if(doToggle && showExtraTelemetry) {
+            showExtraTelemetry = false;
+            shooter.setTelemetry(null);
+            return true;
+        }
+
+        if(doToggle && !showExtraTelemetry) {
+            showExtraTelemetry = true;
+            shooter.setTelemetry(telemetry);
+            return true;
+        }
+
+        return false;
     }
 
     @Override
