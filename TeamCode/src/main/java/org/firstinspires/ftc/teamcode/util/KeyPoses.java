@@ -9,6 +9,7 @@ public final class KeyPoses {
         public static final Pose BASE = new Pose(105, 33);
         public static final Pose GOAL_WALL = new Pose(24 - 6.57, 120 + 13.0); // Center of wall, determined from an image
         public static final Pose GOAL_CENTER = new Pose(13.11, 136.32); // Center of opening, determined from an image
+        public static final Pose GOAL_BACKBOARD = new Pose(6, 144);
         public static final Pose LOADING = new Pose(132, 12);
 
         public static final Pose SHOOTING = new Pose(
@@ -43,6 +44,7 @@ public final class KeyPoses {
         public static final Pose BASE = Blue.BASE.mirror();
         public static final Pose GOAL_WALL = Blue.GOAL_WALL.mirror();
         public static final Pose GOAL_CENTER = Blue.GOAL_CENTER.mirror();
+        public static final Pose GOAL_BACKBOARD = Blue.GOAL_BACKBOARD.mirror();
         public static final Pose LOADING = Blue.LOADING.mirror();
         
         public static final Pose SHOOTING = new Pose(
@@ -76,6 +78,10 @@ public final class KeyPoses {
 
     public static Pose goalCenter(boolean isRed) {
         return isRed ? Red.GOAL_CENTER : Blue.GOAL_CENTER;
+    }
+    
+    public static Pose goalBackboard(boolean isRed) {
+        return isRed ? Red.GOAL_BACKBOARD : Blue.GOAL_BACKBOARD;
     }
 
     public static Pose loading(boolean isRed) {

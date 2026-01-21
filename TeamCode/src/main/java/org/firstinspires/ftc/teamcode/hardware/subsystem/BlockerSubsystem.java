@@ -12,7 +12,7 @@ public class BlockerSubsystem implements BinaryStateSubsystem {
     }
 
     public static enum PositionPresets implements Positions {
-        LEFT(0.595, 0.575),
+        LEFT(0.5925, 0.575),
 
         RIGHT(0.4225, 0.4455);
 

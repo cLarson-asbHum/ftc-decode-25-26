@@ -90,7 +90,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
         public double finishingReloading = 0.0; // seconds; happends after we have a projectile
         public double firing = 1.5; // seconds
         public double multiFiring = Double.POSITIVE_INFINITY; // seconds, but still indefinite
-        public double aborting = 1.0; // seconds
+        public double aborting = 3.0; // seconds
     }
 
     /**

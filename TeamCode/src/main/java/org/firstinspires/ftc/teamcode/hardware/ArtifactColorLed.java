@@ -9,8 +9,8 @@ public class ArtifactColorLed {
     private final SwitchableLight green;
 
     private ArtifactColor lastColor = ArtifactColor.UNKNOWN;
-    private boolean greenEnabled = false;
-    private boolean redEnabled = false;
+    private boolean greenEnabled = true;
+    private boolean redEnabled = true;
 
     public ArtifactColorLed(SwitchableLight red, SwitchableLight green) {
         this.red = red;
