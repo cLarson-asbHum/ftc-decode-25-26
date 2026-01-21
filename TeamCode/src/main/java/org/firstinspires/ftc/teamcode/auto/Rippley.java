@@ -366,7 +366,7 @@ public class Rippley extends LinearOpMode {
         
         waitForStart();
         rampPivot.setPosition(0.58); // Determined emperically
-        follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
+        follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
         final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;

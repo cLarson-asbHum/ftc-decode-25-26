@@ -379,7 +379,7 @@ public class FarSideAuto extends LinearOpMode {
         
         waitForStart();
         rampPivot.runToAngle(SHOT_ANGLE);
-        follower.setStartingPose(mirror(START_POS.pedroPose(), isRed));
+        follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
         final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
