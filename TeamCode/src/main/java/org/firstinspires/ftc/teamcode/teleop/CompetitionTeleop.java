@@ -298,7 +298,7 @@ public class CompetitionTeleop extends OpMode {
             OpModeData.follower = follower;
         }
 
-        // follower.breakFollowing();
+        follower.breakFollowing();
 
         timer.reset();
     }

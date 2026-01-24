@@ -313,6 +313,7 @@ public class FarSideAuto extends LinearOpMode {
         intake       = robot.getIntake();
         leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
+        CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker);
         final LinearHingePivot rampPivot = robot.getRampPivot();
         shooter.setTelemetry(telemetry);
         

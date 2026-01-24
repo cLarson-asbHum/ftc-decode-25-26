@@ -39,6 +39,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
 import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
+import org.firstinspires.ftc.teamcode.hardware.Robot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
@@ -83,14 +84,14 @@ public class RippleyColorBlind extends LinearOpMode {
 
     public static ConfigPose START_POS = new ConfigPose(
         // In Inches. Resting flat against the blue goal
-        24,
+        20,
 
         // In Inches. Is along the top-most grid edge
-        120,
+        122,
 
         // In Radians. Along the blue goal, facing the upper wall
         // Determined emperically
-        Math.toRadians(45)
+        Math.toRadians(52)
     );
 
     public static ConfigPose SHOOTING_POS = new ConfigPose(KeyPoses.Blue.SHOOTING);
@@ -171,80 +172,6 @@ public class RippleyColorBlind extends LinearOpMode {
         }
     }
 
-    private Subsystem[] createSubsystems(HardwareMap hardwareMap) {
-        // Find and create all of the hardware. This uses the hardware map. 
-        // When using unit tests, the `hardwareMap` field can be set for dependency injection.
-        final DcMotorEx frontLeftMotor  = (DcMotorEx) findHardware(DcMotor.class, "frontLeft"); // Null if not found
-        final DcMotorEx backLeftMotor   = (DcMotorEx) findHardware(DcMotor.class, "backLeft"); // Null if not found
-        final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
-        final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
-
-        final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        final DcMotorEx leftShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "leftShooter");
-        final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
-        final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
-        final ServoImplEx leftBlockerServo = (ServoImplEx) findHardware(Servo.class, "leftBlocker");
-        final ServoImplEx rightBlockerServo = (ServoImplEx) findHardware(Servo.class, "rightBlocker");
-        final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
-
-        final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
-        final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
-        // Checking that ALL hardware has been found (aka the nullHardware list is empty)
-        // If any are not found, an error is thrown stating which.
-        throwAFitIfAnyHardwareIsNotFound();
-        
-        leftBlockerServo.setPwmRange(new PwmRange(500, 2500));
-        rightBlockerServo.setPwmRange(new PwmRange(500, 2500));
-
-        // Setting all necessary hardware properties
-        frontLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        backLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-
-        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        intakeMotor.setDirection(DcMotor.Direction.REVERSE);
-        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
-        leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
-
-        // Creating subsystems. 
-        // Subsystems represent groups of hardware that achieve ONE function.
-        // Subsystems can lead into each other, but they should be able to operate independently 
-        // (even if nothing is achieved, per se).
-        rightReload = new ArtifactColorRangeSensor(
-            rightReloadSensor,
-            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-        leftReload = new ArtifactColorRangeSensor(
-            leftReloadSensor,
-            new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor, leftShooterMotor) 
-            .setLeftFeeder(leftFeederServo) 
-            .setRightFeeder(rightFeederServo)
-            .setRightReloadClassifier(rightReload)
-            .setLeftReloadClassifier( leftReload)
-            .build();
-        final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        leftBlocker = new BlockerSubsystem(
-            leftBlockerServo, 
-            BlockerSubsystem.PositionPresets.LEFT
-        );
-        rightBlocker = new BlockerSubsystem(
-            rightBlockerServo, 
-            BlockerSubsystem.PositionPresets.RIGHT
-        );
-
-        // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake, leftBlocker, rightBlocker);
-
-        // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake };
-    }
-
     private Pose mirror(Pose pose, boolean doMirror) {
         if(doMirror) {
             return new Pose(72 - (pose.getX() - 72), pose.getY(), Math.PI - pose.getHeading());
@@ -275,57 +202,57 @@ public class RippleyColorBlind extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierCurve(
                 shooting,
-                mirror(new Pose(71.038, 75.000), isRed),
-                mirror(new Pose(54.489, 75.000), isRed),
-                mirror(new Pose(50.089, 75.000), isRed)
+                mirror(new Pose(75.038, 82.500), isRed),
+                mirror(new Pose(58.489, 82.500), isRed),
+                mirror(new Pose(54.089, 82.500), isRed)
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
-                mirror(new Pose(50.089, 75.0), isRed),
-                mirror(new Pose(38.089, 79.000), isRed)
+                mirror(new Pose(54.089, 82.5), isRed),
+                mirror(new Pose(42.089, 82.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
-                mirror(new Pose(38.089, 79.000), isRed),
-                mirror(new Pose(29.000, 87.000), isRed),
-                mirror(new Pose(27.000, 87.000), isRed),
-                mirror(new Pose(21,     87.000), isRed)
+                mirror(new Pose(42.089, 82.500), isRed),
+                mirror(new Pose(33.000, 89.500), isRed),
+                mirror(new Pose(31.000, 89.500), isRed),
+                mirror(new Pose(25,     89.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
         final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(21,   87.000), isRed), 
+            mirror(new Pose(25,   89.500), isRed), 
             shooting
         ));
         final PathChain grabArtifactsAgain =  follower
             .pathBuilder()
             .addPath(new BezierCurve(
                 shooting,
-                mirror(new Pose(61.038, 62.00100), isRed),
-                mirror(new Pose(50.089, 62.00100), isRed),
-                mirror(new Pose(54.489, 62.00100), isRed)
+                mirror(new Pose(65.038, 64.50100), isRed),
+                mirror(new Pose(54.089, 64.50100), isRed),
+                mirror(new Pose(58.489, 64.50100), isRed)
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
-                mirror(new Pose(54.089, 62.001), isRed),
-                mirror(new Pose(38.089, 62.00100), isRed)
+                mirror(new Pose(58.489, 64.501), isRed),
+                mirror(new Pose(42.089, 64.50100), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
-                mirror(new Pose(38.089, 62.0100), isRed),
-                mirror(new Pose(29.000, 56.000), isRed),
-                mirror(new Pose(27.000, 56.000), isRed),
-                mirror(new Pose(15,     56.000), isRed)
+                mirror(new Pose(42.089, 64.5100), isRed),
+                mirror(new Pose(33.000, 59.500), isRed),
+                mirror(new Pose(31.000, 59.500), isRed),
+                mirror(new Pose(16,     59.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
         final PathChain goBackToShootAgain = follower.pathBuilder()
             .addPath(new Path(new BezierLine(
-                mirror(new Pose(15, 56.000), isRed),
-                mirror(new Pose(22, 56.000), isRed)
+                mirror(new Pose(16, 59.500), isRed),
+                mirror(new Pose(26, 59.500), isRed)
             )))
             .addPath(new Path(new BezierLine(
-                mirror(new Pose(22,     56.000), isRed), 
+                mirror(new Pose(26,     59.500), isRed), 
                 shooting
             )))
             .build();
@@ -389,10 +316,22 @@ public class RippleyColorBlind extends LinearOpMode {
         telemetry.setMsTransmissionInterval(30);
 
         // Creating subsystems
-        final Subsystem[] subsystems = createSubsystems(hardwareMap);
-        shooter = (FlywheelTubeShooter) subsystems[0];
-        intake = (CarwashIntake) subsystems[1];
+        // final Subsystem[] subsystems = createSubsystems(hardwareMap);
+        // shooter = (FlywheelTubeShooter) subsystems[0];
+        // intake = (CarwashIntake) subsystems[1];
         // drivetrain = (BasicMecanumDrive) subsystems[2];
+        final Robot robot = new Robot(hardwareMap, java.util.Set.of(
+            Robot.Device.SHOOTER,
+            Robot.Device.INTAKE,
+            Robot.Device.LEFT_BLOCKER,
+            Robot.Device.RIGHT_BLOCKER,
+            Robot.Device.RAMP_PIVOT
+        )); 
+        shooter = robot.getShooter();
+        intake = robot.getIntake();
+        leftBlocker = robot.getLeftBlocker();
+        rightBlocker = robot.getRightBlocker();
+        CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker);
         shooter.setTelemetry(telemetry);
 
         final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
@@ -492,7 +431,7 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
             if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
-                follower.setMaxPower(0.65);
+                follower.setMaxPower(0.4);
                 intake.intakeGamePieces();
                 shooter.reload();
             } else {
@@ -521,7 +460,7 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
             if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
-                follower.setMaxPower(0.5);
+                follower.setMaxPower(0.4);
                 intake.intakeGamePieces();
                 shooter.reload();
             } else {
@@ -611,10 +550,10 @@ public class RippleyColorBlind extends LinearOpMode {
 
         // Shooting depth 1
         runUntilCompleted(shooter.chargeCommand());
-        runUntilCompleted(shooter.fireCommand());
+        // runUntilCompleted(shooter.fireCommand());
 
         // Reloading and going
-        runUntilCompleted(shooter.chargeCommand());
+        // runUntilCompleted(shooter.chargeCommand());
         
         // Shooting
         intake.intakeGamePieces();

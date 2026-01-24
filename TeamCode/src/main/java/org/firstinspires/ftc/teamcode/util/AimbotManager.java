@@ -22,7 +22,7 @@ public class AimbotManager implements Closeable {
     public static final int MAJOR_ARCS_INCREMENT = 250;
     public static final int MINOR_ARCS_INCREMENT = 50;
     public static final String MINOR_INDICATOR = ".";
-
+    
     public static final double ANGLE_TOLERANCE = Math.toRadians(0.25);
     public static final double SPEED_TOLERANCE = 0.5;
 
@@ -182,9 +182,9 @@ public class AimbotManager implements Closeable {
      * @param tolerance Tolerance the arc can be within the distance, in inches
      * @return The arc that best matches, or null if none was found (incredibly rare!).
      */
-    public BallisticArc selectArcByDistance(double targetDist, double tolerance) {
+    /* public BallisticArc selectArcByDistance(double targetDist, double tolerance) {
         final double min = Criterion.DISTANCE.of(selection.minDistance().first());
-        final double max = Criterion.DISTANCE.of(selection.maxDistance().first());
+        final double max = Math.min(MAX_DIST, Criterion.DISTANCE.of(selection.maxDistance().first()));
         return selection
             .withinDistance(Util.clamp(min, targetDist, max), tolerance)
             .minSpeed(SPEED_TOLERANCE)  // First Tiebreaker,  so as to make charging easiest
@@ -192,7 +192,30 @@ public class AimbotManager implements Closeable {
             .maxDistance()              // Third Tiebreaker,  to get as far as possible
             .first();
             // .minAngle(ANGLE_TOLERANCE)  // Second Tiebreaker, so as to avoid losing speed at high angles
-    }
+    } */
+   public BallisticArc selectArcByDistance(double targetDist, double tolerance) {
+        // Getting the arcs at our distance and with low speed
+        final double min = Criterion.DISTANCE.of(selection.minDistance().first());
+        final double max = Criterion.DISTANCE.of(selection.maxDistance().last());
+        BallisticArcSelection subSel = selection
+            .withinDistance(Math.max(min, Math.min(targetDist, max)), tolerance)
+            .minSpeed(SPEED_TOLERANCE); // First Tiebreaker,  so as to make charging easiest;
+
+        // Getting the arc with the average angle
+        final double minAngle = Criterion.ANGLE.of(subSel.minAngle().first());
+        final double maxAngle = Criterion.ANGLE.of(subSel.maxAngle().last());
+        final double avgAngle = 0.5 * (minAngle + maxAngle);
+        BallisticArcSelection angleSubsel = subSel
+            .withinAngle(avgAngle, ANGLE_TOLERANCE);  // Second tiebreaker, to avoid over and undershoot
+
+        if(angleSubsel.size() == 0) {
+            angleSubsel = subSel.maxAngle();
+        }
+
+        return angleSubsel
+            .maxDistance() // Third Tiebreaker,  to get as far as possible
+            .first();
+   }
 
     /**
      * Gives the shooter and the pivot subsystems the arc's speed and angle 

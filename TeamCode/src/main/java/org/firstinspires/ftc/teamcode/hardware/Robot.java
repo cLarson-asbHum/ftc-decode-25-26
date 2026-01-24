@@ -100,6 +100,7 @@ public class Robot {
             result.add(device);
         }
 
+        result.remove(Device.MOTIF_WEBCAM);
         result.remove(Device.DRIVETRAIN);
         result.remove(Device.LEFT_SHOOTER);
         result.remove(Device.RIGHT_SHOOTER);
@@ -301,6 +302,9 @@ public class Robot {
         public static final double K  = -5047.22041;
         public static final double B  = 643.77047;
         public static final double H  = -2158.76154;
+        // public static final double K = -2911.9738;
+        // public static final double B = 401.81768;
+        // public static final double H = -1006.20208;
     }
 
     public static final double ticksToInches(double ticks) {

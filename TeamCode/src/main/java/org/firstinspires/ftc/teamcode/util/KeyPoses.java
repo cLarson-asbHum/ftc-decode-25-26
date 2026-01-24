@@ -8,15 +8,19 @@ public final class KeyPoses {
     public static final class Blue {
         public static final Pose BASE = new Pose(105, 33);
         public static final Pose GOAL_WALL = new Pose(24 - 6.57, 120 + 13.0); // Center of wall, determined from an image
-        public static final Pose GOAL_CENTER = new Pose(13.11, 136.32); // Center of opening, determined from an image
-        public static final Pose GOAL_BACKBOARD = new Pose(6, 144);
+        public static final Pose GOAL_CENTER = new Pose(5.3, 138.7); // Center of opening, determined from an image
+        public static final Pose GOAL_BACKBOARD = new Pose(0, 144);
         public static final Pose LOADING = new Pose(132, 12);
 
         public static final Pose SHOOTING = new Pose(
             56,
-            106, // A little higher than the jigsaw so we are facing the goal
+            102, // A little higher than the jigsaw so we are facing the goal
             AngleUnit.normalizeRadians(Math.toRadians(325))
         );
+
+        // public static final Pose SHOOTING = new Pose(
+            
+        // );
 
         private static final double farX = 48 + 11.5;
         private static final double farY = 0 + 18.1;

@@ -47,7 +47,7 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
 
         public double unchargedPower = 0; // Ticks / sec
         // public double chargedPower = 2000; // Ticks / sec, tuned for 24 ins away
-        public double chargedPower = 1366; // Ticks / sec, tuned for 24 ins away
+        public double chargedPower = 1400; // Ticks / sec, tuned for 24 ins away
         public double reloadingPower = chargedPower; // Ticks / sec
         public double firingPower = chargedPower; // Ticks / sec
         public double abortingPower = 0.3 * ticksPerSec(); // Ticks / sec
