@@ -15,7 +15,7 @@ public final class OpModeData {
      * input. Autos are allowed (and recommended) to force change this value, 
      * as the user has time to change this.
      */
-    public static boolean inCompetitonMode = false;
+    public static boolean inCompetitonMode = true;
 
     /**
      * Whether the current opmode should be played as blue or red. The expected use

@@ -14,7 +14,7 @@ public final class KeyPoses {
 
         public static final Pose SHOOTING = new Pose(
             56,
-            102, // A little higher than the jigsaw so we are facing the goal
+            104, // A little higher than the jigsaw so we are facing the goal
             AngleUnit.normalizeRadians(Math.toRadians(325))
         );
 
@@ -31,8 +31,8 @@ public final class KeyPoses {
             AngleUnit.normalizeRadians(Math.PI + Math.atan2(
                 GOAL_CENTER.getY() - farY,
                 GOAL_CENTER.getX() - farX
-            ) + Math.toRadians(5))
-        );
+            )
+        ));
 
         // Artifacts are on the side closest to the blue goal
         // Colors are ordered coming in from the inner edge

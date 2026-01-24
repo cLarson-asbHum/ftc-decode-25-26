@@ -216,12 +216,12 @@ public class RippleyColorBlind extends LinearOpMode {
                 mirror(new Pose(42.089, 82.500), isRed),
                 mirror(new Pose(33.000, 89.500), isRed),
                 mirror(new Pose(31.000, 89.500), isRed),
-                mirror(new Pose(25,     89.500), isRed)
+                mirror(new Pose(24,     89.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
         final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(25,   89.500), isRed), 
+            mirror(new Pose(24,   89.500), isRed), 
             shooting
         ));
         final PathChain grabArtifactsAgain =  follower
@@ -242,7 +242,7 @@ public class RippleyColorBlind extends LinearOpMode {
                 mirror(new Pose(42.089, 64.5100), isRed),
                 mirror(new Pose(33.000, 59.500), isRed),
                 mirror(new Pose(31.000, 59.500), isRed),
-                mirror(new Pose(16,     59.500), isRed)
+                mirror(new Pose(14,     59.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();

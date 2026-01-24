@@ -89,8 +89,8 @@ public class FarSideAuto extends LinearOpMode {
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
-    public static double SHOT_SPEED = 338; // Determined using the ballistic arc text user interface
-    public static double SHOT_ANGLE = Math.toRadians(51.1); // Determined using the ballistic arc text user interface
+    public static double SHOT_SPEED = 320; // Determined using the ballistic arc text user interface
+    public static double SHOT_ANGLE = Math.toRadians(48.7); // Determined using the ballistic arc text user interface
 
     public static ConfigPose START_POS = new ConfigPose(
         // In Inches. Coveriing the jigsaw covering the center line
@@ -128,59 +128,6 @@ public class FarSideAuto extends LinearOpMode {
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
 
 
-    /**
-     * Attempts to get the given hardware from the hardwareMap. If it cannot be 
-     * found, then it returns null without finding an error.
-     * 
-     * This method should be used instead of hardwareMap.get() because it allows
-     * us to see **all** the hardware that we cannot find.
-     * 
-     * @return The hardware with that name, or null if it cannot be found.
-     */
-    private <T extends HardwareDevice> T findHardware(Class<T> hardwareType, String name) {
-        final T result = hardwareMap.tryGet(hardwareType, name);
-
-        // Adding it to the list if null
-        if(result == null) {
-            nullDeviceNames.add(name);
-            nullDeviceTypes.add(hardwareType);
-        }
-
-        return result;
-    }
-
-    /**
-     * Throws an exception if any devices are in the nullDeviceNames or 
-     * nullDeviceTypes lists. The thrown exception contains the names and types 
-     * of all null hardware devices. 
-     */
-    private void throwAFitIfAnyHardwareIsNotFound() {
-        if(nullDeviceNames.size() != 0 || nullDeviceTypes.size() != 0) {
-            String concat = "";
-
-            for(int i = 0; i < nullDeviceNames.size() || i < nullDeviceNames.size(); i++) {
-                final String name = nullDeviceNames.get(i);
-                final Class type = nullDeviceTypes.get(i); 
-                concat += "\n    ";
-
-                if(name != null) {
-                    concat += '"' + name + '"';
-                } else {
-                    concat += "[null]";
-                }
-
-                concat += " with type ";
-                
-                if(type != null) {
-                    concat += type.getName() + ".class";
-                } else {
-                    concat += "[null]";
-                }
-            }
-
-            throw new RuntimeException("Cannot find hardware:" + concat);
-        }
-    }
 
     private Pose mirror(Pose pose, boolean doMirror) {
         if(doMirror) {
@@ -286,9 +233,9 @@ public class FarSideAuto extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierLine(
                 shooting, 
-                mirror(new Pose(48, 36, shooting.getHeading()), isRed)
+                mirror(new Pose(9, 9, shooting.getHeading()), isRed)
             ))
-            .setConstantHeadingInterpolation(shooting.getHeading())
+            .setConstantHeadingInterpolation(grabHeading)
             .build()
         );
 
@@ -427,31 +374,31 @@ public class FarSideAuto extends LinearOpMode {
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
-        follower.followPath(paths.get("grabArtifactsAndShoot"), true);
+        // follower.followPath(paths.get("grabArtifactsAndShoot"), true);
 
-        boolean hasReloaded = false;
-        // follower.setMaxPower(0.5);
-        while(follower.isBusy() && opModeIsActive()) {
-            if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
-                follower.setMaxPower(0.33);
-                intake.intakeGamePieces();
-                leftBlocker.close();
-                rightBlocker.close();
-            } else {
-                follower.setMaxPower(1.0);
-                intake.holdGamePieces();
-                leftBlocker.open();
-                rightBlocker.open();
-            }
+        // boolean hasReloaded = false;
+        // // follower.setMaxPower(0.5);
+        // while(follower.isBusy() && opModeIsActive()) {
+        //     if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
+        //         follower.setMaxPower(0.33);
+        //         intake.intakeGamePieces();
+        //         leftBlocker.close();
+        //         rightBlocker.close();
+        //     } else {
+        //         follower.setMaxPower(1.0);
+        //         intake.holdGamePieces();
+        //         leftBlocker.open();
+        //         rightBlocker.open();
+        //     }
 
-            telemetry.addData("Position", follower.getPose());
-            telemetry.addData("Shooting", mirror(SHOOTING_POS.pedroPose(), isRed));
-            telemetry.update();
+        //     telemetry.addData("Position", follower.getPose());
+        //     telemetry.addData("Shooting", mirror(SHOOTING_POS.pedroPose(), isRed));
+        //     telemetry.update();
 
-            follower.update();
-            OpModeData.startPosition = follower.getPose();
-            CommandScheduler.getInstance().run();
-        }
+        //     follower.update();
+        //     OpModeData.startPosition = follower.getPose();
+        //     CommandScheduler.getInstance().run();
+        // }
         // follower.setMaxPower(1.0);
 
         // Shooting once again
@@ -459,34 +406,35 @@ public class FarSideAuto extends LinearOpMode {
         
         // Moving to grab artifacts
         // This goes back to shooting afterwards
-        follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
+        // follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
         
-        // hasReloaded = false;
-        while(follower.isBusy() && opModeIsActive()) {
-            if(follower.getChainIndex() == 1) {
-                follower.setMaxPower(0.5);
-                intake.intakeGamePieces();
-            } else {
-                follower.setMaxPower(1.0);
-                intake.holdGamePieces();
-            }
+        // // hasReloaded = false;
+        // while(follower.isBusy() && opModeIsActive()) {
+        //     if(follower.getChainIndex() == 1) {
+        //         follower.setMaxPower(0.5);
+        //         intake.intakeGamePieces();
+        //     } else {
+        //         follower.setMaxPower(1.0);
+        //         intake.holdGamePieces();
+        //     }
             
-            follower.update();
-            OpModeData.startPosition = follower.getPose();
-            CommandScheduler.getInstance().run();
-        }
+        //     follower.update();
+        //     OpModeData.startPosition = follower.getPose();
+        //     CommandScheduler.getInstance().run();
+        // }
 
-        // Shooting once again
-        emptyClip(motif);
+        // // Shooting once again
+        // emptyClip(motif);
 
         // Getting leave points
-        intake.holdGamePieces();
+        intake.intakeGamePieces();
         shooter.uncharge();
         follower.followPath(paths.get("park"), false);
 
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
             OpModeData.startPosition = follower.getPose();
+            CommandScheduler.getInstance().run();
         }
 
 
