@@ -89,7 +89,7 @@ public class FarSideAuto extends LinearOpMode {
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
-    public static double SHOT_SPEED = 320; // Determined using the ballistic arc text user interface
+    public static double SHOT_SPEED = 315; // Determined using the ballistic arc text user interface
     public static double SHOT_ANGLE = Math.toRadians(48.7); // Determined using the ballistic arc text user interface
 
     public static ConfigPose START_POS = new ConfigPose(
@@ -239,6 +239,16 @@ public class FarSideAuto extends LinearOpMode {
             .build()
         );
 
+        result.put("DEV_shootAgain", follower
+            .pathBuilder()
+            .addPath(new BezierLine(
+                mirror(new Pose(9, 9, shooting.getHeading()), isRed),
+                shooting
+            ))
+            .setLinearHeadingInterpolation(grabHeading, shooting.getHeading())
+            .build()
+        );
+
         return result;
     }
 
@@ -260,9 +270,9 @@ public class FarSideAuto extends LinearOpMode {
         intake       = robot.getIntake();
         leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
-        CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker);
         final LinearHingePivot rampPivot = robot.getRampPivot();
         shooter.setTelemetry(telemetry);
+        CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker, rampPivot);
         
         // Creating the webcam
         final WebcamName obeliskViewerCam = null;
@@ -437,6 +447,29 @@ public class FarSideAuto extends LinearOpMode {
             CommandScheduler.getInstance().run();
         }
 
+        //#region DEV START: For beautiful Code Blooded, we are grabbing from loading first and firing
+        follower.followPath(paths.get("DEV_shootAgain"), false);
+        intake.holdGamePieces();
+        
+        // hasReloaded = false;
+        while(follower.isBusy() && opModeIsActive()) {
+            follower.update();
+            OpModeData.startPosition = follower.getPose();
+            CommandScheduler.getInstance().run();
+        }
+
+        emptyClip(motif);
+        
+        intake.intakeGamePieces();
+        shooter.uncharge();
+        follower.followPath(paths.get("park"), false);
+
+        while(follower.isBusy() && opModeIsActive()) {
+            follower.update();
+            OpModeData.startPosition = follower.getPose();
+            CommandScheduler.getInstance().run();
+        }
+        //#endregion DEV END
 
         // END
         OpModeData.startPosition = follower.getPose();
