@@ -303,6 +303,32 @@ public class CompetitionTeleop extends OpMode {
         timer.reset();
     }
 
+    //#region DEV START: timing
+    private double startTime = 0;
+    private String currentSection = null;
+
+    private double timeSection(String sectionName, ElapsedTime timer) {
+        final double curTime = timer.seconds();
+        if(this.currentSection == null) {
+            this.startTime = curTime;
+            this.currentSection = sectionName;
+            return 0;
+        }
+
+        if(!this.currentSection.equals(sectionName)) {
+            final double deltaTime = curTime - this.startTime;
+            this.startTime = curTime;
+            this.currentSection = sectionName;
+            telemetry.addData("%s deltaTime", "%.0f ms", 1000 * deltaTime);
+            System.out.printf("CompetitionTeleOp: %s deltaTime: %.0f ms\n", 1000 * deltaTime);
+            return deltaTime;
+        }
+
+        return 0;
+    }
+    
+    //#endregion DEV END
+
     @Override
     public void loop() {
         final double timestamp = timer.seconds();
@@ -310,6 +336,7 @@ public class CompetitionTeleop extends OpMode {
         lastTime = timestamp;
 
         // MANUAL DRIVING
+        timeSection("Manual Driving", timer);
         if(!follower.isBusy()) {            
             drivetrain.mecanumDrive(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
         }
@@ -322,8 +349,9 @@ public class CompetitionTeleop extends OpMode {
         
         // Team change
         toggleIsRed(gamepad1.back && gamepad1.a && !wasPressingIsRed);   
-
+        
         // Automatic driving
+        timeSection("Automaitc Driving", timer);
         final boolean doPark = gamepad1.dpad_up && gamepad1.y;
         goToLoadingZone(gamepad1.a && !wasPressingA, gamepad1.a, !gamepad1.a && wasPressingA);
         goToShootingZone(gamepad1.x && !wasPressingX, gamepad1.x, !gamepad1.x && wasPressingX);
@@ -335,6 +363,7 @@ public class CompetitionTeleop extends OpMode {
         goParkForthwith(doPark && !wasPressingPark, doPark, !doPark && wasPressingPark);
 
         // FIRING: color, side, and multi
+        timeSection("Manual Firing", timer);
         fireBasedOffColor(gamepad2.aWasPressed() /* Green */, gamepad2.xWasPressed() /* Purple */);
         fireBasedOffSide(
             gamepad2.rightStickButtonWasPressed(), // Right
@@ -346,10 +375,12 @@ public class CompetitionTeleop extends OpMode {
         );
 
         // Firing automatically
+        timeSection("Auto Firing (Algorithms)", timer);
         final boolean autoFiringIsFeasible = 
             autoFiringEnabled 
             && insideAnyShootingZone(follower.getPose(), ROBOT_WIDTH, ROBOT_LENGTH)
             && isAccuratelyFacingGoal(follower.getPose(), MAX_DISPLACEMENT);
+        timeSection("Auto Firing (Driving)", timer);
         fireIndiscriminantly(
             autoFiringIsFeasible 
                 && shooter.getStatus() == Status.CHARGED 
@@ -363,11 +394,14 @@ public class CompetitionTeleop extends OpMode {
         toggleAutoFiring(gamepad2.back && gamepad2.left_trigger > TRIGGER_PRESSED && !wasTogglingAutoFiring);
 
         // AUTOAIM
+        timeSection("Aimbot (Algorithms)", timer);
         final BallisticArc arc = getArc(shooter.getStatus());
+        timeSection("Aimbot (Driving)", timer);
         followArc(autoAimEnabled && arc != null, arc, shooter.getStatus());
         toggleAutoAim(gamepad2.back && gamepad2.dpad_left && !wasTogglingAimbot);
 
         // MANUAL RELOAD
+        timeSection("Manual Reload", timer);
         if(autoReloadEnabled) {
             // Because we assume that if we're reloading manually, something's wrong
             reloadBothSides(gamepad2.yWasPressed() && !gamepad2.back);
@@ -379,17 +413,21 @@ public class CompetitionTeleop extends OpMode {
         // Performing the auto reload if allowed to AND we are fully charged
         // We check that we are charged so that we don't automaticcally exit, say, 
         // `UNCHARGING` and cause the shooter to instantly speed up again.
+        timeSection("Automatic Reload", timer);
         autoReloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
         toggleAutoReload(gamepad2.back && gamepad2.y && !wasTogglingAutoReload);
 
         // CHARGE / UNCHARGE
+        timeSection("Charging/Uncharging", timer);
         chargeShooter(gamepad2.dpadUpWasPressed());
         unchargeShooter(gamepad2.dpadDownWasPressed());
 
         // ABORT
+        timeSection("Aborting", timer);
         bringArtifactsOutOfShooter(gamepad2.bWasPressed() && !gamepad2.start);
 
         // INTAKE / EJECT
+        timeSection("Intake/Eject", timer);
         intakeFromFloor(
             gamepad2.left_trigger > TRIGGER_PRESSED && !wasPressingLeftTrigger, // Begin
             !(gamepad2.left_trigger > TRIGGER_PRESSED) && wasPressingLeftTrigger // End
@@ -400,11 +438,13 @@ public class CompetitionTeleop extends OpMode {
         );
 
         // BLOCKING
+        timeSection("Close Blocking", timer);
         if(shooter.getFiringState() == FlywheelTubeShooter.FiringState.UNKNOWN) {
             closeBlockers();
         }
 
         // LEDs
+        timeSection("LEDs", timer);
         final ArtifactColor artifactcolorL = leftReload.lastColor();
         final ArtifactColor artifactcolorR = rightReload.lastColor();
         colorLed(rightLed, artifactcolorR);
@@ -412,19 +452,25 @@ public class CompetitionTeleop extends OpMode {
 
         // FINISHING UP
         // TODO: This requires that the start button is pressed second
+        timeSection("Button Presses", timer);
         toggleExtraTelemetry(
             gamepad1.back && gamepad1.startWasPressed() 
             || gamepad2.back && gamepad2.startWasPressed()
         ); 
         updateButtonPresses(autoFiringIsFeasible);
+        timeSection("Bulk Caches", timer);
         follower.updatePose();
         leftReload.clearBulkCache();
         rightReload.clearBulkCache();
         for(final LynxModule module : lynxModules) { 
             module.clearBulkCache(); 
         } 
+        timeSection("Telemetry", timer);
         logTelemetry(deltaTime, artifactcolorL, artifactcolorR, autoFiringIsFeasible, arc);
+        // timeSection("", timer);
+        timeSection("CommandScheduler", timer);
         CommandScheduler.getInstance().run();
+        timeSection(null, timer);
     }
 
     private void updateButtonPresses(boolean autoFiringIsFeasible) {
