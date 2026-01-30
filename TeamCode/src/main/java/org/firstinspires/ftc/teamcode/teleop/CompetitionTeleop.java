@@ -601,16 +601,46 @@ public class CompetitionTeleop extends OpMode {
         return false;
     }
 
+    /**
+     * Gets the closest point that the robot could move to that would allow the 
+     * robot to shoot. If the robot is already touching or inside the shooting zone, 
+     * this returns the argument.
+     */
     public Pose getClosestShootingPoint(Pose currentPose) {
+        // If we are already tuoching the goal, why bother moving?
+        if(insideAnyShootingZone(currentPose, ROBOT_WIDTH, ROBOT_LENGTH)) {
+            return currentPose;
+        }
+        
+        // Getting the closestPoint that is on the edge of the goal
         final Pose closeSide = closeShootingZone.closestPointTo(currentPose);
         final Pose farSide = farShootingZone.closestPointTo(currentPose);
+        final double closeSideDistSqr = closeSide.distSquared(currentPose);
+        final double farSideDistSqr = farSide.distSquared(currentPose);
 
-        if(closeSide.distSquared(currentPose) <= farSide.distSquared(currentPose)) {
+        Pose closest = null;
+        double closestDist = 0;
+
+        if(closeSideDistSqr <= farSideDistSqr) {
             // Equality is included, as we would rather should close in case of tie
-            return closeSide;
+            closest = closeSide;
+            closestDist = closeSideDistSqr;
         } else {
-            return farSide;
+            closest = farSide;
+            closestDist = farSideDistSqr;
         }
+
+        if(closestDist == 0) {
+            return closest;
+        }
+
+        // Getting a closer point
+        // Because the robot's center does not need to be on the goal, but any 
+        // part of the chasis has to be touching, we don't need to go all the way
+        final Pose offset = closest
+            .minus(currentPose)
+            .times(-ROBOT_RADIUS / Math.sqrt(closestDist));
+        return closest.minus(offset);
     }
 
     public double shootingAngleToGoal(Pose currentPose) {
