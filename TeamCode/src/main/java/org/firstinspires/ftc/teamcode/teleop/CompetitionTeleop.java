@@ -47,6 +47,7 @@ import org.firstinspires.ftc.teamcode.util.Util;
 @TeleOp(group="A - Main")
 public class CompetitionTeleop extends OpMode {
     public static double TRIGGER_PRESSED = 0.1;
+    public static final double MAX_DELTATIME = 0.100; // 100 ms
     
     // Auto aiming constants
     public static final double DISTANCE_OFFSET = -8; // Odom measures from center, but it should be from back of bot
@@ -306,21 +307,29 @@ public class CompetitionTeleop extends OpMode {
     //#region DEV START: timing
     private double startTime = 0;
     private String currentSection = null;
+    private String lastText = "";
 
     private double timeSection(String sectionName, ElapsedTime timer) {
         final double curTime = timer.seconds();
         if(this.currentSection == null) {
             this.startTime = curTime;
             this.currentSection = sectionName;
+            this.lastText = "";
             return 0;
         }
 
         if(!this.currentSection.equals(sectionName)) {
             final double deltaTime = curTime - this.startTime;
+            final String oldSection = this.currentSection;
             this.startTime = curTime;
             this.currentSection = sectionName;
             telemetry.addData("%s deltaTime", "%.0f ms", 1000 * deltaTime);
-            System.out.printf("CompetitionTeleOp: %s deltaTime: %.0f ms\n", 1000 * deltaTime);
+            // System.out.printf("CompetitionTeleOp: %s deltaTime: %.0f ms\n", oldSection, 1000 * deltaTime);
+            this.lastText += String.format(
+                "%s deltaTime: %.0f ms\n", 
+                oldSection, 
+                1000 * deltaTime
+            );
             return deltaTime;
         }
 
@@ -334,6 +343,15 @@ public class CompetitionTeleop extends OpMode {
         final double timestamp = timer.seconds();
         final double deltaTime = timestamp - lastTime;
         lastTime = timestamp;
+
+        if(deltaTime > MAX_DELTATIME) {
+            System.out.printf(
+                "CompetitionTeleop: Encountered delta time %.0f ms (>%.0f ms):\n%s" + 
+                deltaTime * 1000,
+                MAX_DELTATIME * 1000,
+                Util.header("Delta times by Section") + "\n" + this.lastText
+            );
+        }
 
         // MANUAL DRIVING
         timeSection("Manual Driving", timer);
