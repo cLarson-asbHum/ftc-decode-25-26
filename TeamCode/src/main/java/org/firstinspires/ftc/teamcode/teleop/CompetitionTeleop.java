@@ -299,6 +299,7 @@ public class CompetitionTeleop extends OpMode {
         }
 
         follower.breakFollowing();
+        
 
         timer.reset();
     }
@@ -306,8 +307,14 @@ public class CompetitionTeleop extends OpMode {
     //#region DEV START: timing
     private double startTime = 0;
     private String currentSection = null;
+    private boolean timingEnabled = true;
 
     private double timeSection(String sectionName, ElapsedTime timer) {
+        if(!timingEnabled) {
+            this.currentSection = null;
+            return 0;
+        }
+
         final double curTime = timer.seconds();
         if(this.currentSection == null) {
             this.startTime = curTime;
@@ -317,10 +324,15 @@ public class CompetitionTeleop extends OpMode {
 
         if(!this.currentSection.equals(sectionName)) {
             final double deltaTime = curTime - this.startTime;
+            final String info = String.format(
+                "%s deltaTime: %.1f ms", 
+                this.currentSection, 
+                1000 * deltaTime
+            );
             this.startTime = curTime;
             this.currentSection = sectionName;
-            telemetry.addData("%s deltaTime", "%.0f ms", 1000 * deltaTime);
-            System.out.printf("CompetitionTeleOp: %s deltaTime: %.0f ms\n", 1000 * deltaTime);
+            telemetry.addLine(info);
+            System.out.println("CompetitionTeleop timeSection(): " + info);
             return deltaTime;
         }
 
