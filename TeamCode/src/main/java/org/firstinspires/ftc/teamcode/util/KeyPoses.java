@@ -12,15 +12,16 @@ public final class KeyPoses {
         public static final Pose GOAL_BACKBOARD = new Pose(0, 144);
         public static final Pose LOADING = new Pose(132, 12);
 
-        public static final Pose SHOOTING = new Pose(
-            56,
-            104, // A little higher than the jigsaw so we are facing the goal
-            AngleUnit.normalizeRadians(Math.toRadians(325))
-        );
-
         // public static final Pose SHOOTING = new Pose(
-            
+        //     56,
+        //     104, // A little higher than the jigsaw so we are facing the goal
+        //     AngleUnit.normalizeRadians(Math.toRadians(325))
         // );
+        public static final Pose SHOOTING = new Pose(
+            47.93,
+            96.07,
+            AngleUnit.normalizeRadians(Math.toRadians(-51))
+        );
 
         private static final double farX = 48 + 11.5;
         private static final double farY = 0 + 18.1;
