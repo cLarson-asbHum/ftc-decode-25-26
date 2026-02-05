@@ -44,6 +44,7 @@ import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.LinearHingePivot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.ShooterSubsystem.Status;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.teleop.ClearCommandScheduler;
@@ -199,6 +200,7 @@ public class RippleyColorBlind extends LinearOpMode {
             .build()
         );
 
+        final Pose firstGrabEndPose = mirror(new Pose(24,     89.500), isRed);
         final PathChain grabArtifacts = follower
             .pathBuilder()
             .addPath(new BezierCurve(
@@ -220,20 +222,20 @@ public class RippleyColorBlind extends LinearOpMode {
                 // mirror(new Pose(42.089, 82.500), isRed),
                 mirror(new Pose(33.000, 89.500), isRed),
                 mirror(new Pose(31.000, 89.500), isRed),
-                mirror(new Pose(24,     89.500), isRed)
+                firstGrabEndPose
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
             
-        final Pose secondGrabStart = mirror(new Pose(65.038, 64.50100), isRed);
-        final Pose secondShooting = mirror(minTravelDist(
+        final Pose secondGrabStart = mirror(new Pose(50.038, 64.50100), isRed);
+        final Pose secondShooting = minTravelDist(
             new BezierLine(
                 mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
-                mirror(new Pose(72 - ROBOT_RADIUS * Math.sqrt(0.5),  72 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
+                mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
             ),
-            grabArtifacts.endPose(), 
+            firstGrabEndPose, 
             secondGrabStart
-        ), isRed);
+        );
 
         final Path goBackToShoot = new Path(new BezierLine(
             () -> follower.getPose(),
@@ -246,40 +248,42 @@ public class RippleyColorBlind extends LinearOpMode {
                 () -> follower.getPose(),
                 // shooting,
                 secondGrabStart,
-                mirror(new Pose(54.089, 64.50100), isRed),
+                mirror(new Pose(48.089, 61.50100), isRed),
                 secondGrabStart
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
                 () -> follower.getPose(),
                 // mirror(new Pose(58.489, 64.501), isRed),
-                mirror(new Pose(42.089, 64.50100), isRed)
+                mirror(new Pose(42.089, 61.50100), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
                 // mirror(new Pose(42.089, 64.5100), isRed),
-                mirror(new Pose(33.000, 59.500), isRed),
-                mirror(new Pose(31.000, 59.500), isRed),
-                mirror(new Pose(14,     59.500), isRed)
+                mirror(new Pose(33.000, 56.500), isRed),
+                mirror(new Pose(31.000, 56.500), isRed),
+                mirror(new Pose(14,     56.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
 
-        final Pose thirdShooting = mirror(minTravelDist(
+        final Pose parkPose = mirror(new Pose(48, 60, shooting.getHeading()), isRed);
+        final Pose avoidGatePose = mirror(new Pose(26, 59.500), isRed);
+        final Pose thirdShooting = minTravelDist(
             new BezierLine(
                 mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
-                mirror(new Pose(72 - ROBOT_RADIUS * Math.sqrt(0.5),  72 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
+                mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
             ),
-            grabArtifacts.endPose(), 
-            secondGrabStart
-        ), isRed);
+            avoidGatePose, 
+            parkPose
+        );
         
         final PathChain goBackToShootAgain = follower.pathBuilder()
             .addPath(new Path(new BezierLine(
                 () -> follower.getPose(),
                 // mirror(new Pose(16, 59.500), isRed),
-                mirror(new Pose(26, 59.500), isRed)
+                avoidGatePose
             )))
             .addPath(new Path(new BezierLine(
                 () -> follower.getPose(),
@@ -334,7 +338,7 @@ public class RippleyColorBlind extends LinearOpMode {
             .addPath(new BezierLine(
                 () -> follower.getPose(), 
                 // shooting,
-                mirror(new Pose(48, 60, shooting.getHeading()), isRed)
+                parkPose
             ))
             .setConstantHeadingInterpolation(shooting.getHeading())
             .build()
@@ -365,9 +369,11 @@ public class RippleyColorBlind extends LinearOpMode {
         leftBlocker = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
         CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker);
+        final LinearHingePivot rampPivot = robot.getRampPivot();
+        CommandScheduler.getInstance().registerSubsystem(rampPivot);
         shooter.setTelemetry(telemetry);
 
-        final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
+        // final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
         
         // Creating the webcam
         final WebcamName obeliskViewerCam = null;
@@ -407,7 +413,8 @@ public class RippleyColorBlind extends LinearOpMode {
         waitForStart();
         leftBlocker.close();
         rightBlocker.close();
-        rampPivot.setPosition(0.58); // Determined emperically
+        // rampPivot.setPosition(0.58); // Determined emperically; 61.6°
+        rampPivot.runToAngle(Math.toRadians(61.6));
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
@@ -451,7 +458,7 @@ public class RippleyColorBlind extends LinearOpMode {
             motif = Motif.FIRST_GREEN;
         }
 
-        emptyClip(motif);
+        emptyClip();
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
@@ -480,7 +487,8 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyClip(motif);
+        // rampPivot.runToAngle(Math.toRadians(46));
+        emptyClip(220 /* in/s */);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
@@ -508,7 +516,8 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyClip(motif);
+        // rampPivot.runToAngle(Math.toRadians(56));
+        emptyClip(Robot.ticksToInches(1500));
 
         // Getting leave points
         intake.holdGamePieces();
@@ -573,7 +582,45 @@ public class RippleyColorBlind extends LinearOpMode {
         }
     }
 
-    private void emptyClip(Motif unused) {
+    private void emptyClip(double inchesPerSec) {
+        // runUntilCompleted(shooter.chargeCommand());
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(inchesPerSec, true),
+            FlywheelTubeShooter.Status.CHARGING
+        ));
+        leftBlocker.open();
+        rightBlocker.open();
+        CommandScheduler.getInstance().run();
+        sleep(500);
+        final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
+
+        // Shooting depth 1
+        // runUntilCompleted(shooter.chargeCommand());
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(inchesPerSec, true),
+            FlywheelTubeShooter.Status.CHARGING
+        ));
+        // runUntilCompleted(shooter.fireCommand());
+
+        // Reloading and going
+        // runUntilCompleted(shooter.chargeCommand());
+        
+        // Shooting
+        intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
+        runUntilCompleted(shooter.fireCommand());
+
+        // Ending
+        intake.holdGamePieces();
+        leftBlocker.close();
+        rightBlocker.close();
+        shooter.charge();
+        CommandScheduler.getInstance().run();
+    }
+    
+    private void emptyClip() {
         runUntilCompleted(shooter.chargeCommand());
         leftBlocker.open();
         rightBlocker.open();
@@ -590,6 +637,7 @@ public class RippleyColorBlind extends LinearOpMode {
         
         // Shooting
         intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
         runUntilCompleted(shooter.fireCommand());
 
         // Ending
