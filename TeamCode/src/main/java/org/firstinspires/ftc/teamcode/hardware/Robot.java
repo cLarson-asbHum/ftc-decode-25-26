@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.hardware;
 
 import com.arcrobotics.ftclib.command.Subsystem;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.CRServoImplEx;
@@ -63,7 +64,7 @@ public class Robot {
         LEFT_RELOAD  (robot -> robot.initLeftReload()),
         RIGHT_RELOAD (robot -> robot.initRightReload()),
 
-        MOTIF_WEBCAM          (robot -> robot.initMotifWebcam()),
+        MOTIF_LIMELIGHT          (robot -> robot.initMotifLimelight()),
         ULTIMATE_POINT_EARNER (robot -> robot.initDuckSpinner()),
 
         LEFT_LED  (robot -> robot.initLeftLed()),
@@ -88,7 +89,7 @@ public class Robot {
         }
 
         result.remove(Device.ULTIMATE_POINT_EARNER);
-        result.remove(Device.MOTIF_WEBCAM);
+        result.remove(Device.MOTIF_LIMELIGHT);
         result.remove(Device.LEFT_SHOOTER);
         result.remove(Device.RIGHT_SHOOTER);
         return result;
@@ -100,7 +101,7 @@ public class Robot {
             result.add(device);
         }
 
-        result.remove(Device.MOTIF_WEBCAM);
+        result.remove(Device.MOTIF_LIMELIGHT);
         result.remove(Device.DRIVETRAIN);
         result.remove(Device.LEFT_SHOOTER);
         result.remove(Device.RIGHT_SHOOTER);
@@ -118,7 +119,7 @@ public class Robot {
     private BlockerSubsystem rightBlocker = null;
     private ArtifactColorRangeSensor leftReload = null;
     private ArtifactColorRangeSensor rightReload = null;
-    private MotifWebcam motifWebcam = null;
+    private MotifLimelight motifLimelight = null;
     private CRServo duckSpinner = null;
     private ArtifactColorLed leftLed = null;
     private ArtifactColorLed rightLed = null;
@@ -506,9 +507,19 @@ public class Robot {
         return true;
     }
 
-    // TODO: Webcam
-    private boolean initMotifWebcam() {
-        return false;
+    public static final int LL_PIPELINE_SWITCH = 0; 
+    public static final double CAMERA_YAW_OFFSET = Math.toRadians(0);
+    
+    private boolean initMotifLimelight() {
+        if(motifLimelight != null) {
+            return false;
+        }
+
+        final Limelight3A limelight = findHardware(Limelight3A.class, "limelight");
+        throwAFitIfAnyHardwareIsNotFound();
+        limelight.setPollRateHz(20); // We don't need it that much
+        motifLimelight = new MotifLimelight(limelight, LL_PIPELINE_SWITCH, CAMERA_YAW_OFFSET);
+        return true;
     }
 
     private boolean initDuckSpinner() {
@@ -606,8 +617,12 @@ public class Robot {
         return rightReload;
     }
     
-    public MotifWebcam getMotifWebcam() {
-        return null;
+    public MotifLimelight getMotifLimelight() {
+        if(motifLimelight == null) {
+            initMotifLimelight();
+        }
+
+        return motifLimelight;
     }
     
     public CRServo getDuckSpinner() {
