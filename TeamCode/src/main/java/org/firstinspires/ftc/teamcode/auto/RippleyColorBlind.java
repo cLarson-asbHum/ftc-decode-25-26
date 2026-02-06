@@ -44,6 +44,7 @@ import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.LinearHingePivot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.ShooterSubsystem.Status;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.teleop.ClearCommandScheduler;
@@ -79,6 +80,7 @@ public class RippleyColorBlind extends LinearOpMode {
     // TODO: find the robot width and length
     public static double ROBOT_LENGTH = 17; // Inches parallel to the robot's forward-facing axis
     public static double ROBOT_WIDTH = 17; // Inches perpendicular to the robot's forward-facing axis 
+    public static double ROBOT_RADIUS = 7;
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
@@ -198,66 +200,100 @@ public class RippleyColorBlind extends LinearOpMode {
             .build()
         );
 
+        final Pose firstGrabEndPose = mirror(new Pose(24,     89.500), isRed);
         final PathChain grabArtifacts = follower
             .pathBuilder()
             .addPath(new BezierCurve(
-                shooting,
+                () -> follower.getPose(),
+                // shooting,
                 mirror(new Pose(75.038, 82.500), isRed),
                 mirror(new Pose(58.489, 82.500), isRed),
                 mirror(new Pose(54.089, 82.500), isRed)
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
-                mirror(new Pose(54.089, 82.5), isRed),
+                () -> follower.getPose(),
+                // mirror(new Pose(54.089, 82.5), isRed),
                 mirror(new Pose(42.089, 82.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
-                mirror(new Pose(42.089, 82.500), isRed),
+                () -> follower.getPose(),
+                // mirror(new Pose(42.089, 82.500), isRed),
                 mirror(new Pose(33.000, 89.500), isRed),
                 mirror(new Pose(31.000, 89.500), isRed),
-                mirror(new Pose(24,     89.500), isRed)
+                firstGrabEndPose
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
+            
+        final Pose secondGrabStart = mirror(new Pose(50.038, 64.50100), isRed);
+        final Pose secondShooting = minTravelDist(
+            new BezierLine(
+                mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
+                mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
+            ),
+            firstGrabEndPose, 
+            secondGrabStart
+        );
+
         final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(24,   89.500), isRed), 
-            shooting
+            () -> follower.getPose(),
+            // mirror(new Pose(24,   89.500), isRed), 
+            secondShooting
         ));
         final PathChain grabArtifactsAgain =  follower
             .pathBuilder()
             .addPath(new BezierCurve(
-                shooting,
-                mirror(new Pose(65.038, 64.50100), isRed),
-                mirror(new Pose(54.089, 64.50100), isRed),
-                mirror(new Pose(58.489, 64.50100), isRed)
+                () -> follower.getPose(),
+                // shooting,
+                secondGrabStart,
+                mirror(new Pose(48.089, 61.50100), isRed),
+                secondGrabStart
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
-                mirror(new Pose(58.489, 64.501), isRed),
-                mirror(new Pose(42.089, 64.50100), isRed)
+                () -> follower.getPose(),
+                // mirror(new Pose(58.489, 64.501), isRed),
+                mirror(new Pose(42.089, 61.50100), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
-                mirror(new Pose(42.089, 64.5100), isRed),
-                mirror(new Pose(33.000, 59.500), isRed),
-                mirror(new Pose(31.000, 59.500), isRed),
-                mirror(new Pose(14,     59.500), isRed)
+                () -> follower.getPose(),
+                // mirror(new Pose(42.089, 64.5100), isRed),
+                mirror(new Pose(33.000, 56.500), isRed),
+                mirror(new Pose(31.000, 56.500), isRed),
+                mirror(new Pose(14,     56.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
+
+        final Pose parkPose = mirror(new Pose(48, 60, shooting.getHeading()), isRed);
+        final Pose avoidGatePose = mirror(new Pose(26, 59.500), isRed);
+        final Pose thirdShooting = minTravelDist(
+            new BezierLine(
+                mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
+                mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
+            ),
+            avoidGatePose, 
+            parkPose
+        );
+        
         final PathChain goBackToShootAgain = follower.pathBuilder()
             .addPath(new Path(new BezierLine(
-                mirror(new Pose(16, 59.500), isRed),
-                mirror(new Pose(26, 59.500), isRed)
+                () -> follower.getPose(),
+                // mirror(new Pose(16, 59.500), isRed),
+                avoidGatePose
             )))
             .addPath(new Path(new BezierLine(
-                mirror(new Pose(26,     59.500), isRed), 
-                shooting
+                () -> follower.getPose(),
+                // mirror(new Pose(26,     59.500), isRed), 
+                thirdShooting
             )))
             .build();
         final Path turnSoAsToIntake = new Path(new BezierLine(
-            shooting,
+            () -> follower.getPose(),
+            // shooting,
             new Pose(shooting.getX(), shooting.getY(), isRed ? 0 : Math.PI)
         ));
 
@@ -300,8 +336,9 @@ public class RippleyColorBlind extends LinearOpMode {
         result.put("park", follower
             .pathBuilder()
             .addPath(new BezierLine(
-                shooting, 
-                mirror(new Pose(48, 60, shooting.getHeading()), isRed)
+                () -> follower.getPose(), 
+                // shooting,
+                parkPose
             ))
             .setConstantHeadingInterpolation(shooting.getHeading())
             .build()
@@ -332,9 +369,11 @@ public class RippleyColorBlind extends LinearOpMode {
         leftBlocker = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
         CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker);
+        final LinearHingePivot rampPivot = robot.getRampPivot();
+        CommandScheduler.getInstance().registerSubsystem(rampPivot);
         shooter.setTelemetry(telemetry);
 
-        final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
+        // final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
         
         // Creating the webcam
         final WebcamName obeliskViewerCam = null;
@@ -374,7 +413,8 @@ public class RippleyColorBlind extends LinearOpMode {
         waitForStart();
         leftBlocker.close();
         rightBlocker.close();
-        rampPivot.setPosition(0.58); // Determined emperically
+        // rampPivot.setPosition(0.58); // Determined emperically; 61.6°
+        rampPivot.runToAngle(Math.toRadians(61.6));
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
@@ -418,7 +458,7 @@ public class RippleyColorBlind extends LinearOpMode {
             motif = Motif.FIRST_GREEN;
         }
 
-        emptyClip(motif);
+        emptyClip();
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
@@ -447,7 +487,8 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyClip(motif);
+        // rampPivot.runToAngle(Math.toRadians(46));
+        emptyClip(220 /* in/s */);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
@@ -475,7 +516,8 @@ public class RippleyColorBlind extends LinearOpMode {
         // follower.setMaxPowerScaling(1.0);
 
         // Shooting once again
-        emptyClip(motif);
+        // rampPivot.runToAngle(Math.toRadians(56));
+        emptyClip(Robot.ticksToInches(1500));
 
         // Getting leave points
         intake.holdGamePieces();
@@ -540,7 +582,45 @@ public class RippleyColorBlind extends LinearOpMode {
         }
     }
 
-    private void emptyClip(Motif unused) {
+    private void emptyClip(double inchesPerSec) {
+        // runUntilCompleted(shooter.chargeCommand());
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(inchesPerSec, true),
+            FlywheelTubeShooter.Status.CHARGING
+        ));
+        leftBlocker.open();
+        rightBlocker.open();
+        CommandScheduler.getInstance().run();
+        sleep(500);
+        final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
+
+        // Shooting depth 1
+        // runUntilCompleted(shooter.chargeCommand());
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(inchesPerSec, true),
+            FlywheelTubeShooter.Status.CHARGING
+        ));
+        // runUntilCompleted(shooter.fireCommand());
+
+        // Reloading and going
+        // runUntilCompleted(shooter.chargeCommand());
+        
+        // Shooting
+        intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
+        runUntilCompleted(shooter.fireCommand());
+
+        // Ending
+        intake.holdGamePieces();
+        leftBlocker.close();
+        rightBlocker.close();
+        shooter.charge();
+        CommandScheduler.getInstance().run();
+    }
+    
+    private void emptyClip() {
         runUntilCompleted(shooter.chargeCommand());
         leftBlocker.open();
         rightBlocker.open();
@@ -557,6 +637,7 @@ public class RippleyColorBlind extends LinearOpMode {
         
         // Shooting
         intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
         runUntilCompleted(shooter.fireCommand());
 
         // Ending
@@ -668,6 +749,62 @@ public class RippleyColorBlind extends LinearOpMode {
                 shooter.forceCharged();
             }
         } 
+    }
+
+    /**
+     * Calculates the point on the given segment that minimizes the total distance
+     * between itself and the two points. This can be thought of the point on the
+     * line that will have the shortest travel time, starting from the one point,
+     * then going to the line, then to the other point.
+     * 
+     * The returned point is guarnateed to be on the segment.
+     * 
+     * @param segment The set of points the return value must be located on.
+     * @param p One point to travel to. Heading is ignored.
+     * @param q Another point to travel to. Heading is ignored
+     * @return The point which minimizes the travel distance between the points.
+     * The heading of this is undefined and should be ignored.
+     */
+    public static Pose minTravelDist(BezierLine segment, Pose p, Pose q) {
+        final Pose start = segment.getPose(0);
+        final Pose end = segment.getPose(1);
+
+        // Transforming the points assuming that the start (point A) is 0
+        // final Pose vecA = new Pose(0, 0);
+        final Pose vecB = end.minus(start);
+        final Pose vecP =   p.minus(start);
+        final Pose vecQ =   q.minus(start);
+
+        // Getting some essential coefficients from the translated points
+        final double a = vecB.getX() * vecB.getX() + vecB.getY() * vecB.getY(); // b * b
+        final double b = vecP.getX() * vecB.getX() + vecP.getY() * vecB.getY(); // p * b
+        final double c = vecP.getX() * vecP.getX() + vecP.getY() * vecP.getY(); // p * p
+        final double d = vecQ.getX() * vecB.getX() + vecQ.getY() * vecB.getY(); // q * b
+        final double f = vecQ.getX() * vecQ.getX() + vecQ.getY() * vecQ.getY(); // q * q
+
+        // Getting the two possible solutions
+        // This uses the quadratic formula
+        final double quad = a*a*f - a*a*c + a*b*b - a*d*d;
+        final double line = -2 * (a*b*f - a*c*d + b*b*d - b*d*d);
+        final double cons = b*b*f - c*d*d;
+
+        if(quad == 0) {
+            // TODO: The solution technicaly exists in this case, but the math above craps out
+            throw new RuntimeException("The segment was parallel with the line containing p and q");
+        }
+
+        final double t1 = (-line + Math.sqrt(line * line - 4 * quad * cons)) / (2 * quad);
+        final double t2 = (-line - Math.sqrt(line * line - 4 * quad * cons)) / (2 * quad);
+
+        // Returning the solution that minimizes the travel distance
+        final Pose s1 = segment.getPose(Util.clamp(0, t1, 1));
+        final Pose s2 = segment.getPose(Util.clamp(0, t2, 1));
+
+        if(s1.distanceFrom(p) + s1.distanceFrom(q) <= s2.distanceFrom(p) + s2.distanceFrom(q)) {
+            return s1;
+        } else {
+            return s2;
+        }
     }
     
     /**
