@@ -104,6 +104,8 @@ public class RippleyColorBlind extends LinearOpMode {
         -Math.PI / 2
     );
 
+    public static final double SECOND_SHOT_SPEED = 220;
+    public static final double THIRD_SHOT_SPEED = Robot.ticksToInches(1500);
     
     private ArtifactColorRangeSensor rightReload = null;
     private ArtifactColorRangeSensor leftReload = null;
@@ -193,7 +195,6 @@ public class RippleyColorBlind extends LinearOpMode {
         result.put("goFromCameraToShooting", follower
             .pathBuilder()
             .addPath(
-                // new BezierLine(new Pose(22.017, 119.603), new Pose(40.463, 102.942))
                 new BezierLine(start, shooting)
             )
             .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
@@ -205,7 +206,6 @@ public class RippleyColorBlind extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
-                // shooting,
                 mirror(new Pose(75.038, 82.500), isRed),
                 mirror(new Pose(58.489, 82.500), isRed),
                 mirror(new Pose(54.089, 82.500), isRed)
@@ -213,13 +213,11 @@ public class RippleyColorBlind extends LinearOpMode {
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
                 () -> follower.getPose(),
-                // mirror(new Pose(54.089, 82.5), isRed),
                 mirror(new Pose(42.089, 82.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
-                // mirror(new Pose(42.089, 82.500), isRed),
                 mirror(new Pose(33.000, 89.500), isRed),
                 mirror(new Pose(31.000, 89.500), isRed),
                 firstGrabEndPose
@@ -227,7 +225,7 @@ public class RippleyColorBlind extends LinearOpMode {
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .build();
             
-        final Pose secondGrabStart = mirror(new Pose(50.038, 64.50100), isRed);
+        final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
         final Pose secondShooting = minTravelDist(
             new BezierLine(
                 mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
@@ -239,28 +237,24 @@ public class RippleyColorBlind extends LinearOpMode {
 
         final Path goBackToShoot = new Path(new BezierLine(
             () -> follower.getPose(),
-            // mirror(new Pose(24,   89.500), isRed), 
             secondShooting
         ));
         final PathChain grabArtifactsAgain =  follower
             .pathBuilder()
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
-                // shooting,
-                secondGrabStart,
-                mirror(new Pose(48.089, 61.50100), isRed),
+                mirror(new Pose(48.611, 61.500), isRed),
+                mirror(new Pose(48.611, 67.675), isRed),
                 secondGrabStart
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierLine(
                 () -> follower.getPose(),
-                // mirror(new Pose(58.489, 64.501), isRed),
-                mirror(new Pose(42.089, 61.50100), isRed)
+                mirror(new Pose(40.000, 61.500), isRed)
             ))
             .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
-                // mirror(new Pose(42.089, 64.5100), isRed),
                 mirror(new Pose(33.000, 56.500), isRed),
                 mirror(new Pose(31.000, 56.500), isRed),
                 mirror(new Pose(14,     56.500), isRed)
@@ -282,49 +276,40 @@ public class RippleyColorBlind extends LinearOpMode {
         final PathChain goBackToShootAgain = follower.pathBuilder()
             .addPath(new Path(new BezierLine(
                 () -> follower.getPose(),
-                // mirror(new Pose(16, 59.500), isRed),
                 avoidGatePose
             )))
             .addPath(new Path(new BezierLine(
                 () -> follower.getPose(),
-                // mirror(new Pose(26,     59.500), isRed), 
                 thirdShooting
             )))
             .build();
         final Path turnSoAsToIntake = new Path(new BezierLine(
             () -> follower.getPose(),
-            // shooting,
             new Pose(shooting.getX(), shooting.getY(), isRed ? 0 : Math.PI)
         ));
 
-        // turnSoAsToIntake.setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.PI);
         final double grabHeading = isRed ? 0 : -Math.PI;
-        grabArtifacts.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
+        grabArtifacts.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
         grabArtifacts.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifacts.getPath(2).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
         grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
-        goBackToShoot.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
-        // goBackToShootAgain.getPath().setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+        goBackToShoot.setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
         goBackToShootAgain.getPath(0).setConstantHeadingInterpolation(grabHeading);
-        goBackToShootAgain.getPath(1).setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+        goBackToShootAgain.getPath(1).setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
 
         result.put("grabArtifactsAndShoot", follower
             .pathBuilder()
-            // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
             .addPath(grabArtifacts.getPath(0))
             .addPath(grabArtifacts.getPath(1))
             .addPath(grabArtifacts.getPath(2))
-            // .addPath(goBackToShoot.getPath(0))
-            // .addPath(goBackToShoot.getPath(1))
             .addPath(goBackToShoot)
             .build()
         );
 
         result.put("grabArtifactsAndShootAgain", follower
             .pathBuilder()
-            // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
             .addPath(grabArtifactsAgain.getPath(0))
             .addPath(grabArtifactsAgain.getPath(1))
             .addPath(grabArtifactsAgain.getPath(2))
@@ -337,7 +322,6 @@ public class RippleyColorBlind extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierLine(
                 () -> follower.getPose(), 
-                // shooting,
                 parkPose
             ))
             .setConstantHeadingInterpolation(shooting.getHeading())
@@ -349,14 +333,9 @@ public class RippleyColorBlind extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-
         telemetry.setMsTransmissionInterval(30);
 
         // Creating subsystems
-        // final Subsystem[] subsystems = createSubsystems(hardwareMap);
-        // shooter = (FlywheelTubeShooter) subsystems[0];
-        // intake = (CarwashIntake) subsystems[1];
-        // drivetrain = (BasicMecanumDrive) subsystems[2];
         final Robot robot = new Robot(hardwareMap, java.util.Set.of(
             Robot.Device.SHOOTER,
             Robot.Device.INTAKE,
@@ -413,7 +392,6 @@ public class RippleyColorBlind extends LinearOpMode {
         waitForStart();
         leftBlocker.close();
         rightBlocker.close();
-        // rampPivot.setPosition(0.58); // Determined emperically; 61.6°
         rampPivot.runToAngle(Math.toRadians(61.6));
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
@@ -457,8 +435,9 @@ public class RippleyColorBlind extends LinearOpMode {
         /* }  else */ if(motif == null) {
             motif = Motif.FIRST_GREEN;
         }
-
+        
         emptyClip();
+        shooter.charge(SECOND_SHOT_SPEED, false);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
@@ -468,7 +447,6 @@ public class RippleyColorBlind extends LinearOpMode {
         boolean hasReloaded = false;
         leftBlocker.close();
         rightBlocker.close();
-        // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
             if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
                 follower.setMaxPower(0.4);
@@ -484,11 +462,11 @@ public class RippleyColorBlind extends LinearOpMode {
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
         }
-        // follower.setMaxPowerScaling(1.0);
+        follower.setMaxPower(1.0);
 
         // Shooting once again
-        // rampPivot.runToAngle(Math.toRadians(46));
-        emptyClip(220 /* in/s */);
+        emptyClip(SECOND_SHOT_SPEED);
+        shooter.charge(THIRD_SHOT_SPEED, false);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
@@ -498,7 +476,6 @@ public class RippleyColorBlind extends LinearOpMode {
         // hasReloaded = false;
         leftBlocker.close();
         rightBlocker.close();
-        // follower.setMaxPowerScaling(0.5); // Slowing down
         while(follower.isBusy() && opModeIsActive()) {
             if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
                 follower.setMaxPower(0.4);
@@ -513,11 +490,11 @@ public class RippleyColorBlind extends LinearOpMode {
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
         }
-        // follower.setMaxPowerScaling(1.0);
+        follower.setMaxPower(1.0);
 
         // Shooting once again
         // rampPivot.runToAngle(Math.toRadians(56));
-        emptyClip(Robot.ticksToInches(1500));
+        emptyClip(THIRD_SHOT_SPEED);
 
         // Getting leave points
         intake.holdGamePieces();
