@@ -59,10 +59,15 @@ public class CompetitionTeleop extends OpMode {
     // Auto firing constants
     public static final double ROBOT_WIDTH = 16; // In inches
     public static final double ROBOT_LENGTH = 18; // In inches
+    public static final double ROBOT_RADIUS = 7; // Inscribed circle length, used for closest point finding
     public static final double MAX_DISPLACEMENT = 5; // In inches
 
     private ElapsedTime timer = new ElapsedTime();
     private double lastTime = 0;
+    private double startTime = 0;
+    private String currentSection = null;
+    private String lastText = "";
+    private boolean timingEnabled = true;
     private Command fireAfterBlockers = null;
 
     private List<LynxModule> lynxModules = null;
@@ -92,6 +97,7 @@ public class CompetitionTeleop extends OpMode {
     private ArtifactColorLed rightLed = null;
     private ArtifactColorLed leftLed = null;
 
+    // private boolean autoReloadEnabled = true;
     private boolean autoReloadEnabled = false;
     private boolean autoAimEnabled = true;
     private boolean autoFiringEnabled = true;
@@ -305,12 +311,6 @@ public class CompetitionTeleop extends OpMode {
         timer.reset();
     }
 
-    //#region DEV START: timing
-    private double startTime = 0;
-    private String currentSection = null;
-    private String lastText = "";
-    private boolean timingEnabled = true;
-
     private double timeSection(String sectionName, ElapsedTime timer) {
         if(!timingEnabled) {
             this.currentSection = null;
@@ -348,8 +348,6 @@ public class CompetitionTeleop extends OpMode {
         return 0;
     }
     
-    //#endregion DEV END
-
     @Override
     public void loop() {
         final double timestamp = timer.seconds();
@@ -675,8 +673,8 @@ public class CompetitionTeleop extends OpMode {
 
     public double shootingAngleToGoal(Pose currentPose) {
         return AngleUnit.normalizeRadians(Math.PI + Math.atan2(
-            KeyPoses.goalCenter(isRed).getY() - currentPose.getY(),
-            KeyPoses.goalCenter(isRed).getX() - currentPose.getX()
+            KeyPoses.goalBackboard(isRed).getY() - currentPose.getY(),
+            KeyPoses.goalBackboard(isRed).getX() - currentPose.getX()
         ));
     }
 
