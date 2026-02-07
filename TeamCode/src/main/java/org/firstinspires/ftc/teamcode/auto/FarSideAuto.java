@@ -8,6 +8,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.BezierPoint;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
@@ -84,20 +85,14 @@ public class FarSideAuto extends LinearOpMode {
     public static int GAIN = 50;
     public static int EXPOSURE_MS = 1;
 
-    public static double ROBOT_LENGTH = 16; // Inches parallel to the robot's forward-facing axis
-    public static double ROBOT_WIDTH = 16; // Inches perpendicular to the robot's forward-facing axis 
-
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
-    public static double SHOT_SPEED = 315; // Determined using the ballistic arc text user interface
-    public static double SHOT_ANGLE = Math.toRadians(48.7); // Determined using the ballistic arc text user interface
+    public static double SHOT_SPEED = 340; // Determined using the ballistic arc text user interface
+    public static double SHOT_ANGLE = Math.toRadians(43); // Determined using the ballistic arc text user interface
 
     public static ConfigPose START_POS = new ConfigPose(
-        // In Inches. Coveriing the jigsaw covering the center line
-        48 + ROBOT_WIDTH / 2,
-
-        // In Inches. Is along the top-most grid edge
-        ROBOT_LENGTH / 2 + 2, // Adding 4 because of the intake
+        56,
+        10,
 
         // In Radians. Shooter facing the obelisk
         Math.toRadians(-90)
@@ -187,17 +182,20 @@ public class FarSideAuto extends LinearOpMode {
         final PathChain grabArtifactsAgain = follower
             .pathBuilder()
             .addPath(new BezierLine(
-                shooting,
+                () -> follower.getPose(),
+                // shooting,
                 mirror(new Pose(26.578, 10.000), isRed)
             ))
             .addPath(new BezierLine(
-                mirror(new Pose(30.50, 10.000), isRed),
+                () -> follower.getPose(),
+                // mirror(new Pose(30.50, 10.000), isRed),
                 mirror(new Pose(11.50, 10.000), isRed)
             ))
             .build();
         
         final Path goBackToShootAgain = new Path(new BezierLine(
-            mirror(new Pose(11.5, 10), isRed), 
+            () -> follower.getPose(),
+            // mirror(new Pose(11.5, 10), isRed), 
             shooting
         ));
 
@@ -232,8 +230,9 @@ public class FarSideAuto extends LinearOpMode {
         result.put("park", follower
             .pathBuilder()
             .addPath(new BezierLine(
-                shooting, 
-                mirror(new Pose(9, 9, shooting.getHeading()), isRed)
+                () -> follower.getPose(),
+                // shooting, 
+                mirror(new Pose(11, 9, grabHeading), isRed)
             ))
             .setConstantHeadingInterpolation(grabHeading)
             .build()
@@ -282,7 +281,6 @@ public class FarSideAuto extends LinearOpMode {
 
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
-
         for(final LynxModule module : modules) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
@@ -382,72 +380,19 @@ public class FarSideAuto extends LinearOpMode {
 
         emptyClip(motif);
 
-        // Moving to grab artifacts
-        // This goes back to shooting afterwards
-        // follower.followPath(paths.get("grabArtifactsAndShoot"), true);
-
-        // boolean hasReloaded = false;
-        // // follower.setMaxPower(0.5);
-        // while(follower.isBusy() && opModeIsActive()) {
-        //     if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
-        //         follower.setMaxPower(0.33);
-        //         intake.intakeGamePieces();
-        //         leftBlocker.close();
-        //         rightBlocker.close();
-        //     } else {
-        //         follower.setMaxPower(1.0);
-        //         intake.holdGamePieces();
-        //         leftBlocker.open();
-        //         rightBlocker.open();
-        //     }
-
-        //     telemetry.addData("Position", follower.getPose());
-        //     telemetry.addData("Shooting", mirror(SHOOTING_POS.pedroPose(), isRed));
-        //     telemetry.update();
-
-        //     follower.update();
-        //     OpModeData.startPosition = follower.getPose();
-        //     CommandScheduler.getInstance().run();
-        // }
-        // follower.setMaxPower(1.0);
-
-        // Shooting once again
-        emptyClip(motif);
-        
-        // Moving to grab artifacts
-        // This goes back to shooting afterwards
-        // follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
-        
-        // // hasReloaded = false;
-        // while(follower.isBusy() && opModeIsActive()) {
-        //     if(follower.getChainIndex() == 1) {
-        //         follower.setMaxPower(0.5);
-        //         intake.intakeGamePieces();
-        //     } else {
-        //         follower.setMaxPower(1.0);
-        //         intake.holdGamePieces();
-        //     }
-            
-        //     follower.update();
-        //     OpModeData.startPosition = follower.getPose();
-        //     CommandScheduler.getInstance().run();
-        // }
-
-        // // Shooting once again
-        // emptyClip(motif);
-
-        // Getting leave points
+        // Grabbing the artifacts from the oponent's loading zone
         intake.intakeGamePieces();
-        shooter.uncharge();
         follower.followPath(paths.get("park"), false);
 
+        follower.setMaxPower(0.8);
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
         }
+        follower.setMaxPower(1.0);
 
-        //#region DEV START: For beautiful Code Blooded, we are grabbing from loading first and firing
+        // Going again an shooting
         follower.followPath(paths.get("DEV_shootAgain"), false);
         intake.holdGamePieces();
         
@@ -458,10 +403,20 @@ public class FarSideAuto extends LinearOpMode {
             CommandScheduler.getInstance().run();
         }
 
+        final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
+        while(opModeIsActive()  && !(
+            follower.atPose(shooting, 0.5, 0.5) 
+            && Util.anglesNear(follower.getPose().getHeading(), shooting.getHeading(), Math.toRadians(0.85))
+        )) {
+            follower.holdPoint(new BezierPoint(shooting), shooting.getHeading());
+            follower.update();
+            CommandScheduler.getInstance().run();
+        }
+
         emptyClip(motif);
         
+        // Going and parking
         intake.intakeGamePieces();
-        shooter.uncharge();
         follower.followPath(paths.get("park"), false);
 
         while(follower.isBusy() && opModeIsActive()) {
@@ -469,9 +424,9 @@ public class FarSideAuto extends LinearOpMode {
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
         }
-        //#endregion DEV END
 
         // END
+        shooter.uncharge();
         OpModeData.startPosition = follower.getPose();
         CommandScheduler.getInstance().reset();
     }
@@ -530,23 +485,26 @@ public class FarSideAuto extends LinearOpMode {
             FlywheelTubeShooter.Status.CHARGING
         ));
 
-        // Shooting depth 1
         leftBlocker.open();
         rightBlocker.open();
-        runUntilCompleted(shooter.fireCommand());
+        CommandScheduler.getInstance().run();
+        // sleep(500);
 
         // Reloading and going
-        runUntilCompleted(new WrapConcurrentCommand<ShooterSubsystem.Status>(
-            shooter,
-            () -> shooter.charge(SHOT_SPEED, true),
-            FlywheelTubeShooter.Status.CHARGED
-        ));
+        // runUntilCompleted(new WrapConcurrentCommand<ShooterSubsystem.Status>(
+        //     shooter,
+        //     () -> shooter.charge(SHOT_SPEED, true),
+        //     FlywheelTubeShooter.Status.CHARGED
+        // ));
         
         // Shooting
         intake.intakeGamePieces();
-        runUntilCompleted(shooter.fireCommand());
-
+        shooter.multiFire();
+        CommandScheduler.getInstance().run();
+        sleep(2500);
+        
         // Ending
+        shooter.charge(SHOT_SPEED, false);
         leftBlocker.close();
         rightBlocker.close();
         intake.holdGamePieces();
@@ -554,29 +512,6 @@ public class FarSideAuto extends LinearOpMode {
         CommandScheduler.getInstance().run();
     }
     
-    private void emptyForefrontClip(Motif unused) {
-        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
-            shooter,
-            () -> shooter.charge(SHOT_SPEED, true),
-            FlywheelTubeShooter.Status.CHARGING
-        ));
-        // final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
-
-        // Shooting depth 1
-        leftBlocker.open();
-        rightBlocker.open();
-        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
-            shooter,
-            () -> shooter.charge(SHOT_SPEED, true),
-            FlywheelTubeShooter.Status.CHARGING
-        ));
-
-        // Ending
-        intake.holdGamePieces();
-        // shooter.charge();
-        CommandScheduler.getInstance().run();
-    }
-
     private void shootPattern(MotifGetter.Motif motif) {
         
         // Firing the artifacts we have, using the motif from the april tag
