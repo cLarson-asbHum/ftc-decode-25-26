@@ -117,7 +117,7 @@ public class FarSideAuto extends LinearOpMode {
     private BlockerSubsystem rightBlocker = null;
 
     private boolean isRed = false;
-    private boolean inCompetitonMode = false;
+    private boolean inCompetitonMode = OpModeData.inCompetitonMode;
     
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
@@ -142,6 +142,7 @@ public class FarSideAuto extends LinearOpMode {
         // Seting up the points
         final Pose start = mirror(START_POS.pedroPose(), isRed);
         final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
+        final double grabHeading = isRed ? 0 : -Math.PI;
 
         // Creating the paths
         result.put("goFromCameraToShooting", follower
@@ -153,68 +154,59 @@ public class FarSideAuto extends LinearOpMode {
             .build()
         );
 
-        final PathChain grabArtifacts = follower
-            .pathBuilder()
-            .addPath(new BezierCurve(
-                shooting,
-                mirror(new Pose(71.038, 31.500), isRed),
-                mirror(new Pose(54.489, 31.500), isRed),
-                mirror(new Pose(50.089, 31.500), isRed)
-            ))
-            .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
-            .addPath(new BezierLine(
-                mirror(new Pose(50.089, 31.5), isRed),
-                mirror(new Pose(38.089, 31.500), isRed)
-            ))
-            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
-            .addPath(new BezierCurve(
-                mirror(new Pose(38.089, 31.500), isRed),
-                mirror(new Pose(29.000, 38.500), isRed),
-                mirror(new Pose(27.000, 38.500), isRed),
-                mirror(new Pose(21, 38.500), isRed)
-            ))
-            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
-            .build();
-        final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(11.5, 38.500), isRed), 
-            shooting
-        ));
         final PathChain grabArtifactsAgain = follower
             .pathBuilder()
+            .addPath(new BezierCurve(
+                () -> follower.getPose(),
+                mirror(new Pose(75.038, 34.500), isRed),
+                mirror(new Pose(58.489, 34.500), isRed),
+                mirror(new Pose(54.089, 34.500), isRed)
+            ))
+            .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
             .addPath(new BezierLine(
                 () -> follower.getPose(),
-                // shooting,
-                mirror(new Pose(26.578, 10.000), isRed)
+                mirror(new Pose(42.089, 34.500), isRed)
             ))
-            .addPath(new BezierLine(
+            .setConstantHeadingInterpolation(grabHeading)
+            .addPath(new BezierCurve(
                 () -> follower.getPose(),
-                // mirror(new Pose(30.50, 10.000), isRed),
-                mirror(new Pose(11.50, 10.000), isRed)
+                mirror(new Pose(33.000, 41.500), isRed),
+                mirror(new Pose(31.000, 41.500), isRed),
+                mirror(new Pose(24.000, 41.500), isRed)
             ))
+            .setConstantHeadingInterpolation(grabHeading)
             .build();
         
         final Path goBackToShootAgain = new Path(new BezierLine(
             () -> follower.getPose(),
-            // mirror(new Pose(11.5, 10), isRed), 
             shooting
         ));
 
-        // turnSoAsToIntake.setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.PI);
-        final double grabHeading = isRed ? 0 : -Math.PI;
-        grabArtifacts.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
-        grabArtifacts.getPath(1).setConstantHeadingInterpolation(grabHeading);
-        grabArtifacts.getPath(2).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
         grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
-        goBackToShoot.setConstantHeadingInterpolation(shooting.getHeading());
+        grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
         goBackToShootAgain.setConstantHeadingInterpolation(shooting.getHeading());
 
-        result.put("grabArtifactsAndShoot", follower
+        result.put("grabLoadingZoneArtifacts", follower
             .pathBuilder()
-            .addPath(grabArtifacts.getPath(0))
-            .addPath(grabArtifacts.getPath(1))
-            .addPath(grabArtifacts.getPath(2))
-            .addPath(goBackToShoot)
+            .addPath(new BezierLine(
+                () -> follower.getPose(),
+                mirror(new Pose(11, 7.75, grabHeading), isRed)
+            ))
+            // .setConstantHeadingInterpolation(grabHeading)
+            .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
+            .build()
+        );
+
+        result.put("backToShooting", follower
+            .pathBuilder()
+            .addPath(new BezierLine(
+                () -> follower.getPose(),
+                shooting
+            ))
+            .setLinearHeadingInterpolation(grabHeading, shooting.getHeading())
+            // .setConstantHeadingInterpolation(shooting.getHeading())
+
             .build()
         );
 
@@ -222,8 +214,8 @@ public class FarSideAuto extends LinearOpMode {
             .pathBuilder()
             .addPath(grabArtifactsAgain.getPath(0))
             .addPath(grabArtifactsAgain.getPath(1))
+            .addPath(grabArtifactsAgain.getPath(2))
             .addPath(goBackToShootAgain)
-            // .setReversed()
             .build()
         );
 
@@ -231,20 +223,10 @@ public class FarSideAuto extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierLine(
                 () -> follower.getPose(),
-                // shooting, 
                 mirror(new Pose(11, 9, grabHeading), isRed)
             ))
-            .setConstantHeadingInterpolation(grabHeading)
-            .build()
-        );
-
-        result.put("DEV_shootAgain", follower
-            .pathBuilder()
-            .addPath(new BezierLine(
-                mirror(new Pose(9, 9, shooting.getHeading()), isRed),
-                shooting
-            ))
-            .setLinearHeadingInterpolation(grabHeading, shooting.getHeading())
+            // .setConstantHeadingInterpolation(grabHeading)
+            .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
             .build()
         );
 
@@ -270,7 +252,6 @@ public class FarSideAuto extends LinearOpMode {
         leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
         final LinearHingePivot rampPivot = robot.getRampPivot();
-        shooter.setTelemetry(telemetry);
         CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker, rampPivot);
         
         // Creating the webcam
@@ -303,11 +284,13 @@ public class FarSideAuto extends LinearOpMode {
         }
 
         // Init loop
+        boolean grabThirdSpike = true;
         while(opModeInInit()) {
             if(aimbot.isInitialized()) {
                 OpModeData.selection = aimbot.getSelection();
                 OpModeData.isRed = isRed;
                 OpModeData.inCompetitonMode = inCompetitonMode;
+                shooter.setTelemetry(inCompetitonMode ? null : telemetry);
 
                 telemetry.addData("Status", "Initialized");
                 telemetry.addLine();
@@ -320,6 +303,9 @@ public class FarSideAuto extends LinearOpMode {
                 telemetry.addLine();
                 telemetry.addData("Toggle competiton mode", "Y");
                 telemetry.addData("Competiton mode", OpModeData.inCompetitonMode);
+                telemetry.addLine();
+                telemetry.addData("Toggle grabThirdSpike", "X");
+                telemetry.addData("grabThirdSpike", grabThirdSpike);
                 telemetry.update();
 
                 if(gamepad1.aWasPressed()) {
@@ -329,6 +315,10 @@ public class FarSideAuto extends LinearOpMode {
                 
                 if(gamepad1.yWasPressed()) {
                     inCompetitonMode = !inCompetitonMode;
+                }
+                
+                if(gamepad1.xWasPressed()) {
+                    grabThirdSpike = !grabThirdSpike;
                 }
             }    
         }
@@ -370,6 +360,16 @@ public class FarSideAuto extends LinearOpMode {
             }
         }
         
+        final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
+        while(opModeIsActive() && !(
+            follower.atPose(shooting, 0.5, 0.5) 
+            && Util.anglesNear(follower.getPose().getHeading(), shooting.getHeading(), Math.toRadians(0.85))
+        )) {
+            follower.holdPoint(new BezierPoint(shooting), shooting.getHeading());
+            follower.update();
+            OpModeData.startPosition = follower.getPose();
+            CommandScheduler.getInstance().run();
+        }
 
         // If the motif coul dnt be found, use a defa`ult
         // if(motif == null && allPurple) {
@@ -382,7 +382,7 @@ public class FarSideAuto extends LinearOpMode {
 
         // Grabbing the artifacts from the oponent's loading zone
         intake.intakeGamePieces();
-        follower.followPath(paths.get("park"), false);
+        follower.followPath(paths.get("grabLoadingZoneArtifacts"), false);
 
         follower.setMaxPower(0.8);
         while(follower.isBusy() && opModeIsActive()) {
@@ -393,7 +393,7 @@ public class FarSideAuto extends LinearOpMode {
         follower.setMaxPower(1.0);
 
         // Going again an shooting
-        follower.followPath(paths.get("DEV_shootAgain"), false);
+        follower.followPath(paths.get("backToShooting"), false);
         intake.holdGamePieces();
         
         // hasReloaded = false;
@@ -403,17 +403,55 @@ public class FarSideAuto extends LinearOpMode {
             CommandScheduler.getInstance().run();
         }
 
-        final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
         while(opModeIsActive()  && !(
             follower.atPose(shooting, 0.5, 0.5) 
             && Util.anglesNear(follower.getPose().getHeading(), shooting.getHeading(), Math.toRadians(0.85))
         )) {
             follower.holdPoint(new BezierPoint(shooting), shooting.getHeading());
             follower.update();
+            OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
         }
 
         emptyClip(motif);
+
+        // Grabbing the third line of artifacts
+        // This goes back to shooting afterwards
+        if(grabThirdSpike) {
+            intake.intakeGamePieces();
+            follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
+
+            leftBlocker.close();
+            rightBlocker.close();
+            while(follower.isBusy() && opModeIsActive()) {
+                if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
+                    follower.setMaxPower(0.4);
+                    intake.intakeGamePieces();
+                    shooter.reload();
+                } else {
+                    follower.setMaxPower(1.0);
+                    intake.holdGamePieces();
+                }
+
+                follower.update();
+                OpModeData.startPosition = follower.getPose();
+                CommandScheduler.getInstance().run();
+            }
+            follower.setMaxPower(1.0);
+            
+            while(opModeIsActive()  && !(
+                follower.atPose(shooting, 0.5, 0.5) 
+                && Util.anglesNear(follower.getPose().getHeading(), shooting.getHeading(), Math.toRadians(0.85))
+            )) {
+                follower.holdPoint(new BezierPoint(shooting), shooting.getHeading());
+                follower.update();
+                OpModeData.startPosition = follower.getPose();
+                CommandScheduler.getInstance().run();
+            }
+
+            // Shooting once again
+            emptyClip(motif);
+        }
         
         // Going and parking
         intake.intakeGamePieces();
