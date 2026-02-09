@@ -376,7 +376,7 @@ public class CompetitionTeleop extends OpMode {
         reverseDrivingDirection(gamepad1.bWasPressed());
         
         // Team change
-        toggleIsRed(gamepad1.back && gamepad1.a && !wasPressingIsRed);   
+        toggleIsRed(isTogglingIsRed() && !wasPressingIsRed);   
         
         // Automatic driving
         timeSection("Automaitc Driving", timer);
@@ -419,14 +419,14 @@ public class CompetitionTeleop extends OpMode {
                 || shooter.getStatus() == Status.FIRING
             )
         );
-        toggleAutoFiring(gamepad2.back && gamepad2.left_trigger > TRIGGER_PRESSED && !wasTogglingAutoFiring);
+        toggleAutoFiring(isTogglingAutoFiring() && !wasTogglingAutoFiring);
 
         // AUTOAIM
         timeSection("Aimbot (Algorithms)", timer);
         final BallisticArc arc = getArc(shooter.getStatus());
         timeSection("Aimbot (Driving)", timer);
         followArc(autoAimEnabled && arc != null, arc, shooter.getStatus());
-        toggleAutoAim(gamepad2.back && gamepad2.dpad_left && !wasTogglingAimbot);
+        toggleAutoAim(isTogglingAimbot() && !wasTogglingAimbot);
 
         // MANUAL RELOAD
         timeSection("Manual Reload", timer);
@@ -443,7 +443,7 @@ public class CompetitionTeleop extends OpMode {
         // `UNCHARGING` and cause the shooter to instantly speed up again.
         timeSection("Automatic Reload", timer);
         autoReloadEmptySides(autoReloadEnabled && shooter.getStatus() == ShooterSubsystem.Status.CHARGED);
-        toggleAutoReload(gamepad2.back && gamepad2.y && !wasTogglingAutoReload);
+        toggleAutoReload(isTogglingAutoReload() && !wasTogglingAutoReload);
 
         // CHARGE / UNCHARGE
         timeSection("Charging/Uncharging", timer);
@@ -505,15 +505,32 @@ public class CompetitionTeleop extends OpMode {
         wasPressingRightTrigger = gamepad2.right_trigger > TRIGGER_PRESSED;
         wasPressingLeftTrigger = gamepad2.left_trigger > TRIGGER_PRESSED;
         wasPressingLeftBumper = gamepad2.left_bumper;
-        wasTogglingAutoReload = gamepad2.back && gamepad2.y;
-        wasTogglingAimbot     = gamepad2.back && gamepad2.dpad_left; 
-        wasTogglingAutoFiring = gamepad2.back && gamepad2.left_trigger > TRIGGER_PRESSED; 
-        wasPressingIsRed = gamepad1.back && gamepad1.a;
+        wasTogglingAutoReload = isTogglingAutoReload();
+        wasTogglingAimbot     = isTogglingAimbot(); 
+        wasTogglingAutoFiring = isTogglingAutoFiring(); 
+        wasPressingIsRed = isTogglingIsRed();
         wasPressingX = gamepad1.x;
         wasPressingY = gamepad1.y;
         wasPressingA = gamepad1.a;
         wasPressingPark = gamepad1.dpad_up && gamepad1.y;
         autoFiringWasFeasible = autoFiringIsFeasible;
+    }
+
+    public boolean isTogglingAutoReload() {
+        return (gamepad2.back && gamepad2.y) || (gamepad1.back && gamepad1.y);
+    }
+
+    public boolean isTogglingAimbot() {
+        return (gamepad2.back && gamepad2.dpad_left) || (gamepad1.back && gamepad1.dpad_left);
+    }
+
+    public boolean isTogglingAutoFiring() {
+        return (gamepad2.back && gamepad2.left_trigger > TRIGGER_PRESSED)
+            || (gamepad1.back && gamepad1.left_trigger > TRIGGER_PRESSED);
+    }
+
+    public boolean isTogglingIsRed() {
+        return (gamepad1.back && gamepad1.a) || (gamepad2.back && gamepad2.a);
     }
 
     private void logTelemetry(double deltaTime, ArtifactColor l, ArtifactColor r, boolean autoFiringIsFeasible, BallisticArc arc) {
@@ -522,11 +539,11 @@ public class CompetitionTeleop extends OpMode {
         telemetry.addLine();
         telemetry.addLine(Util.header("Settings"));
         telemetry.addLine();
-        telemetry.addData("autoReloadEnabled (Back2 + Y)", autoReloadEnabled);
-        telemetry.addData("autoAimEnabled (Back2 + ←)", autoAimEnabled);
-        telemetry.addData("autoFiringEnabled (Back2 + LT)", autoFiringEnabled);
+        telemetry.addData("autoReloadEnabled (Back + Y)", autoReloadEnabled);
+        telemetry.addData("autoAimEnabled (Back + ←)", autoAimEnabled);
+        telemetry.addData("autoFiringEnabled (Back + LT)", autoFiringEnabled);
         telemetry.addLine();
-        telemetry.addData("isRed (Back1 + A)", isRed);
+        telemetry.addData("isRed (Back + A)", isRed);
         telemetry.addData("startPosition", startPosition);
         
         if(showExtraTelemetry) {
