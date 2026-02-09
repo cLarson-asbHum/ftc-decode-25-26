@@ -38,12 +38,12 @@ import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArc;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection.Criterion;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
+import org.firstinspires.ftc.teamcode.hardware.MotifLimelight;
 import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
@@ -245,21 +245,18 @@ public class FarSideAuto extends LinearOpMode {
             Robot.Device.INTAKE,
             Robot.Device.LEFT_BLOCKER,
             Robot.Device.RIGHT_BLOCKER,
-            Robot.Device.RAMP_PIVOT
+            Robot.Device.RAMP_PIVOT,
+            Robot.Device.MOTIF_LIMELIGHT
         ));
         shooter      = robot.getShooter();
         intake       = robot.getIntake();
         leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
+        final MotifLimelight motifGetter = robot.getMotifLimelight();
+        // final MotifLimelight motifGetter = null;
         final LinearHingePivot rampPivot = robot.getRampPivot();
         CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker, rampPivot);
         
-        // Creating the webcam
-        final WebcamName obeliskViewerCam = null;
-        final MotifWebcam motifGetter = null;
-
-        // setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
-
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
         for(final LynxModule module : modules) {
@@ -328,7 +325,7 @@ public class FarSideAuto extends LinearOpMode {
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
-        final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
+        final boolean cameraExists = motifGetter != null;
         Motif motif = null;
 
         // Moving to the shooting position
@@ -340,23 +337,11 @@ public class FarSideAuto extends LinearOpMode {
         CommandScheduler.getInstance().run();
         follower.followPath(paths.get("goFromCameraToShooting"), true);
         while(follower.isBusy() && opModeIsActive()) {
-
             follower.update();
             OpModeData.startPosition =  follower.getPose();
-
-            // Snapping a photo of the motif if we are facing it
-            // The camera sees 60 degrees, but we subtract a bit to fully see the motif
-            final double F_O_V = Math.toRadians(40); 
-            final Pose currentPose = follower.getPose();
-            final double targetAngle = Math.atan2(
-                mirror(OBELISK.pedroPose(), isRed).getY() - currentPose.getY(), 
-                mirror(OBELISK.pedroPose(), isRed).getX() - currentPose.getX()
-            );
-
-            if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
-                motifGetter.setGlobalRobotYaw(currentPose.getHeading());
-                motif = motifGetter.getMotif();
-                motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+            
+            if(cameraExists && motif == null) {
+                motif = captureMotif(motifGetter, follower);
             }
         }
         
@@ -371,13 +356,6 @@ public class FarSideAuto extends LinearOpMode {
             CommandScheduler.getInstance().run();
         }
 
-        // If the motif coul dnt be found, use a defa`ult
-        // if(motif == null && allPurple) {
-        //     motif = Motif.ALL_PURPLE;
-        /* }  else */ if(motif == null) {
-            motif = Motif.FIRST_GREEN;
-        }
-
         emptyClip(motif);
 
         // Grabbing the artifacts from the oponent's loading zone
@@ -389,6 +367,10 @@ public class FarSideAuto extends LinearOpMode {
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
+            
+            if(cameraExists && motif == null) {
+                motif = captureMotif(motifGetter, follower);
+            }
         }
         follower.setMaxPower(1.0);
 
@@ -401,6 +383,10 @@ public class FarSideAuto extends LinearOpMode {
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
+            
+            if(cameraExists && motif == null) {
+                motif = captureMotif(motifGetter, follower);
+            }
         }
 
         while(opModeIsActive()  && !(
@@ -436,6 +422,10 @@ public class FarSideAuto extends LinearOpMode {
                 follower.update();
                 OpModeData.startPosition = follower.getPose();
                 CommandScheduler.getInstance().run();
+                
+                if(cameraExists && motif == null) {
+                    motif = captureMotif(motifGetter, follower);
+                }
             }
             follower.setMaxPower(1.0);
             
@@ -474,45 +464,6 @@ public class FarSideAuto extends LinearOpMode {
         while(!command.isFinished() && opModeIsActive()) {
             telemetry.update();
             CommandScheduler.getInstance().run();
-        }
-    }
-
-    private boolean setManualExposure(MotifWebcam motifGetter, int exposureMS, int gain) {
-        // Ensure Vision Portal has been setup.
-        if (motifGetter.getStream() == null) {
-            return false;
-        }
-
-        // Wait for the camera to be open
-        if (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING) {
-            telemetry.addData("Camera", "Waiting");
-            telemetry.update();
-            while (!isStopRequested() && (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING)) {
-                sleep(20);
-            }
-            telemetry.addData("Camera", "Ready");
-            telemetry.update();
-        }
-
-        // Set camera controls unless we are stopping.
-        if (!isStopRequested())
-        {
-            // Set exposure.  Make sure we are in Manual Mode for these values to take effect.
-            ExposureControl exposureControl = motifGetter.getStream().getCameraControl(ExposureControl.class);
-            if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
-                exposureControl.setMode(ExposureControl.Mode.Manual);
-                sleep(50);
-            }
-            exposureControl.setExposure((long)exposureMS, TimeUnit.MILLISECONDS);
-            sleep(20);
-
-            // Set Gain.
-            GainControl gainControl = motifGetter.getStream().getCameraControl(GainControl.class);
-            gainControl.setGain(gain);
-            sleep(20);
-            return (true);
-        } else {
-            return (false);
         }
     }
 
@@ -637,7 +588,27 @@ public class FarSideAuto extends LinearOpMode {
             if(shooter.getStatus() == Status.UNCHARGING) {
                 shooter.forceCharged();
             }
-        } 
+        }
+    }
+
+    private Motif captureMotif(MotifLimelight motifGetter, Follower follower) {
+        // Snapping a photo of the motif if we are facing it
+        // The camera sees 60 degrees, but we subtract a bit to fully see the motif
+        final double F_O_V = Math.toRadians(40); 
+        final Pose currentPose = follower.getPose();
+        final double targetAngle = Math.atan2(
+            OBELISK.pedroPose().getY() - currentPose.getY(), 
+            OBELISK.pedroPose().getX() - currentPose.getX()
+        );
+
+        if(Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
+            motifGetter.setGlobalRobotYaw(currentPose.getHeading());
+            final Motif result = motifGetter.getMotif();
+            motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+            return result;
+        }
+
+        return null;
     }
     
     private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);
