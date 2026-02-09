@@ -8,8 +8,9 @@ public final class KeyPoses {
     public static final class Blue {
         public static final Pose BASE = new Pose(105, 33);
         public static final Pose GOAL_WALL = new Pose(17.43, 120 + 13.0); // Center of wall, determined from an image
-        public static final Pose GOAL_CENTER = new Pose(14.3, 138.7); // Center of opening, determined from an image
-        public static final Pose GOAL_BACKBOARD = new Pose(7, 144);
+        // public static final Pose GOAL_CENTER = new Pose(14.3, 138.7); // Center of opening, determined from an image
+        public static final Pose GOAL_CENTER = new Pose(9, 135); // Center of opening, determined from an image
+        public static final Pose GOAL_BACKBOARD = new Pose(0, 144);
         public static final Pose LOADING = new Pose(132, 12);
 
         // public static final Pose SHOOTING = new Pose(
@@ -39,7 +40,7 @@ public final class KeyPoses {
         // Colors are ordered coming in from the inner edge
         public static final Pose LAST_GREEN = new Pose(24, 84);
         public static final Pose MIDDLE_GREEN = new Pose(24, 60);
-        public static final Pose FIRST_GREEN = new Pose(24, 46);
+        public static final Pose FIRST_GREEN = new Pose(24, 36);
         // public static final Pose POSE = new Pose();
 
         

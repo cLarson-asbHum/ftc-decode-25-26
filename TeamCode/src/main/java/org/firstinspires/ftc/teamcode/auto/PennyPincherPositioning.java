@@ -37,13 +37,11 @@ import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArc;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection.Criterion;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
@@ -217,15 +215,6 @@ public class PennyPincherPositioning extends LinearOpMode {
 
         telemetry.setMsTransmissionInterval(30);
 
-        // Creating subsystems
-        // final Subsystem[] subsystems = createSubsystems(hardwareMap);
-        
-        // Creating the webcam
-        final WebcamName obeliskViewerCam = null;
-        final MotifWebcam motifGetter = null;
-
-        // setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
-
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
 
@@ -272,11 +261,6 @@ public class PennyPincherPositioning extends LinearOpMode {
         waitForStart();
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
-        // Get the motif 
-        final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
-        Motif motif = null;
-
-        // intake.intakeGamePieces();
         follower.followPath(paths.get("park"), false);
 
         while(follower.isBusy() && opModeIsActive()) {
@@ -299,42 +283,4 @@ public class PennyPincherPositioning extends LinearOpMode {
         }
     }
 
-    private boolean setManualExposure(MotifWebcam motifGetter, int exposureMS, int gain) {
-        // Ensure Vision Portal has been setup.
-        if (motifGetter.getStream() == null) {
-            return false;
-        }
-
-        // Wait for the camera to be open
-        if (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING) {
-            telemetry.addData("Camera", "Waiting");
-            telemetry.update();
-            while (!isStopRequested() && (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING)) {
-                sleep(20);
-            }
-            telemetry.addData("Camera", "Ready");
-            telemetry.update();
-        }
-
-        // Set camera controls unless we are stopping.
-        if (!isStopRequested())
-        {
-            // Set exposure.  Make sure we are in Manual Mode for these values to take effect.
-            ExposureControl exposureControl = motifGetter.getStream().getCameraControl(ExposureControl.class);
-            if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
-                exposureControl.setMode(ExposureControl.Mode.Manual);
-                sleep(50);
-            }
-            exposureControl.setExposure((long)exposureMS, TimeUnit.MILLISECONDS);
-            sleep(20);
-
-            // Set Gain.
-            GainControl gainControl = motifGetter.getStream().getCameraControl(GainControl.class);
-            gainControl.setGain(gain);
-            sleep(20);
-            return (true);
-        } else {
-            return (false);
-        }
-    }
 }

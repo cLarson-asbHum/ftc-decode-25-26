@@ -190,19 +190,20 @@ public class RippleyColorBlind extends LinearOpMode {
         // Seting up the points
         final Pose start = mirror(START_POS.pedroPose(), isRed);
         final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
+        final double grabHeading = isRed ? 0 : -Math.PI;
 
         // Creating the paths
-        result.put("goFromCameraToShooting", follower
+        result.put("goFromCameraToShooting", follower // #region
             .pathBuilder()
             .addPath(
                 new BezierLine(start, shooting)
             )
             .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
             .build()
-        );
+        ); //#endregion
 
-        final Pose firstGrabEndPose = mirror(new Pose(24,     89.500), isRed);
-        final PathChain grabArtifacts = follower
+        final Pose firstGrabEndPose = mirror(new Pose(24, 89.500), isRed);
+        final PathChain grabArtifacts = follower //#region
             .pathBuilder()
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
@@ -210,36 +211,51 @@ public class RippleyColorBlind extends LinearOpMode {
                 mirror(new Pose(58.489, 82.500), isRed),
                 mirror(new Pose(54.089, 82.500), isRed)
             ))
-            .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
+            .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
             .addPath(new BezierLine(
                 () -> follower.getPose(),
                 mirror(new Pose(42.089, 82.500), isRed)
             ))
-            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
+            .setConstantHeadingInterpolation(grabHeading)
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
                 mirror(new Pose(33.000, 89.500), isRed),
                 mirror(new Pose(31.000, 89.500), isRed),
                 firstGrabEndPose
             ))
-            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
-            .build();
+            .setConstantHeadingInterpolation(grabHeading)
+            .build(); //#endregion
             
+        final Path openGateAndGoToShooting = new Path(new BezierCurve( //#region
+            // Swooping Bezier Form
+            () -> follower.getPose(),
+            mirror(new Pose( 5.641, 52.733), isRed),
+            mirror(new Pose(46.082, 72.141), isRed),
+            shooting
+        )); // #endregion
+
+        final Path openGate = new Path(new BezierCurve( //#region
+            // Little Tap form
+            () -> follower.getPose(),
+            mirror(new Pose(21.315, 74.207), isRed),
+            mirror(new Pose(16.133, 73.035), isRed)
+        )); //#endregion
+
         final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
-        final Pose secondShooting = minTravelDist(
+        final Pose secondShooting = minTravelDist( // #region
             new BezierLine(
                 mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
                 mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
             ),
             firstGrabEndPose, 
             secondGrabStart
-        );
+        ); //#endregion
 
-        final Path goBackToShoot = new Path(new BezierLine(
+        final Path goBackToShoot = new Path(new BezierLine( //#region
             () -> follower.getPose(),
             secondShooting
-        ));
-        final PathChain grabArtifactsAgain =  follower
+        )); //#endregion
+        final PathChain grabArtifactsAgain =  follower //#region
             .pathBuilder()
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
@@ -247,33 +263,33 @@ public class RippleyColorBlind extends LinearOpMode {
                 mirror(new Pose(48.611, 67.675), isRed),
                 secondGrabStart
             ))
-            .setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.toRadians(-180))
+            .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
             .addPath(new BezierLine(
                 () -> follower.getPose(),
                 mirror(new Pose(40.000, 61.500), isRed)
             ))
-            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
+            .setConstantHeadingInterpolation(grabHeading)
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
                 mirror(new Pose(33.000, 56.500), isRed),
                 mirror(new Pose(31.000, 56.500), isRed),
                 mirror(new Pose(14,     56.500), isRed)
             ))
-            .setConstantHeadingInterpolation(isRed ? 0 : Math.toRadians(-180))
-            .build();
+            .setConstantHeadingInterpolation(grabHeading)
+            .build(); //#endregion
 
         final Pose parkPose = mirror(new Pose(48, 60, shooting.getHeading()), isRed);
         final Pose avoidGatePose = mirror(new Pose(26, 59.500), isRed);
-        final Pose thirdShooting = minTravelDist(
+        final Pose thirdShooting = minTravelDist( //#region
             new BezierLine(
                 mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
                 mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
             ),
             avoidGatePose, 
             parkPose
-        );
+        ); //#endregion
         
-        final PathChain goBackToShootAgain = follower.pathBuilder()
+        final PathChain goBackToShootAgain = follower.pathBuilder() //#region
             .addPath(new Path(new BezierLine(
                 () -> follower.getPose(),
                 avoidGatePose
@@ -282,33 +298,41 @@ public class RippleyColorBlind extends LinearOpMode {
                 () -> follower.getPose(),
                 thirdShooting
             )))
-            .build();
-        final Path turnSoAsToIntake = new Path(new BezierLine(
-            () -> follower.getPose(),
-            new Pose(shooting.getX(), shooting.getY(), isRed ? 0 : Math.PI)
-        ));
+            .build(); //#endregion
 
-        final double grabHeading = isRed ? 0 : -Math.PI;
         grabArtifacts.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
         grabArtifacts.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifacts.getPath(2).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
         grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
+        openGateAndGoToShooting.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+        openGate.setConstantHeadingInterpolation(Math.toRadians(-90));
         goBackToShoot.setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
         goBackToShootAgain.getPath(0).setConstantHeadingInterpolation(grabHeading);
         goBackToShootAgain.getPath(1).setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
 
-        result.put("grabArtifactsAndShoot", follower
+        result.put("grabArtifactsAndShoot", follower //#region
             .pathBuilder()
             .addPath(grabArtifacts.getPath(0))
             .addPath(grabArtifacts.getPath(1))
             .addPath(grabArtifacts.getPath(2))
             .addPath(goBackToShoot)
             .build()
-        );
+        ); //#endregion
+        
+        result.put("grabArtifactsOpenGateAndShoot", follower //#region
+            .pathBuilder()
+            .addPath(grabArtifacts.getPath(0))
+            .addPath(grabArtifacts.getPath(1))
+            .addPath(grabArtifacts.getPath(2))
+            // .addPath(openGateAndGoToShooting)
+            .addPath(openGate)
+            .addPath(goBackToShoot)
+            .build()
+        ); //#endregion
 
-        result.put("grabArtifactsAndShootAgain", follower
+        result.put("grabArtifactsAndShootAgain", follower //#region
             .pathBuilder()
             .addPath(grabArtifactsAgain.getPath(0))
             .addPath(grabArtifactsAgain.getPath(1))
@@ -316,9 +340,9 @@ public class RippleyColorBlind extends LinearOpMode {
             .addPath(goBackToShootAgain.getPath(0))
             .addPath(goBackToShootAgain.getPath(1))
             .build()
-        );
+        ); //#endregion
 
-        result.put("park", follower
+        result.put("park", follower //#region
             .pathBuilder()
             .addPath(new BezierLine(
                 () -> follower.getPose(), 
@@ -326,7 +350,7 @@ public class RippleyColorBlind extends LinearOpMode {
             ))
             .setConstantHeadingInterpolation(shooting.getHeading())
             .build()
-        );
+        ); //#endregion
 
         return result;
     }
@@ -343,13 +367,12 @@ public class RippleyColorBlind extends LinearOpMode {
             Robot.Device.RIGHT_BLOCKER,
             Robot.Device.RAMP_PIVOT
         )); 
-        shooter = robot.getShooter();
-        intake = robot.getIntake();
-        leftBlocker = robot.getLeftBlocker();
+        shooter      = robot.getShooter();
+        intake       = robot.getIntake();
+        leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
-        CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker);
         final LinearHingePivot rampPivot = robot.getRampPivot();
-        CommandScheduler.getInstance().registerSubsystem(rampPivot);
+        CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
         shooter.setTelemetry(telemetry);
 
         // final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
@@ -373,20 +396,39 @@ public class RippleyColorBlind extends LinearOpMode {
         OpModeData.follower = follower;
         
         // Init loop
+        boolean inCompetitonMode = OpModeData.inCompetitonMode;
+        boolean openGate = true;
         while(opModeInInit()) {
+            OpModeData.isRed = isRed;
+            OpModeData.inCompetitonMode = inCompetitonMode;
+            shooter.setTelemetry(inCompetitonMode ? null : telemetry);
+
             telemetry.addData("Status", "Initialized");
             telemetry.addLine();
             telemetry.addLine(Util.header("Settings"));
             telemetry.addLine();
             telemetry.addData("Toggle isRed", "A");
             telemetry.addData("isRed", isRed);
+            telemetry.addLine();
+            telemetry.addData("Toggle competiton mode", "Y");
+            telemetry.addData("Competiton mode", OpModeData.inCompetitonMode);
+            telemetry.addLine();
+            telemetry.addData("Toggle openGate", "X");
+            telemetry.addData("openGate", openGate);
             telemetry.update();
 
             if(gamepad1.aWasPressed()) {
                 isRed = !isRed;
                 paths = createPaths(follower, isRed);
+            }      
+
+            if(gamepad1.yWasPressed()) {
+                inCompetitonMode = !inCompetitonMode;
             }
             
+            if(gamepad1.xWasPressed()) {
+                openGate = !openGate;
+            }
         }
         
         waitForStart();
@@ -442,7 +484,11 @@ public class RippleyColorBlind extends LinearOpMode {
         // Moving to grab artifacts
         // This goes back to shooting afterwards
         intake.intakeGamePieces();
-        follower.followPath(paths.get("grabArtifactsAndShoot"), false);
+        if(openGate) {
+            follower.followPath(paths.get("grabArtifactsOpenGateAndShoot"), false);
+        } else {
+            follower.followPath(paths.get("grabArtifactsAndShoot"), false);
+        }
 
         boolean hasReloaded = false;
         leftBlocker.close();
@@ -625,19 +671,6 @@ public class RippleyColorBlind extends LinearOpMode {
         CommandScheduler.getInstance().run();
     }
     
-    private void emptyForefrontClip(Motif unused) {
-        runUntilCompleted(shooter.chargeCommand());
-        final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
-
-        // Shooting depth 1
-        runUntilCompleted(shooter.fireCommand());
-
-        // Ending
-        intake.holdGamePieces();
-        shooter.charge();
-        CommandScheduler.getInstance().run();
-    }
-
     private void shootPattern(MotifGetter.Motif motif) {
         
         // Firing the artifacts we have, using the motif from the april tag
