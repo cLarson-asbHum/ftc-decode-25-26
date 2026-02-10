@@ -87,8 +87,8 @@ public class FarSideAuto extends LinearOpMode {
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
-    public static double SHOT_SPEED = 340; // Determined using the ballistic arc text user interface
-    public static double SHOT_ANGLE = Math.toRadians(43); // Determined using the ballistic arc text user interface
+    public static double SHOT_SPEED = 320; // Determined using the ballistic arc text user interface
+    public static double SHOT_ANGLE = Math.toRadians(47.5); // Determined using the ballistic arc text user interface
 
     public static ConfigPose START_POS = new ConfigPose(
         56,
@@ -121,8 +121,6 @@ public class FarSideAuto extends LinearOpMode {
     
     private ArrayList<String> nullDeviceNames = new ArrayList<>();
     private ArrayList<Class<?>> nullDeviceTypes = new ArrayList<>();
-
-
 
     private Pose mirror(Pose pose, boolean doMirror) {
         if(doMirror) {
@@ -158,21 +156,21 @@ public class FarSideAuto extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
-                mirror(new Pose(75.038, 34.500), isRed),
+                mirror(new Pose(75.038 - 12, 34.500), isRed),
                 mirror(new Pose(58.489, 34.500), isRed),
                 mirror(new Pose(54.089, 34.500), isRed)
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
             .addPath(new BezierLine(
                 () -> follower.getPose(),
-                mirror(new Pose(42.089, 34.500), isRed)
+                mirror(new Pose(35.089, 34.500), isRed)
             ))
             .setConstantHeadingInterpolation(grabHeading)
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
                 mirror(new Pose(33.000, 41.500), isRed),
                 mirror(new Pose(31.000, 41.500), isRed),
-                mirror(new Pose(24.000, 41.500), isRed)
+                mirror(new Pose(15.000, 41.500), isRed)
             ))
             .setConstantHeadingInterpolation(grabHeading)
             .build();
@@ -191,7 +189,7 @@ public class FarSideAuto extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierLine(
                 () -> follower.getPose(),
-                mirror(new Pose(11, 7.75, grabHeading), isRed)
+                mirror(new Pose(11, 9, grabHeading), isRed)
             ))
             // .setConstantHeadingInterpolation(grabHeading)
             .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
@@ -363,13 +361,14 @@ public class FarSideAuto extends LinearOpMode {
         final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
         while(opModeIsActive() && !(
             follower.atPose(shooting, 0.5, 0.5) 
-            && Util.anglesNear(follower.getPose().getHeading(), shooting.getHeading(), Math.toRadians(0.85))
+            && Util.anglesNear(follower.getPose().getHeading(), shooting.getHeading(), Math.toRadians(0.5))
         )) {
             follower.holdPoint(new BezierPoint(shooting), shooting.getHeading());
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
         }
+        follower.breakFollowing();
 
         // If the motif coul dnt be found, use a defa`ult
         // if(motif == null && allPurple) {
@@ -394,7 +393,6 @@ public class FarSideAuto extends LinearOpMode {
 
         // Going again an shooting
         follower.followPath(paths.get("backToShooting"), false);
-        intake.holdGamePieces();
         
         // hasReloaded = false;
         while(follower.isBusy() && opModeIsActive()) {
@@ -412,6 +410,7 @@ public class FarSideAuto extends LinearOpMode {
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
         }
+        follower.breakFollowing();
 
         emptyClip(motif);
 
@@ -429,7 +428,7 @@ public class FarSideAuto extends LinearOpMode {
                     intake.intakeGamePieces();
                     shooter.reload();
                 } else {
-                    follower.setMaxPower(1.0);
+                    follower.setMaxPower(0.8);
                     intake.holdGamePieces();
                 }
 
@@ -448,6 +447,7 @@ public class FarSideAuto extends LinearOpMode {
                 OpModeData.startPosition = follower.getPose();
                 CommandScheduler.getInstance().run();
             }
+            follower.breakFollowing();
 
             // Shooting once again
             emptyClip(motif);

@@ -105,7 +105,7 @@ public class RippleyColorBlind extends LinearOpMode {
     );
 
     public static final double SECOND_SHOT_SPEED = 220;
-    public static final double THIRD_SHOT_SPEED = Robot.ticksToInches(1500);
+    public static final double THIRD_SHOT_SPEED = Robot.ticksToInches(1600);
     
     private ArtifactColorRangeSensor rightReload = null;
     private ArtifactColorRangeSensor leftReload = null;
@@ -241,7 +241,8 @@ public class RippleyColorBlind extends LinearOpMode {
             mirror(new Pose(16.133, 73.035), isRed)
         )); //#endregion
 
-        final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
+        // final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
+        final Pose secondGrabStart = mirror(new Pose(50.839, 64.500), isRed);
         final Pose secondShooting = minTravelDist( // #region
             new BezierLine(
                 mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
@@ -259,8 +260,9 @@ public class RippleyColorBlind extends LinearOpMode {
             .pathBuilder()
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
+                secondGrabStart,
                 mirror(new Pose(48.611, 61.500), isRed),
-                mirror(new Pose(48.611, 67.675), isRed),
+                // mirror(new Pose(48.611, 67.675), isRed),
                 secondGrabStart
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
@@ -300,17 +302,17 @@ public class RippleyColorBlind extends LinearOpMode {
             )))
             .build(); //#endregion
 
-        grabArtifacts.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
+        grabArtifacts.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
         grabArtifacts.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifacts.getPath(2).setConstantHeadingInterpolation(grabHeading);
-        grabArtifactsAgain.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
+        grabArtifactsAgain.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
         grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
         openGateAndGoToShooting.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
         openGate.setConstantHeadingInterpolation(Math.toRadians(-90));
-        goBackToShoot.setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
+        goBackToShoot.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
         goBackToShootAgain.getPath(0).setConstantHeadingInterpolation(grabHeading);
-        goBackToShootAgain.getPath(1).setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
+        goBackToShootAgain.getPath(1).setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
 
         result.put("grabArtifactsAndShoot", follower //#region
             .pathBuilder()
@@ -372,7 +374,8 @@ public class RippleyColorBlind extends LinearOpMode {
         leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
         final LinearHingePivot rampPivot = robot.getRampPivot();
-        CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
+        // CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
+        CommandScheduler.getInstance().registerSubsystem(shooter,intake,leftBlocker,rightBlocker,rampPivot);
         shooter.setTelemetry(telemetry);
 
         // final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");

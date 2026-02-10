@@ -177,14 +177,14 @@ public class FlywheelTubeShooter implements ShooterSubsystem {
      */
     private final CRServo leftFeeder;
     private double targetLeftFeederPower = 0; 
-    private boolean hasSetLeftFeederPower = false;
+    private boolean hasSetLeftFeederPower = true;
     
     /**
      * One of two servos that moves a projectile into the flywheels
      */
     private final CRServo rightFeeder;
     private double targetRightFeederPower = 0; 
-    private boolean hasSetRightFeederPower = false;
+    private boolean hasSetRightFeederPower = true;
 
     private final ArtifactColorGetter rightReloadClassifier;
     private final ArtifactColorGetter leftReloadClassifier;

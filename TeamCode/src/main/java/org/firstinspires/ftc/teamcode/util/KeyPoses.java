@@ -9,7 +9,7 @@ public final class KeyPoses {
         public static final Pose BASE = new Pose(105, 33);
         public static final Pose GOAL_WALL = new Pose(17.43, 120 + 13.0); // Center of wall, determined from an image
         // public static final Pose GOAL_CENTER = new Pose(14.3, 138.7); // Center of opening, determined from an image
-        public static final Pose GOAL_CENTER = new Pose(9, 135); // Center of opening, determined from an image
+        public static final Pose GOAL_CENTER = new Pose(7, 135); // Center of opening, determined from an image
         public static final Pose GOAL_BACKBOARD = new Pose(0, 144);
         public static final Pose LOADING = new Pose(132, 12);
 
@@ -24,17 +24,16 @@ public final class KeyPoses {
             AngleUnit.normalizeRadians(Math.toRadians(-46))
         );
 
-        private static final double farX = 48 + 11.5;
-        private static final double farY = 0 + 18.1;
+        // private static final double farX = 48 + 11.5;
+        // private static final double farY = 0 + 18.1;
+        private static final double farX = 144 - (86);
+        private static final double farY = 20;
         public static final Pose FAR_SHOOTING = new Pose(
             // Determines from an image
             farX,
             farY,
-            AngleUnit.normalizeRadians(Math.PI + Math.atan2(
-                GOAL_BACKBOARD.getY() - farY,
-                GOAL_BACKBOARD.getX() - farX
-            )
-        ));
+            AngleUnit.normalizeRadians(Math.PI + Math.toRadians(120))
+        );
 
         // Artifacts are on the side closest to the blue goal
         // Colors are ordered coming in from the inner edge

@@ -42,7 +42,9 @@ public class ShooterSpeedTest extends OpMode {
 
     @Override
     public void init() {
-        final Robot robot = new Robot(hardwareMap, Set.of(Device.LEFT_SHOOTER, Device.RAMP_PIVOT));
+        // final Robot robot = new Robot(hardwareMap, Set.of(Device.RIGHT_SHOOTER, Device.RAMP_PIVOT));
+        // final Robot robot = new Robot(hardwareMap, Set.of(Device.LEFT_SHOOTER, Device.RAMP_PIVOT));
+        final Robot robot = new Robot(hardwareMap, Set.of(Device.SHOOTER, Device.RAMP_PIVOT));
         shooter = robot.getShooter();
         pivot = robot.getRampPivot();
         shootingMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "leftShooter");
@@ -146,7 +148,7 @@ public class ShooterSpeedTest extends OpMode {
             telemetry.addData(
                 "New target", "%.1f in s⁻¹ (%.0f ticks s⁻¹)", 
                 newTargetSpeed, 
-                inchesToTicks.applyAsDouble(newTargetSpeed)
+                Robot.inchesToTicks(newTargetSpeed)
             );
             telemetry.addLine();
         }
