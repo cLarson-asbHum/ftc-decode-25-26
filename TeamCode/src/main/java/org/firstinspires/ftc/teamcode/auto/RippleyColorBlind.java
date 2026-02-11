@@ -63,7 +63,7 @@ import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
 
 @Configurable
-@Autonomous(name = "ColorBlind Auto2: Blue Rippley", group = "A - Main")
+@Autonomous(name = "<<ColorBlind>> Auto2: Blue Rippley", group = "AB - Main Colorblind")
 public class RippleyColorBlind extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;

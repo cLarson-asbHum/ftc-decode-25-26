@@ -72,8 +72,8 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
 @Configurable
-@Autonomous(name = "Gary Larson's Far Side auto", group = "AA - Main Color Sensitive")
-public class FarSideAuto extends LinearOpMode {
+@Autonomous(name = "{{ColorBlind}} Gary Larson's Far Side", group = "AB - Main Colorblind")
+public class FarSideAutoColorBlind extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;
     private DcMotor frontRight = null;
@@ -94,8 +94,8 @@ public class FarSideAuto extends LinearOpMode {
         56,
         10,
 
-        // In Radians. Intake facing the obelisk
-        Math.toRadians(90)
+        // In Radians. Shooter facing the obelisk
+        Math.toRadians(-90)
     );
 
     public static ConfigPose SHOOTING_POS = new ConfigPose(KeyPoses.Blue.FAR_SHOOTING);

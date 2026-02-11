@@ -69,7 +69,7 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
 // @Configurable
-@Autonomous(name = "Penny Pincher Positioning", group = "A - Main")
+@Autonomous(name = "Penny Pincher Positioning", group = "AB - Main Colorblind")
 public class PennyPincherPositioning extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;

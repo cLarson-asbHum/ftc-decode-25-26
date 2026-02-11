@@ -13,7 +13,6 @@ import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -22,30 +21,36 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
-import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive ;
+import org.firstinspires.ftc.teamcode.hardware.MotifLimelight;
+import org.firstinspires.ftc.teamcode.hardware.Robot;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.FlywheelTubeShooter;
+import org.firstinspires.ftc.teamcode.hardware.subsystem.LinearHingePivot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.ShooterSubsystem.Status;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.teleop.ClearCommandScheduler;
 import org.firstinspires.ftc.teamcode.temp.TimeInjectionUtil;
 import org.firstinspires.ftc.teamcode.util.ArtifactColor;
 import org.firstinspires.ftc.teamcode.util.ConfigPose;
+import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.MotifGetter;
 import org.firstinspires.ftc.teamcode.util.MotifGetter.Motif;
 import org.firstinspires.ftc.teamcode.util.OpModeData;
@@ -56,9 +61,9 @@ import org.firstinspires.ftc.vision.VisionPortal;
 
 import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
-@Disabled
+
 @Configurable
-@Autonomous(name = "Auto2: Blue Rippley", group = "A - Main")
+@Autonomous(name = "Auto2: Blue Rippley", group = "AA - Main Color Sensitive")
 public class Rippley extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;
@@ -74,26 +79,23 @@ public class Rippley extends LinearOpMode {
     // TODO: find the robot width and length
     public static double ROBOT_LENGTH = 17; // Inches parallel to the robot's forward-facing axis
     public static double ROBOT_WIDTH = 17; // Inches perpendicular to the robot's forward-facing axis 
+    public static double ROBOT_RADIUS = 7;
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
     public static ConfigPose START_POS = new ConfigPose(
         // In Inches. Resting flat against the blue goal
-        24,
+        20,
 
         // In Inches. Is along the top-most grid edge
-        120,
+        122,
 
         // In Radians. Along the blue goal, facing the upper wall
         // Determined emperically
-        Math.toRadians(45)
+        Math.toRadians(52)
     );
 
-    public static ConfigPose SHOOTING_POS = new ConfigPose(
-        52,
-        102, // A little higher than the jigsaw so we are facing the goal
-        Math.toRadians(315)
-    );
+    public static ConfigPose SHOOTING_POS = new ConfigPose(KeyPoses.Blue.SHOOTING);
 
     public static ConfigPose OBELISK = new ConfigPose(
         72,
@@ -101,6 +103,8 @@ public class Rippley extends LinearOpMode {
         -Math.PI / 2
     );
 
+    public static final double SECOND_SHOT_SPEED = 220;
+    public static final double THIRD_SHOT_SPEED = Robot.ticksToInches(1600);
     
     private ArtifactColorRangeSensor rightReload = null;
     private ArtifactColorRangeSensor leftReload = null;
@@ -108,6 +112,9 @@ public class Rippley extends LinearOpMode {
     private FlywheelTubeShooter shooter = null;
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
+    private BlockerSubsystem leftBlocker = null;
+    private BlockerSubsystem rightBlocker = null;
+    private CRServo duckSpinner = null;
 
     private boolean isRed = false;
     
@@ -169,85 +176,6 @@ public class Rippley extends LinearOpMode {
         }
     }
 
-    private Subsystem[] createSubsystems(HardwareMap hardwareMap) {
-        // Find and create all of the hardware. This uses the hardware map. 
-        // When using unit tests, the `hardwareMap` field can be set for dependency injection.
-        final DcMotorEx frontLeftMotor  = (DcMotorEx) findHardware(DcMotor.class, "frontLeft"); // Null if not found
-        final DcMotorEx backLeftMotor   = (DcMotorEx) findHardware(DcMotor.class, "backLeft"); // Null if not found
-        final DcMotorEx frontRightMotor = (DcMotorEx) findHardware(DcMotor.class, "frontRight"); // Null if not found
-        final DcMotorEx backRightMotor  = (DcMotorEx) findHardware(DcMotor.class, "backRight"); // Null if not found
-
-        final DcMotorEx rightShooterMotor = (DcMotorEx) findHardware(DcMotor.class, "rightShooter");
-        final CRServo rightFeederServo = findHardware(CRServo.class, "rightFeeder");
-        final CRServo leftFeederServo = findHardware(CRServo.class, "leftFeeder");
-        final DcMotorEx intakeMotor = (DcMotorEx) findHardware(DcMotor.class, "intake");
-
-        final ColorRangeSensor rightReloadSensor = findHardware(ColorRangeSensor.class, "rightReload");
-        final ColorRangeSensor leftReloadSensor = findHardware(ColorRangeSensor.class, "leftReload");
-        
-        // rightRed = hardwareMap.tryGet(SwitchableLight.class, "rightRed");     // Intentionaly not caring if we don't find this
-        // rightGreen = hardwareMap.tryGet(SwitchableLight.class, "rightGreen"); // Intentionaly not caring if we don't find this
-        
-        // leftRed = hardwareMap.tryGet(SwitchableLight.class, "leftRed");     // Intentionaly not caring if we don't find this
-        // leftGreen = hardwareMap.tryGet(SwitchableLight.class, "leftGreen"); // Intentionaly not caring if we don't find this
-
-        // Checking that ALL hardware has been found (aka the nullHardware list is empty)
-        // If any are not found, an error is thrown stating which.
-        throwAFitIfAnyHardwareIsNotFound();
-
-        // Setting all necessary hardware properties
-        frontLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        backLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-
-        rightShooterMotor.setDirection(DcMotor.Direction.REVERSE);
-        // rightShooterMotor.setVelocityPIDFCoefficients(
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).p, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).i, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).d, 
-        //     -rightShooterMotor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER).f 
-        // );
-        intakeMotor.setDirection(DcMotor.Direction.REVERSE);
-        rightFeederServo.setDirection(DcMotor.Direction.REVERSE);
-        leftFeederServo.setDirection(DcMotor.Direction.FORWARD);
-
-        // Creating subsystems. 
-        // Subsystems represent groups of hardware that achieve ONE function.
-        // Subsystems can lead into each other, but they should be able to operate independently 
-        // (even if nothing is achieved, per se).
-        rightReload = new ArtifactColorRangeSensor(
-            rightReloadSensor,
-            new ArtifactColorRangeSensor.AlternateColorSensorConst().asColorSensorConst(), // Use alternate tuning because wierd
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-        leftReload = new ArtifactColorRangeSensor(
-            leftReloadSensor,
-            new ArtifactColorRangeSensor.ColorSensorConst(), // USe the default tuning
-            new double[] { 0.400, 0.24, 0.16, 0.12, 0.08  }
-        );
-
-        final FlywheelTubeShooter rightShooter = new FlywheelTubeShooter.Builder(rightShooterMotor) 
-            .setLeftFeeder(leftFeederServo) 
-            .setRightFeeder(rightFeederServo)
-            .setRightReloadClassifier(rightReload)
-            .setLeftReloadClassifier( leftReload)
-            .build();
-        final CarwashIntake intake = new CarwashIntake(intakeMotor);
-        // final BasicMecanumDrive drivetrain = new BasicMecanumDrive(
-        //     frontLeftMotor, 
-        //     backLeftMotor,
-        //     frontRightMotor,
-        //     backRightMotor
-        // );
-
-        // This means that no command will use the same subsystem at the same time.
-        CommandScheduler.getInstance().registerSubsystem(rightShooter, intake);
-
-        // Return a list of every subsystem that we have created
-        return new Subsystem[] { rightShooter, intake, drivetrain };
-    }
-
     private Pose mirror(Pose pose, boolean doMirror) {
         if(doMirror) {
             return new Pose(72 - (pose.getX() - 72), pose.getY(), Math.PI - pose.getHeading());
@@ -262,78 +190,206 @@ public class Rippley extends LinearOpMode {
         // Seting up the points
         final Pose start = mirror(START_POS.pedroPose(), isRed);
         final Pose shooting = mirror(SHOOTING_POS.pedroPose(), isRed);
+        final double grabHeading = isRed ? 0 : -Math.PI;
 
         // Creating the paths
-        result.put("goFromCameraToShooting", follower
+        result.put("goFromCameraToShooting", follower // #region
             .pathBuilder()
             .addPath(
-                // new BezierLine(new Pose(22.017, 119.603), new Pose(40.463, 102.942))
                 new BezierLine(start, shooting)
             )
             .setLinearHeadingInterpolation(start.getHeading(), shooting.getHeading())
             .build()
-        );
+        ); //#endregion
 
-        final Path grabArtifacts = new Path(new BezierCurve(
-            mirror(new Pose(40.463, 102.942 - 7), isRed),
-            mirror(new Pose(89.851, 68.430 - 7), isRed),
-            mirror(new Pose(12.496, 100.562 - 7), isRed),
-            mirror(new Pose(25.289, 83.306 - 7), isRed),
-            mirror(new Pose(23.207, 71.405 - 7), isRed),
-            mirror(new Pose(25.207, 73.488 - 7), isRed) // End point
-        ));
-        final Path goBackToShoot = new Path(new BezierLine(
-            mirror(new Pose(25.207, 73.488), isRed), 
-            shooting
-        ));
-        final Path turnSoAsToIntake = new Path(new BezierLine(
-            shooting,
-            new Pose(shooting.getX(), shooting.getY(), isRed ? 0 : Math.PI)
-        ));
-
-        // turnSoAsToIntake.setLinearHeadingInterpolation(shooting.getHeading(), isRed ? 0 : Math.PI);
-        grabArtifacts.setConstantHeadingInterpolation(/* start.getHeading(),  */isRed ? 0 : Math.PI);
-        goBackToShoot.setLinearHeadingInterpolation(isRed ? 0 : Math.PI, shooting.getHeading());
-        result.put("grabArtifactsAndShoot", follower
+        final Pose firstGrabEndPose = mirror(new Pose(24, 89.500), isRed);
+        final PathChain grabArtifacts = follower //#region
             .pathBuilder()
-            // .addPath(turnSoAsToIntake) // FIXME: Tell pedropathing to do this correctly!
-            .addPath(grabArtifacts)
+            .addPath(new BezierCurve(
+                () -> follower.getPose(),
+                mirror(new Pose(75.038, 82.500), isRed),
+                mirror(new Pose(58.489, 82.500), isRed),
+                mirror(new Pose(54.089, 82.500), isRed)
+            ))
+            .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
+            .addPath(new BezierLine(
+                () -> follower.getPose(),
+                mirror(new Pose(42.089, 82.500), isRed)
+            ))
+            .setConstantHeadingInterpolation(grabHeading)
+            .addPath(new BezierCurve(
+                () -> follower.getPose(),
+                mirror(new Pose(33.000, 89.500), isRed),
+                mirror(new Pose(31.000, 89.500), isRed),
+                firstGrabEndPose
+            ))
+            .setConstantHeadingInterpolation(grabHeading)
+            .build(); //#endregion
+            
+        final Path openGateAndGoToShooting = new Path(new BezierCurve( //#region
+            // Swooping Bezier Form
+            () -> follower.getPose(),
+            mirror(new Pose( 5.641, 52.733), isRed),
+            mirror(new Pose(46.082, 72.141), isRed),
+            shooting
+        )); // #endregion
+
+        final Path openGate = new Path(new BezierCurve( //#region
+            // Little Tap form
+            () -> follower.getPose(),
+            mirror(new Pose(21.315, 4 + 74.207), isRed),
+            mirror(new Pose(16.133, 4 + 73.035), isRed)
+        )); //#endregion
+
+        // final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
+        final Pose secondGrabStart = mirror(new Pose(50.839, 64.500), isRed);
+        final Pose secondShooting = minTravelDist( // #region
+            new BezierLine(
+                mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
+                mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
+            ),
+            firstGrabEndPose, 
+            secondGrabStart
+        ); //#endregion
+
+        final Path goBackToShoot = new Path(new BezierLine( //#region
+            () -> follower.getPose(),
+            secondShooting
+        )); //#endregion
+        final Path goBackToShootAfterGate = new Path(new BezierLine( //#region
+            () -> follower.getPose(),
+            secondShooting
+        )); //#endregion
+        final PathChain grabArtifactsAgain =  follower //#region
+            .pathBuilder()
+            .addPath(new BezierCurve(
+                () -> follower.getPose(),
+                secondGrabStart,
+                mirror(new Pose(48.611, 61.500), isRed),
+                // mirror(new Pose(48.611, 67.675), isRed),
+                secondGrabStart
+            ))
+            .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
+            .addPath(new BezierLine(
+                () -> follower.getPose(),
+                mirror(new Pose(40.000, 61.500), isRed)
+            ))
+            .setConstantHeadingInterpolation(grabHeading)
+            .addPath(new BezierCurve(
+                () -> follower.getPose(),
+                mirror(new Pose(33.000, 56.500), isRed),
+                mirror(new Pose(31.000, 56.500), isRed),
+                mirror(new Pose(14,     56.500), isRed)
+            ))
+            .setConstantHeadingInterpolation(grabHeading)
+            .build(); //#endregion
+
+        final Pose parkPose = mirror(new Pose(48, 60, shooting.getHeading()), isRed);
+        final Pose avoidGatePose = mirror(new Pose(26, 59.500), isRed);
+        final Pose thirdShooting = minTravelDist( //#region
+            new BezierLine(
+                mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
+                mirror(new Pose(62 - ROBOT_RADIUS * Math.sqrt(0.5),  82 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed)
+            ),
+            avoidGatePose, 
+            parkPose
+        ); //#endregion
+        
+        final PathChain goBackToShootAgain = follower.pathBuilder() //#region
+            .addPath(new Path(new BezierLine(
+                () -> follower.getPose(),
+                avoidGatePose
+            )))
+            .addPath(new Path(new BezierLine(
+                () -> follower.getPose(),
+                thirdShooting
+            )))
+            .build(); //#endregion
+
+        grabArtifacts.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
+        grabArtifacts.getPath(1).setConstantHeadingInterpolation(grabHeading);
+        grabArtifacts.getPath(2).setConstantHeadingInterpolation(grabHeading);
+        grabArtifactsAgain.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
+        grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
+        grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
+        openGateAndGoToShooting.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+        openGate.setConstantHeadingInterpolation(Math.toRadians(90));
+        goBackToShoot.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+        goBackToShootAfterGate.setLinearHeadingInterpolation(Math.toRadians(90), shooting.getHeading());
+        goBackToShootAgain.getPath(0).setConstantHeadingInterpolation(grabHeading);
+        goBackToShootAgain.getPath(1).setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+
+        result.put("grabArtifactsAndShoot", follower //#region
+            .pathBuilder()
+            .addPath(grabArtifacts.getPath(0))
+            .addPath(grabArtifacts.getPath(1))
+            .addPath(grabArtifacts.getPath(2))
             .addPath(goBackToShoot)
             .build()
-        );
+        ); //#endregion
+        
+        result.put("grabArtifactsOpenGateAndShoot", follower //#region
+            .pathBuilder()
+            .addPath(grabArtifacts.getPath(0))
+            .addPath(grabArtifacts.getPath(1))
+            .addPath(grabArtifacts.getPath(2))
+            // .addPath(openGateAndGoToShooting)
+            .addPath(openGate)
+            .addPath(goBackToShootAfterGate)
+            .build()
+        ); //#endregion
 
-        result.put("park", follower
+        result.put("grabArtifactsAndShootAgain", follower //#region
+            .pathBuilder()
+            .addPath(grabArtifactsAgain.getPath(0))
+            .addPath(grabArtifactsAgain.getPath(1))
+            .addPath(grabArtifactsAgain.getPath(2))
+            .addPath(goBackToShootAgain.getPath(0))
+            .addPath(goBackToShootAgain.getPath(1))
+            .build()
+        ); //#endregion
+
+        result.put("park", follower //#region
             .pathBuilder()
             .addPath(new BezierLine(
-                shooting, 
-                mirror(new Pose(48, 60, shooting.getHeading()), isRed)
+                () -> follower.getPose(), 
+                parkPose
             ))
             .setConstantHeadingInterpolation(shooting.getHeading())
             .build()
-        );
+        ); //#endregion
 
         return result;
     }
 
     @Override
     public void runOpMode() {
-
         telemetry.setMsTransmissionInterval(30);
 
         // Creating subsystems
-        final Subsystem[] subsystems = createSubsystems(hardwareMap);
-        shooter = (FlywheelTubeShooter) subsystems[0];
-        intake = (CarwashIntake) subsystems[1];
-        drivetrain = (BasicMecanumDrive) subsystems[2];
+        final Robot robot = new Robot(hardwareMap, java.util.Set.of(
+            Robot.Device.SHOOTER,
+            Robot.Device.INTAKE,
+            Robot.Device.LEFT_BLOCKER,
+            Robot.Device.RIGHT_BLOCKER,
+            Robot.Device.RAMP_PIVOT,
+            Robot.Device.LEFT_RELOAD,
+            Robot.Device.RIGHT_RELOAD,
+            Robot.Device.MOTIF_LIMELIGHT,
+            Robot.Device.ULTIMATE_POINT_EARNER
+        )); 
+        shooter      = robot.getShooter();
+        intake       = robot.getIntake();
+        leftBlocker  = robot.getLeftBlocker();
+        rightBlocker = robot.getRightBlocker();
+        leftReload   = robot.getLeftReload();
+        rightReload  = robot.getRightReload();
+        duckSpinner  = robot.getDuckSpinner(); // Trust me, this serves a purpose... it's an indicator for the motif
+        final LinearHingePivot rampPivot = robot.getRampPivot();
+        final MotifLimelight motifGetter = robot.getMotifLimelight();
+        // CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
+        CommandScheduler.getInstance().registerSubsystem(shooter,intake,leftBlocker,rightBlocker,rampPivot);
         shooter.setTelemetry(telemetry);
-
-        final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
-        
-        // Creating the webcam
-        final WebcamName obeliskViewerCam = hardwareMap.get(WebcamName.class, "obeliskViewer");
-        final MotifWebcam motifGetter = new MotifWebcam(obeliskViewerCam, CAMERA_YAW_OFFSET);
-
-        setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
 
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
@@ -348,28 +404,52 @@ public class Rippley extends LinearOpMode {
         OpModeData.follower = follower;
         
         // Init loop
+        boolean inCompetitonMode = OpModeData.inCompetitonMode;
+        boolean openGate = true;
         while(opModeInInit()) {
+            OpModeData.isRed = isRed;
+            OpModeData.inCompetitonMode = inCompetitonMode;
+            shooter.setTelemetry(inCompetitonMode ? null : telemetry);
+
             telemetry.addData("Status", "Initialized");
+            telemetry.addLine();
+            telemetry.addData("Left artifact",  nullSafeColor(leftReload));
+            telemetry.addData("Right artifact", nullSafeColor(rightReload));
             telemetry.addLine();
             telemetry.addLine(Util.header("Settings"));
             telemetry.addLine();
             telemetry.addData("Toggle isRed", "A");
             telemetry.addData("isRed", isRed);
+            telemetry.addLine();
+            telemetry.addData("Toggle competiton mode", "Y");
+            telemetry.addData("Competiton mode", OpModeData.inCompetitonMode);
+            telemetry.addLine();
+            telemetry.addData("Toggle openGate", "X");
+            telemetry.addData("openGate", openGate);
             telemetry.update();
 
             if(gamepad1.aWasPressed()) {
                 isRed = !isRed;
                 paths = createPaths(follower, isRed);
+            }      
+
+            if(gamepad1.yWasPressed()) {
+                inCompetitonMode = !inCompetitonMode;
             }
             
+            if(gamepad1.xWasPressed()) {
+                openGate = !openGate;
+            }
         }
         
         waitForStart();
-        rampPivot.setPosition(0.58); // Determined emperically
+        leftBlocker.close();
+        rightBlocker.close();
+        rampPivot.runToAngle(Math.toRadians(61.6));
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
-        final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
+        final boolean cameraExists = motifGetter != null;
         Motif motif = null;
 
         // Moving to the shooting position
@@ -377,73 +457,93 @@ public class Rippley extends LinearOpMode {
             throw new RuntimeException("Cannot find path: goFromCameraToShooting");
         }
 
+        shooter.charge();
+        CommandScheduler.getInstance().run();
         follower.followPath(paths.get("goFromCameraToShooting"), true);
         while(follower.isBusy() && opModeIsActive()) {
             follower.update();
             OpModeData.startPosition = follower.getPose();
 
-            // Snapping a photo of the motif if we are facing it
-            // The camera sees 60 degrees, but we subtract a bit to fully see the motif
-            final double F_O_V = Math.toRadians(40); 
-            final Pose currentPose = follower.getPose();
-            final double targetAngle = Math.atan2(
-                mirror(OBELISK.pedroPose(), isRed).getY() - currentPose.getY(), 
-                mirror(OBELISK.pedroPose(), isRed).getX() - currentPose.getX()
-            );
-
-            if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
-                motifGetter.setGlobalRobotYaw(currentPose.getHeading());
-                motif = motifGetter.getMotif();
-                motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+            if(cameraExists && motif == null) {
+                motif = captureMotif(motifGetter, follower);
             }
         }
         
-
-        // If the motif coul dnt be found, use a defa`ult
-        // if(motif == null && allPurple) {
-        //     motif = Motif.ALL_PURPLE;
-        /* }  else */ if(motif == null) {
-            motif = Motif.FIRST_GREEN;
+        if(!openGate) {
+            shootPattern(motif);
+        } else {
+            // We know that this clip will be emptied, so the pattern doesn't matter
+            emptyClip();
         }
-
-        emptyClip(motif);
+        shooter.charge(SECOND_SHOT_SPEED, false);
 
         // Moving to grab artifacts
         // This goes back to shooting afterwards
         intake.intakeGamePieces();
-        follower.followPath(paths.get("grabArtifactsAndShoot"), false);
+        if(openGate) {
+            follower.followPath(paths.get("grabArtifactsOpenGateAndShoot"), false);
+        } else {
+            follower.followPath(paths.get("grabArtifactsAndShoot"), false);
+        }
 
         boolean hasReloaded = false;
-        // follower.setMaxPowerScaling(0.5); // Slowing down
+        leftBlocker.close();
+        rightBlocker.close();
         while(follower.isBusy() && opModeIsActive()) {
+            if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
+                follower.setMaxPower(0.4);
+                intake.intakeGamePieces();
+                shooter.reload();
+            } else {
+                follower.setMaxPower(1.0);
+                intake.holdGamePieces();
+            }
+
+
             follower.update();
             OpModeData.startPosition = follower.getPose();
+            CommandScheduler.getInstance().run();
 
-            // Slowing down and reloading when in the correct part
-            if(follower.atPose(new Pose(), 10, 5) && !hasReloaded) {
-                shooter.reload();
-                hasReloaded = true;
-            }
-
-            // Speeding Back up when out of range
-            if(!follower.atPose(new Pose(), 10, 7) && hasReloaded) {
-                follower.setMaxPower(1.0); // Slowing down
+            if(cameraExists && motif == null) {
+                motif = captureMotif(motifGetter, follower);
             }
         }
-        // follower.setMaxPowerScaling(1.0);
-
-
-        // Going back to shooting
-        // follower.followPath(paths.get("goAndShoot"), false);
-
-        // while(follower.isBusy() && opModeIsActive()) {
-        //     follower.update();
-        //     OpModeData.startPosition = follower.getPose();
-        // 
-        // }
+        follower.setMaxPower(1.0);
 
         // Shooting once again
-        emptyClip(motif);
+        shootPattern(SECOND_SHOT_SPEED, motif);
+        shooter.charge(THIRD_SHOT_SPEED, false);
+
+        // Moving to grab artifacts
+        // This goes back to shooting afterwards
+        intake.intakeGamePieces();
+        follower.followPath(paths.get("grabArtifactsAndShootAgain"), false);
+
+        // hasReloaded = false;
+        leftBlocker.close();
+        rightBlocker.close();
+        while(follower.isBusy() && opModeIsActive()) {
+            if(follower.getChainIndex() == 1 || follower.getChainIndex() == 2) {
+                follower.setMaxPower(0.4);
+                intake.intakeGamePieces();
+                shooter.reload();
+            } else {
+                follower.setMaxPower(1.0);
+                intake.holdGamePieces();
+            }
+
+            follower.update();
+            OpModeData.startPosition = follower.getPose();
+            CommandScheduler.getInstance().run();
+            if(cameraExists && motif == null) {
+                motif = captureMotif(motifGetter, follower);
+            }
+        }
+        follower.setMaxPower(1.0);
+
+        // Shooting once again
+        // rampPivot.runToAngle(Math.toRadians(56));
+        shootPattern(THIRD_SHOT_SPEED, motif);
 
         // Getting leave points
         intake.holdGamePieces();
@@ -457,15 +557,8 @@ public class Rippley extends LinearOpMode {
 
 
         // END
+        OpModeData.startPosition = follower.getPose();
         CommandScheduler.getInstance().reset();
-
-        // MoveForward(21);
-        // Turn(90);
-        // MoveForward(45);
-        // Turn(90);
-        // MoveForward(30);
-        // Turn(-100);
-
     }
 
     private void runUntilCompleted(Command command) {
@@ -476,152 +569,318 @@ public class Rippley extends LinearOpMode {
         }
     }
 
-    private boolean setManualExposure(MotifWebcam motifGetter, int exposureMS, int gain) {
-        // Ensure Vision Portal has been setup.
-        if (motifGetter.getStream() == null) {
-            return false;
-        }
+    private void emptyClip(double inchesPerSec) {
+        // runUntilCompleted(shooter.chargeCommand());
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(inchesPerSec, true),
+            FlywheelTubeShooter.Status.CHARGING
+        ));
+        leftBlocker.open();
+        rightBlocker.open();
+        CommandScheduler.getInstance().run();
+        sleep(500);
+        final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
 
-        // Wait for the camera to be open
-        if (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING) {
-            telemetry.addData("Camera", "Waiting");
-            telemetry.update();
-            while (!isStopRequested() && (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING)) {
-                sleep(20);
-            }
-            telemetry.addData("Camera", "Ready");
-            telemetry.update();
-        }
+        // Shooting depth 1
+        // runUntilCompleted(shooter.chargeCommand());
+        runUntilCompleted(WrapConcurrentCommand.wrapUntilNotState(
+            shooter,
+            () -> shooter.charge(inchesPerSec, true),
+            FlywheelTubeShooter.Status.CHARGING
+        ));
+        // runUntilCompleted(shooter.fireCommand());
 
-        // Set camera controls unless we are stopping.
-        if (!isStopRequested())
-        {
-            // Set exposure.  Make sure we are in Manual Mode for these values to take effect.
-            ExposureControl exposureControl = motifGetter.getStream().getCameraControl(ExposureControl.class);
-            if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
-                exposureControl.setMode(ExposureControl.Mode.Manual);
-                sleep(50);
-            }
-            exposureControl.setExposure((long)exposureMS, TimeUnit.MILLISECONDS);
-            sleep(20);
-
-            // Set Gain.
-            GainControl gainControl = motifGetter.getStream().getCameraControl(GainControl.class);
-            gainControl.setGain(gain);
-            sleep(20);
-            return (true);
-        } else {
-            return (false);
-        }
-    }
-
-    private void emptyClip(MotifGetter.Motif motif) {
+        // Reloading and going
+        // runUntilCompleted(shooter.chargeCommand());
         
+        // Shooting
+        intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
+        runUntilCompleted(shooter.fireCommand());
+
+        // Ending
+        intake.holdGamePieces();
+        leftBlocker.close();
+        rightBlocker.close();
+        shooter.charge();
+        CommandScheduler.getInstance().run();
+    }
+    
+    private void emptyClip() {
+        runUntilCompleted(shooter.chargeCommand());
+        leftBlocker.open();
+        rightBlocker.open();
+        CommandScheduler.getInstance().run();
+        sleep(500);
+        final ElapsedTime timer = new ElapsedTime(); // FIXME: timeUtil
+
+        // Shooting depth 1
+        runUntilCompleted(shooter.chargeCommand());
+        // runUntilCompleted(shooter.fireCommand());
+
+        // Reloading and going
+        // runUntilCompleted(shooter.chargeCommand());
+        
+        // Shooting
+        intake.intakeGamePieces();
+        runUntilCompleted(shooter.fireCommand());
+        runUntilCompleted(shooter.fireCommand());
+
+        // Ending
+        intake.holdGamePieces();
+        leftBlocker.close();
+        rightBlocker.close();
+        shooter.charge();
+        CommandScheduler.getInstance().run();
+    }
+    
+    private void shootPattern(double inchesPerSec, MotifGetter.Motif motif) {
+        if(motif == null) {
+            emptyClip(inchesPerSec);
+            return;
+        }
+
         // Firing the artifacts we have, using the motif from the april tag
         int motifIndex = -1;
         boolean hasFiredPurple = false;
-
-
+        
         shootingLoop:
         for(final ArtifactColor color : motif) {
             motifIndex++;
-            runUntilCompleted(shooter.chargeCommand());
 
-            // if(shooter.getStatus() != Status.EMPTY_CHARGED && shooter.getStatus() != Status.RELOADED_CHARGED) {
-            //     CommandScheduler.getInstance().reset();
-            //     requestOpModeStop();
-            // }
-
-            if(motifIndex == 0) {
-                sleep(500); // AWait for correct power
-            }
-
-
-            // Firing the indicated color
-            switch(color) {
-                case GREEN: 
-                    shooter.fireGreen();
-                    break;
-                case PURPLE:
-                    hasFiredPurple = true;
-                    shooter.firePurple();
-                    break;
-                default:
-                    throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
-            }
-
-            // Waiting for the firing to end
-            // The shooter is likely to charge after this, but we want to wait until after reloading
-            // to do any extra charging (for saving time).
-            runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.FIRING));
-
-            if(motifIndex == 2) {
-                break shootingLoop;
-            }
-
-            // Getting ready for reloading by cycling the next artifact into position
-            // and taking note of what colors are already reloaded.
-            ArtifactColor rightColor = null;
-            ArtifactColor leftColor = null;
-
-            if(hasFiredPurple) {
+            // Reloading any empty side
+            // Skip if this is index 0.
+            if(motifIndex != 0) {
                 intake.intakeGamePieces();
+                shooter.reloadEmpty();
+                // closeBlockers(shooter.getReloadingState());
+                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.RELOADING));
+            }
+            
+            // Sending the commands to fire the correct color
+            intake.holdGamePieces();
+            final boolean hadCorrectColor = fireColor(color);
+
+            // If the color could not be loaded, give up trying to fire the pattern
+            // Rather than trying to reload, we just assume that it is reloaded
+            if(!hadCorrectColor && motifIndex == 0) {
+                // Because we still have all three artifacts, give up and shoot everything
+                emptyClip(inchesPerSec);
+                return;
+            } else if(!hadCorrectColor && motifIndex > 0) {
+                shooter.fire();
             }
 
-            for(
-                int retries = 0; 
-                hasFiredPurple && retries < 3 
-                    && (rightColor = rightReload.getColor()) != PURPLE 
-                    && (leftColor = leftReload.getColor()) != PURPLE; 
-                retries++
-            ) {
-                // Reload both sides if both are empty
-                // We do this to ensure *something* is reloaded
-                if(hasFiredPurple && leftColor == ArtifactColor.UNKNOWN && rightColor == ArtifactColor.UNKNOWN) {
-                    shooter.reload();
-                }
+            // Letting firing finish
+            openBlockers(shooter.getFiringState());
+            CommandScheduler.getInstance().run();
+            sleep(800);
 
-                // Reload the left if it is empty and the other is green
-                if(hasFiredPurple && leftColor == ArtifactColor.UNKNOWN && rightColor == ArtifactColor.GREEN ) {
-                    shooter.reloadLeft();
-                }
-                
-                // Reload the right if it is empty and the other is green
-                if(hasFiredPurple && leftColor == ArtifactColor.GREEN && rightColor == ArtifactColor.UNKNOWN) {
-                    shooter.reloadRight();
-                }
-
-                // Wait for the shooter to finish reloading and become charged again
-                // Reloading naturally will cause the shooter to charge again, so this 
-                // covers in case enough shooter velocity was lost when shooting
-                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.CHARGING
-                        && shooter.getStatus() != Status.RELOADING));
+            if(motifIndex == 2 || !hadCorrectColor) {
+                return;
             }
 
-            // If the charging failed, just tell it that it is charged, and move on
+            // Recharging as necessary
             if(shooter.getStatus() == Status.UNCHARGING) {
-                shooter.forceCharged();
+                shooter.charge(inchesPerSec, true);
             }
         } 
     }
-    
-    /**
-     * Calculates the x so that the point (x, y) is along the edge of the goal.
-     * This is used to find the x-coordinate a robot resting against the goal.
-     * 
-     * @param y The y coordinate that is along the edge of the goal.
-     * @return The x coordinate so that (x, y) is along the edge of the goal.
-     */
-    private static double goalEdgeXFromY(double y) {
-        final double RAMP_WIDTH = 6.75; // Inches
-        final double GOAL_LENGTH_Y = 21.75; // Inches along the field y axis, up to the archway
-        final double GOAL_LENGTH_X = 22.75; // Inches along the field x axis
-        return Util.lerp(
-            RAMP_WIDTH, 
-            Util.invLerp(72 - GOAL_LENGTH_Y, y, 72), 
-            RAMP_WIDTH + GOAL_LENGTH_X
-        );
+
+    private void shootPattern(MotifGetter.Motif motif) {
+        if(motif == null) {
+            emptyClip();
+            return;
+        }
+
+        // Firing the artifacts we have, using the motif from the april tag
+        int motifIndex = -1;
+        boolean hasFiredPurple = false;
+        
+        shootingLoop:
+        for(final ArtifactColor color : motif) {
+            motifIndex++;
+
+            // Reloading any empty side
+            // Skip if this is index 0.
+            if(motifIndex != 0) {
+                intake.intakeGamePieces();
+                shooter.reloadEmpty();
+                // closeBlockers(shooter.getReloadingState());
+                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.RELOADING));
+            }
+            
+            // Sending the commands to fire the correct color
+            intake.holdGamePieces();
+            final boolean hadCorrectColor = fireColor(color);
+
+            // If the color could not be loaded, give up trying to fire the pattern
+            // Rather than trying to reload, we just assume that it is reloaded
+            if(!hadCorrectColor && motifIndex == 0) {
+                // Because we still have all three artifacts, give up and shoot everything
+                emptyClip();
+                return;
+            } else if(!hadCorrectColor && motifIndex > 0) {
+                shooter.fire();
+            }
+
+            // Letting firing finish
+            openBlockers(shooter.getFiringState());
+            CommandScheduler.getInstance().run();
+            sleep(800);
+
+            if(motifIndex == 2 || !hadCorrectColor) {
+                return;
+            }
+
+            // Recharging as necessary
+            if(shooter.getStatus() == Status.UNCHARGING) {
+                shooter.charge();
+            }
+        } 
     }
 
+    private boolean fireColor(ArtifactColor color) {
+        switch(color) {
+            case GREEN: 
+                return shooter.fireGreen();
+            case PURPLE:
+                return shooter.firePurple();
+            default:
+                throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
+        }
+    }
+
+    private boolean openBlockers(FlywheelTubeShooter.FiringState firingState) {
+        switch(firingState) {
+            case FIRING_BOTH:
+                leftBlocker.open();
+                rightBlocker.open();
+                return true;
+
+            case FIRING_LEFT:
+                leftBlocker.open();
+                rightBlocker.close();
+                return true;
+
+            case FIRING_RIGHT:
+                leftBlocker.close();
+                rightBlocker.open();
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private boolean closeBlockers(FlywheelTubeShooter.ReloadingState reloadingState) {
+        switch(reloadingState) {
+            case RELOADING_BOTH:
+                leftBlocker.close();
+                rightBlocker.close();
+                return true;
+
+            case RELOADING_LEFT:
+                leftBlocker.close();
+                rightBlocker.open();
+                return true;
+
+            case RELOADING_RIGHT:
+                leftBlocker.open();
+                rightBlocker.close();
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Calculates the point on the given segment that minimizes the total distance
+     * between itself and the two points. This can be thought of the point on the
+     * line that will have the shortest travel time, starting from the one point,
+     * then going to the line, then to the other point.
+     * 
+     * The returned point is guarnateed to be on the segment.
+     * 
+     * @param segment The set of points the return value must be located on.
+     * @param p One point to travel to. Heading is ignored.
+     * @param q Another point to travel to. Heading is ignored
+     * @return The point which minimizes the travel distance between the points.
+     * The heading of this is undefined and should be ignored.
+     */
+    public static Pose minTravelDist(BezierLine segment, Pose p, Pose q) {
+        final Pose start = segment.getPose(0);
+        final Pose end = segment.getPose(1);
+
+        // Transforming the points assuming that the start (point A) is 0
+        // final Pose vecA = new Pose(0, 0);
+        final Pose vecB = end.minus(start);
+        final Pose vecP =   p.minus(start);
+        final Pose vecQ =   q.minus(start);
+
+        // Getting some essential coefficients from the translated points
+        final double a = vecB.getX() * vecB.getX() + vecB.getY() * vecB.getY(); // b * b
+        final double b = vecP.getX() * vecB.getX() + vecP.getY() * vecB.getY(); // p * b
+        final double c = vecP.getX() * vecP.getX() + vecP.getY() * vecP.getY(); // p * p
+        final double d = vecQ.getX() * vecB.getX() + vecQ.getY() * vecB.getY(); // q * b
+        final double f = vecQ.getX() * vecQ.getX() + vecQ.getY() * vecQ.getY(); // q * q
+
+        // Getting the two possible solutions
+        // This uses the quadratic formula
+        final double quad = a*a*f - a*a*c + a*b*b - a*d*d;
+        final double line = -2 * (a*b*f - a*c*d + b*b*d - b*d*d);
+        final double cons = b*b*f - c*d*d;
+
+        if(quad == 0) {
+            // TODO: The solution technicaly exists in this case, but the math above craps out
+            throw new RuntimeException("The segment was parallel with the line containing p and q");
+        }
+
+        final double t1 = (-line + Math.sqrt(line * line - 4 * quad * cons)) / (2 * quad);
+        final double t2 = (-line - Math.sqrt(line * line - 4 * quad * cons)) / (2 * quad);
+
+        // Returning the solution that minimizes the travel distance
+        final Pose s1 = segment.getPose(Util.clamp(0, t1, 1));
+        final Pose s2 = segment.getPose(Util.clamp(0, t2, 1));
+
+        if(s1.distanceFrom(p) + s1.distanceFrom(q) <= s2.distanceFrom(p) + s2.distanceFrom(q)) {
+            return s1;
+        } else {
+            return s2;
+        }
+    }
+    
+    private ArtifactColor nullSafeColor(ArtifactColorRangeSensor nullableSensor) {
+        if(nullableSensor == null) {
+            return null;
+        }
+
+        return nullableSensor.getColor();
+    }
+    
+    
     private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);
+
+    private Motif captureMotif(MotifLimelight motifGetter, Follower follower) {
+        // Snapping a photo of the motif if we are facing it
+        // The camera sees 60 degrees, but we subtract a bit to fully see the motif
+        final double F_O_V = Math.toRadians(40); 
+        final Pose currentPose = follower.getPose();
+        final double targetAngle = Math.atan2(
+            OBELISK.pedroPose().getY() - currentPose.getY(), 
+            OBELISK.pedroPose().getX() - currentPose.getX()
+        );
+
+        if(Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
+            motifGetter.setGlobalRobotYaw(currentPose.getHeading());
+            final Motif result = motifGetter.getMotif();
+            duckSpinner.setPower(1.0);
+            motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
+            return result;
+        }
+
+        return null;
+    }
 }
