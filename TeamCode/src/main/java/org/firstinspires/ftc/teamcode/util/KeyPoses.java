@@ -32,7 +32,7 @@ public final class KeyPoses {
             // Determines from an image
             farX,
             farY,
-            AngleUnit.normalizeRadians(Math.PI + Math.toRadians(120))
+            AngleUnit.normalizeRadians(Math.PI + Math.toRadians(115))
         );
 
         // Artifacts are on the side closest to the blue goal

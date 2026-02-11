@@ -237,8 +237,8 @@ public class RippleyColorBlind extends LinearOpMode {
         final Path openGate = new Path(new BezierCurve( //#region
             // Little Tap form
             () -> follower.getPose(),
-            mirror(new Pose(21.315, 74.207), isRed),
-            mirror(new Pose(16.133, 73.035), isRed)
+            mirror(new Pose(21.315, 4 + 74.207), isRed),
+            mirror(new Pose(16.133, 4 + 73.035), isRed)
         )); //#endregion
 
         // final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
@@ -253,6 +253,10 @@ public class RippleyColorBlind extends LinearOpMode {
         ); //#endregion
 
         final Path goBackToShoot = new Path(new BezierLine( //#region
+            () -> follower.getPose(),
+            secondShooting
+        )); //#endregion
+        final Path goBackToShootAfterGate = new Path(new BezierLine( //#region
             () -> follower.getPose(),
             secondShooting
         )); //#endregion
@@ -309,8 +313,9 @@ public class RippleyColorBlind extends LinearOpMode {
         grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
         openGateAndGoToShooting.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
-        openGate.setConstantHeadingInterpolation(Math.toRadians(-90));
+        openGate.setConstantHeadingInterpolation(Math.toRadians(90));
         goBackToShoot.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+        goBackToShootAfterGate.setLinearHeadingInterpolation(Math.toRadians(90), shooting.getHeading());
         goBackToShootAgain.getPath(0).setConstantHeadingInterpolation(grabHeading);
         goBackToShootAgain.getPath(1).setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
 
@@ -330,7 +335,7 @@ public class RippleyColorBlind extends LinearOpMode {
             .addPath(grabArtifacts.getPath(2))
             // .addPath(openGateAndGoToShooting)
             .addPath(openGate)
-            .addPath(goBackToShoot)
+            .addPath(goBackToShootAfterGate)
             .build()
         ); //#endregion
 

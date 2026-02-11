@@ -87,8 +87,8 @@ public class FarSideAuto extends LinearOpMode {
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
-    public static double SHOT_SPEED = 320; // Determined using the ballistic arc text user interface
-    public static double SHOT_ANGLE = Math.toRadians(47.5); // Determined using the ballistic arc text user interface
+    public static double SHOT_SPEED = 310; // Determined using the ballistic arc text user interface
+    public static double SHOT_ANGLE = Math.toRadians(48); // Determined using the ballistic arc text user interface
 
     public static ConfigPose START_POS = new ConfigPose(
         56,
@@ -115,6 +115,7 @@ public class FarSideAuto extends LinearOpMode {
     private BasicMecanumDrive drivetrain = null;
     private BlockerSubsystem leftBlocker = null;
     private BlockerSubsystem rightBlocker = null;
+    private Follower follower = null;
 
     private boolean isRed = false;
     private boolean inCompetitonMode = OpModeData.inCompetitonMode;
@@ -163,14 +164,14 @@ public class FarSideAuto extends LinearOpMode {
             .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
             .addPath(new BezierLine(
                 () -> follower.getPose(),
-                mirror(new Pose(35.089, 34.500), isRed)
+                mirror(new Pose(40.089, 34.500), isRed)
             ))
             .setConstantHeadingInterpolation(grabHeading)
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
-                mirror(new Pose(33.000, 41.500), isRed),
-                mirror(new Pose(31.000, 41.500), isRed),
-                mirror(new Pose(15.000, 41.500), isRed)
+                mirror(new Pose(33.000, 39.500), isRed),
+                mirror(new Pose(31.000, 39.500), isRed),
+                mirror(new Pose(15.000, 39.500), isRed)
             ))
             .setConstantHeadingInterpolation(grabHeading)
             .build();
@@ -265,7 +266,7 @@ public class FarSideAuto extends LinearOpMode {
         }
 
         // Creating paths
-        final Follower follower = Constants.createFollower(hardwareMap);
+        follower = Constants.createFollower(hardwareMap);
         Map<String, PathChain> paths = createPaths(follower, isRed);
         OpModeData.follower = follower;
 
@@ -428,7 +429,7 @@ public class FarSideAuto extends LinearOpMode {
                     intake.intakeGamePieces();
                     shooter.reload();
                 } else {
-                    follower.setMaxPower(0.8);
+                    follower.setMaxPower(0.6);
                     intake.holdGamePieces();
                 }
 
