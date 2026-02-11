@@ -38,12 +38,12 @@ import java.util.Set;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArc;
 import org.firstinspires.ftc.teamcode.ballistics.BallisticArcSelection.Criterion;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.hardware.MotifLimelight;
 import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
@@ -72,7 +72,7 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
 @Configurable
-@Autonomous(name = "{{ColorBlind}} Gary Larson's Far Side", group = "AB - Main Colorblind")
+@Autonomous(name = "{{ColorBlind}} Gary Larson's Far Side auto", group = "AB - Main Colorblind")
 public class FarSideAutoColorBlind extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;
@@ -116,7 +116,6 @@ public class FarSideAutoColorBlind extends LinearOpMode {
     private BlockerSubsystem leftBlocker = null;
     private BlockerSubsystem rightBlocker = null;
     private Follower follower = null;
-    private CRServo duckSpinner = null;
 
     private boolean isRed = false;
     private boolean inCompetitonMode = OpModeData.inCompetitonMode;
@@ -245,23 +244,21 @@ public class FarSideAutoColorBlind extends LinearOpMode {
             Robot.Device.INTAKE,
             Robot.Device.LEFT_BLOCKER,
             Robot.Device.RIGHT_BLOCKER,
-            Robot.Device.RAMP_PIVOT,
-            Robot.Device.LEFT_RELOAD,
-            Robot.Device.RIGHT_RELOAD,
-            Robot.Device.MOTIF_LIMELIGHT
+            Robot.Device.RAMP_PIVOT
         ));
         shooter      = robot.getShooter();
         intake       = robot.getIntake();
         leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
-        leftReload   = robot.getLeftReload();
-        rightReload  = robot.getRightReload();
-        duckSpinner  = robot.getDuckSpinner(); // Trust me, this serves a purpose... it's an indicator for the motif
-        final MotifLimelight motifGetter = robot.getMotifLimelight();
-        // final MotifLimelight motifGetter = null;
         final LinearHingePivot rampPivot = robot.getRampPivot();
         CommandScheduler.getInstance().registerSubsystem(shooter, intake, leftBlocker, rightBlocker, rampPivot);
         
+        // Creating the webcam
+        final WebcamName obeliskViewerCam = null;
+        final MotifWebcam motifGetter = null;
+
+        // setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
+
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
         for(final LynxModule module : modules) {
@@ -297,8 +294,6 @@ public class FarSideAutoColorBlind extends LinearOpMode {
                 telemetry.addData("Status", "Initialized");
                 telemetry.addLine();
                 telemetry.addData("Total arcs", OpModeData.selection.size());
-                telemetry.addData("Left artifact",  nullSafeColor(leftReload));
-                telemetry.addData("Right artifact", nullSafeColor(rightReload));
                 telemetry.addLine();
                 telemetry.addLine(Util.header("Settings"));
                 telemetry.addLine();
@@ -332,7 +327,7 @@ public class FarSideAutoColorBlind extends LinearOpMode {
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
-        final boolean cameraExists = motifGetter != null;
+        final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
         Motif motif = null;
 
         // Moving to the shooting position
@@ -344,11 +339,23 @@ public class FarSideAutoColorBlind extends LinearOpMode {
         CommandScheduler.getInstance().run();
         follower.followPath(paths.get("goFromCameraToShooting"), true);
         while(follower.isBusy() && opModeIsActive()) {
+
             follower.update();
             OpModeData.startPosition =  follower.getPose();
-            
-            if(cameraExists && motif == null) {
-                motif = captureMotif(motifGetter, follower);
+
+            // Snapping a photo of the motif if we are facing it
+            // The camera sees 60 degrees, but we subtract a bit to fully see the motif
+            final double F_O_V = Math.toRadians(40); 
+            final Pose currentPose = follower.getPose();
+            final double targetAngle = Math.atan2(
+                mirror(OBELISK.pedroPose(), isRed).getY() - currentPose.getY(), 
+                mirror(OBELISK.pedroPose(), isRed).getX() - currentPose.getX()
+            );
+
+            if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
+                motifGetter.setGlobalRobotYaw(currentPose.getHeading());
+                motif = motifGetter.getMotif();
+                motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
             }
         }
         
@@ -364,7 +371,14 @@ public class FarSideAutoColorBlind extends LinearOpMode {
         }
         follower.breakFollowing();
 
-        shootPattern(motif);
+        // If the motif coul dnt be found, use a defa`ult
+        // if(motif == null && allPurple) {
+        //     motif = Motif.ALL_PURPLE;
+        /* }  else */ if(motif == null) {
+            motif = Motif.FIRST_GREEN;
+        }
+
+        emptyClip(motif);
 
         // Grabbing the artifacts from the oponent's loading zone
         intake.intakeGamePieces();
@@ -375,10 +389,6 @@ public class FarSideAutoColorBlind extends LinearOpMode {
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
-            
-            if(cameraExists && motif == null) {
-                motif = captureMotif(motifGetter, follower);
-            }
         }
         follower.setMaxPower(1.0);
 
@@ -390,10 +400,6 @@ public class FarSideAutoColorBlind extends LinearOpMode {
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
-            
-            if(cameraExists && motif == null) {
-                motif = captureMotif(motifGetter, follower);
-            }
         }
 
         while(opModeIsActive()  && !(
@@ -407,7 +413,7 @@ public class FarSideAutoColorBlind extends LinearOpMode {
         }
         follower.breakFollowing();
 
-        shootPattern(motif);
+        emptyClip(motif);
 
         // Grabbing the third line of artifacts
         // This goes back to shooting afterwards
@@ -430,10 +436,6 @@ public class FarSideAutoColorBlind extends LinearOpMode {
                 follower.update();
                 OpModeData.startPosition = follower.getPose();
                 CommandScheduler.getInstance().run();
-                
-                if(cameraExists && motif == null) {
-                    motif = captureMotif(motifGetter, follower);
-                }
             }
             follower.setMaxPower(1.0);
             
@@ -449,7 +451,7 @@ public class FarSideAutoColorBlind extends LinearOpMode {
             follower.breakFollowing();
 
             // Shooting once again
-            shootPattern(motif);
+            emptyClip(motif);
         }
         
         // Going and parking
@@ -473,6 +475,45 @@ public class FarSideAutoColorBlind extends LinearOpMode {
         while(!command.isFinished() && opModeIsActive()) {
             telemetry.update();
             CommandScheduler.getInstance().run();
+        }
+    }
+
+    private boolean setManualExposure(MotifWebcam motifGetter, int exposureMS, int gain) {
+        // Ensure Vision Portal has been setup.
+        if (motifGetter.getStream() == null) {
+            return false;
+        }
+
+        // Wait for the camera to be open
+        if (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING) {
+            telemetry.addData("Camera", "Waiting");
+            telemetry.update();
+            while (!isStopRequested() && (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING)) {
+                sleep(20);
+            }
+            telemetry.addData("Camera", "Ready");
+            telemetry.update();
+        }
+
+        // Set camera controls unless we are stopping.
+        if (!isStopRequested())
+        {
+            // Set exposure.  Make sure we are in Manual Mode for these values to take effect.
+            ExposureControl exposureControl = motifGetter.getStream().getCameraControl(ExposureControl.class);
+            if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
+                exposureControl.setMode(ExposureControl.Mode.Manual);
+                sleep(50);
+            }
+            exposureControl.setExposure((long)exposureMS, TimeUnit.MILLISECONDS);
+            sleep(20);
+
+            // Set Gain.
+            GainControl gainControl = motifGetter.getStream().getCameraControl(GainControl.class);
+            gainControl.setGain(gain);
+            sleep(20);
+            return (true);
+        } else {
+            return (false);
         }
     }
 
@@ -511,139 +552,93 @@ public class FarSideAutoColorBlind extends LinearOpMode {
     }
     
     private void shootPattern(MotifGetter.Motif motif) {
-        if(motif == null) {
-            emptyClip(null);
-            return;
-        }
+        
         // Firing the artifacts we have, using the motif from the april tag
         int motifIndex = -1;
         boolean hasFiredPurple = false;
-        
+
+
         shootingLoop:
         for(final ArtifactColor color : motif) {
             motifIndex++;
+            runUntilCompleted(shooter.chargeCommand());
 
-            // Reloading any empty side
-            // Skip if this is index 0.
-            if(motifIndex != 0) {
+            // if(shooter.getStatus() != Status.EMPTY_CHARGED && shooter.getStatus() != Status.RELOADED_CHARGED) {
+            //     CommandScheduler.getInstance().reset();
+            //     requestOpModeStop();
+            // }
+
+            if(motifIndex == 0) {
+                sleep(500); // AWait for correct power
+            }
+
+
+            // Firing the indicated color
+            switch(color) {
+                case GREEN: 
+                    shooter.fireGreen();
+                    break;
+                case PURPLE:
+                    hasFiredPurple = true;
+                    shooter.firePurple();
+                    break;
+                default:
+                    throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
+            }
+
+            // Waiting for the firing to end
+            // The shooter is likely to charge after this, but we want to wait until after reloading
+            // to do any extra charging (for saving time).
+            runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.FIRING));
+
+            if(motifIndex == 2) {
+                break shootingLoop;
+            }
+
+            // Getting ready for reloading by cycling the next artifact into position
+            // and taking note of what colors are already reloaded.
+            ArtifactColor rightColor = null;
+            ArtifactColor leftColor = null;
+
+            if(hasFiredPurple) {
                 intake.intakeGamePieces();
-                shooter.reloadEmpty();
-                // closeBlockers(shooter.getReloadingState());
-                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.RELOADING));
-            }
-            
-            // Sending the commands to fire the correct color
-            intake.holdGamePieces();
-            final boolean hadCorrectColor = fireColor(color);
-
-            // If the color could not be loaded, give up trying to fire the pattern
-            // Rather than trying to reload, we just assume that it is reloaded
-            if(!hadCorrectColor && motifIndex == 0) {
-                // Because we still have all three artifacts, give up and shoot everything
-                emptyClip(null);
-                return;
-            } else if(!hadCorrectColor && motifIndex > 0) {
-                shooter.fire();
             }
 
-            // Letting firing finish
-            openBlockers(shooter.getFiringState());
-            CommandScheduler.getInstance().run();
-            sleep(800);
+            for(
+                int retries = 0; 
+                hasFiredPurple && retries < 3 
+                    && (rightColor = rightReload.getColor()) != PURPLE 
+                    && (leftColor = leftReload.getColor()) != PURPLE; 
+                retries++
+            ) {
+                // Reload both sides if both are empty
+                // We do this to ensure *something* is reloaded
+                if(hasFiredPurple && leftColor == ArtifactColor.UNKNOWN && rightColor == ArtifactColor.UNKNOWN) {
+                    shooter.reload();
+                }
 
-            if(motifIndex == 2 || !hadCorrectColor) {
-                return;
+                // Reload the left if it is empty and the other is green
+                if(hasFiredPurple && leftColor == ArtifactColor.UNKNOWN && rightColor == ArtifactColor.GREEN ) {
+                    shooter.reloadLeft();
+                }
+                
+                // Reload the right if it is empty and the other is green
+                if(hasFiredPurple && leftColor == ArtifactColor.GREEN && rightColor == ArtifactColor.UNKNOWN) {
+                    shooter.reloadRight();
+                }
+
+                // Wait for the shooter to finish reloading and become charged again
+                // Reloading naturally will cause the shooter to charge again, so this 
+                // covers in case enough shooter velocity was lost when shooting
+                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.CHARGING
+                        && shooter.getStatus() != Status.RELOADING));
             }
 
-            // Recharging as necessary
+            // If the charging failed, just tell it that it is charged, and move on
             if(shooter.getStatus() == Status.UNCHARGING) {
-                shooter.charge(SHOT_SPEED, true);
+                shooter.forceCharged();
             }
         } 
-    }
-
-    private boolean fireColor(ArtifactColor color) {
-        switch(color) {
-            case GREEN: 
-                return shooter.fireGreen();
-            case PURPLE:
-                return shooter.firePurple();
-            default:
-                throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
-        }
-    }
-
-    private boolean openBlockers(FlywheelTubeShooter.FiringState firingState) {
-        switch(firingState) {
-            case FIRING_BOTH:
-                leftBlocker.open();
-                rightBlocker.open();
-                return true;
-
-            case FIRING_LEFT:
-                leftBlocker.open();
-                rightBlocker.close();
-                return true;
-
-            case FIRING_RIGHT:
-                leftBlocker.close();
-                rightBlocker.open();
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private boolean closeBlockers(FlywheelTubeShooter.ReloadingState reloadingState) {
-        switch(reloadingState) {
-            case RELOADING_BOTH:
-                leftBlocker.close();
-                rightBlocker.close();
-                return true;
-
-            case RELOADING_LEFT:
-                leftBlocker.close();
-                rightBlocker.open();
-                return true;
-
-            case RELOADING_RIGHT:
-                leftBlocker.open();
-                rightBlocker.close();
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private ArtifactColor nullSafeColor(ArtifactColorRangeSensor nullableSensor) {
-        if(nullableSensor == null) {
-            return null;
-        }
-
-        return nullableSensor.getColor();
-    }
-
-    private Motif captureMotif(MotifLimelight motifGetter, Follower follower) {
-        // Snapping a photo of the motif if we are facing it
-        // The camera sees 60 degrees, but we subtract a bit to fully see the motif
-        final double F_O_V = Math.toRadians(40); 
-        final Pose currentPose = follower.getPose();
-        final double targetAngle = Math.atan2(
-            OBELISK.pedroPose().getY() - currentPose.getY(), 
-            OBELISK.pedroPose().getX() - currentPose.getX()
-        );
-
-        if(Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
-            motifGetter.setGlobalRobotYaw(currentPose.getHeading());
-            final Motif result = motifGetter.getMotif();
-            duckSpinner.setPower(1.0);
-            motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
-            return result;
-        }
-
-        return null;
     }
     
     private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);

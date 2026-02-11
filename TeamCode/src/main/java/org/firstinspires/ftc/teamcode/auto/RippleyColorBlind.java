@@ -34,10 +34,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.hardware.ArtifactColorRangeSensor;
-import org.firstinspires.ftc.teamcode.hardware.MotifLimelight;
+import org.firstinspires.ftc.teamcode.hardware.MotifWebcam;
 import org.firstinspires.ftc.teamcode.hardware.Robot;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
@@ -63,7 +64,7 @@ import static org.firstinspires.ftc.teamcode.util.ArtifactColor.PURPLE;
 
 
 @Configurable
-@Autonomous(name = "<<ColorBlind>> Auto2: Blue Rippley", group = "AB - Main Colorblind")
+@Autonomous(name = "ColorBlind Auto2: Blue Rippley", group = "A - Main")
 public class RippleyColorBlind extends LinearOpMode {
     private ElapsedTime timer = new ElapsedTime();
     private DcMotor backRight = null;
@@ -114,7 +115,6 @@ public class RippleyColorBlind extends LinearOpMode {
     private BasicMecanumDrive drivetrain = null;
     private BlockerSubsystem leftBlocker = null;
     private BlockerSubsystem rightBlocker = null;
-    private CRServo duckSpinner = null;
 
     private boolean isRed = false;
     
@@ -372,24 +372,24 @@ public class RippleyColorBlind extends LinearOpMode {
             Robot.Device.INTAKE,
             Robot.Device.LEFT_BLOCKER,
             Robot.Device.RIGHT_BLOCKER,
-            Robot.Device.RAMP_PIVOT,
-            Robot.Device.LEFT_RELOAD,
-            Robot.Device.RIGHT_RELOAD,
-            Robot.Device.MOTIF_LIMELIGHT,
-            Robot.Device.ULTIMATE_POINT_EARNER
+            Robot.Device.RAMP_PIVOT
         )); 
         shooter      = robot.getShooter();
         intake       = robot.getIntake();
         leftBlocker  = robot.getLeftBlocker();
         rightBlocker = robot.getRightBlocker();
-        leftReload   = robot.getLeftReload();
-        rightReload  = robot.getRightReload();
-        duckSpinner  = robot.getDuckSpinner(); // Trust me, this serves a purpose... it's an indicator for the motif
         final LinearHingePivot rampPivot = robot.getRampPivot();
-        final MotifLimelight motifGetter = robot.getMotifLimelight();
         // CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
         CommandScheduler.getInstance().registerSubsystem(shooter,intake,leftBlocker,rightBlocker,rampPivot);
         shooter.setTelemetry(telemetry);
+
+        // final Servo rampPivot = hardwareMap.get(Servo.class, "rampPivot");
+        
+        // Creating the webcam
+        final WebcamName obeliskViewerCam = null;
+        final MotifWebcam motifGetter = null;
+
+        // setManualExposure(motifGetter, GAIN, EXPOSURE_MS);
 
         // Bulk caching
         final List<LynxModule> modules = hardwareMap.getAll(LynxModule.class);
@@ -412,9 +412,6 @@ public class RippleyColorBlind extends LinearOpMode {
             shooter.setTelemetry(inCompetitonMode ? null : telemetry);
 
             telemetry.addData("Status", "Initialized");
-            telemetry.addLine();
-            telemetry.addData("Left artifact",  nullSafeColor(leftReload));
-            telemetry.addData("Right artifact", nullSafeColor(rightReload));
             telemetry.addLine();
             telemetry.addLine(Util.header("Settings"));
             telemetry.addLine();
@@ -449,7 +446,7 @@ public class RippleyColorBlind extends LinearOpMode {
         follower.setPose(mirror(START_POS.pedroPose(), isRed));
 
         // Get the motif 
-        final boolean cameraExists = motifGetter != null;
+        final boolean cameraExists = obeliskViewerCam != null && motifGetter != null;
         Motif motif = null;
 
         // Moving to the shooting position
@@ -461,20 +458,35 @@ public class RippleyColorBlind extends LinearOpMode {
         CommandScheduler.getInstance().run();
         follower.followPath(paths.get("goFromCameraToShooting"), true);
         while(follower.isBusy() && opModeIsActive()) {
+
             follower.update();
             OpModeData.startPosition = follower.getPose();
 
-            if(cameraExists && motif == null) {
-                motif = captureMotif(motifGetter, follower);
+            // Snapping a photo of the motif if we are facing it
+            // The camera sees 60 degrees, but we subtract a bit to fully see the motif
+            final double F_O_V = Math.toRadians(40); 
+            final Pose currentPose = follower.getPose();
+            final double targetAngle = Math.atan2(
+                mirror(OBELISK.pedroPose(), isRed).getY() - currentPose.getY(), 
+                mirror(OBELISK.pedroPose(), isRed).getX() - currentPose.getX()
+            );
+
+            if(cameraExists && motif == null && Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
+                motifGetter.setGlobalRobotYaw(currentPose.getHeading());
+                motif = motifGetter.getMotif();
+                motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
             }
         }
         
-        if(!openGate) {
-            shootPattern(motif);
-        } else {
-            // We know that this clip will be emptied, so the pattern doesn't matter
-            emptyClip();
+
+        // If the motif coul dnt be found, use a defa`ult
+        // if(motif == null && allPurple) {
+        //     motif = Motif.ALL_PURPLE;
+        /* }  else */ if(motif == null) {
+            motif = Motif.FIRST_GREEN;
         }
+        
+        emptyClip();
         shooter.charge(SECOND_SHOT_SPEED, false);
 
         // Moving to grab artifacts
@@ -503,15 +515,11 @@ public class RippleyColorBlind extends LinearOpMode {
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
-
-            if(cameraExists && motif == null) {
-                motif = captureMotif(motifGetter, follower);
-            }
         }
         follower.setMaxPower(1.0);
 
         // Shooting once again
-        shootPattern(SECOND_SHOT_SPEED, motif);
+        emptyClip(SECOND_SHOT_SPEED);
         shooter.charge(THIRD_SHOT_SPEED, false);
 
         // Moving to grab artifacts
@@ -535,15 +543,12 @@ public class RippleyColorBlind extends LinearOpMode {
             follower.update();
             OpModeData.startPosition = follower.getPose();
             CommandScheduler.getInstance().run();
-            if(cameraExists && motif == null) {
-                motif = captureMotif(motifGetter, follower);
-            }
         }
         follower.setMaxPower(1.0);
 
         // Shooting once again
         // rampPivot.runToAngle(Math.toRadians(56));
-        shootPattern(THIRD_SHOT_SPEED, motif);
+        emptyClip(THIRD_SHOT_SPEED);
 
         // Getting leave points
         intake.holdGamePieces();
@@ -566,6 +571,45 @@ public class RippleyColorBlind extends LinearOpMode {
         while(!command.isFinished() && opModeIsActive()) {
             telemetry.update();
             CommandScheduler.getInstance().run();
+        }
+    }
+
+    private boolean setManualExposure(MotifWebcam motifGetter, int exposureMS, int gain) {
+        // Ensure Vision Portal has been setup.
+        if (motifGetter.getStream() == null) {
+            return false;
+        }
+
+        // Wait for the camera to be open
+        if (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING) {
+            telemetry.addData("Camera", "Waiting");
+            telemetry.update();
+            while (!isStopRequested() && (motifGetter.getStream().getCameraState() != VisionPortal.CameraState.STREAMING)) {
+                sleep(20);
+            }
+            telemetry.addData("Camera", "Ready");
+            telemetry.update();
+        }
+
+        // Set camera controls unless we are stopping.
+        if (!isStopRequested())
+        {
+            // Set exposure.  Make sure we are in Manual Mode for these values to take effect.
+            ExposureControl exposureControl = motifGetter.getStream().getCameraControl(ExposureControl.class);
+            if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
+                exposureControl.setMode(ExposureControl.Mode.Manual);
+                sleep(50);
+            }
+            exposureControl.setExposure((long)exposureMS, TimeUnit.MILLISECONDS);
+            sleep(20);
+
+            // Set Gain.
+            GainControl gainControl = motifGetter.getStream().getCameraControl(GainControl.class);
+            gainControl.setGain(gain);
+            sleep(20);
+            return (true);
+        } else {
+            return (false);
         }
     }
 
@@ -635,165 +679,94 @@ public class RippleyColorBlind extends LinearOpMode {
         CommandScheduler.getInstance().run();
     }
     
-    private void shootPattern(double inchesPerSec, MotifGetter.Motif motif) {
-        if(motif == null) {
-            emptyClip(inchesPerSec);
-            return;
-        }
-
-        // Firing the artifacts we have, using the motif from the april tag
-        int motifIndex = -1;
-        boolean hasFiredPurple = false;
-        
-        shootingLoop:
-        for(final ArtifactColor color : motif) {
-            motifIndex++;
-
-            // Reloading any empty side
-            // Skip if this is index 0.
-            if(motifIndex != 0) {
-                intake.intakeGamePieces();
-                shooter.reloadEmpty();
-                // closeBlockers(shooter.getReloadingState());
-                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.RELOADING));
-            }
-            
-            // Sending the commands to fire the correct color
-            intake.holdGamePieces();
-            final boolean hadCorrectColor = fireColor(color);
-
-            // If the color could not be loaded, give up trying to fire the pattern
-            // Rather than trying to reload, we just assume that it is reloaded
-            if(!hadCorrectColor && motifIndex == 0) {
-                // Because we still have all three artifacts, give up and shoot everything
-                emptyClip(inchesPerSec);
-                return;
-            } else if(!hadCorrectColor && motifIndex > 0) {
-                shooter.fire();
-            }
-
-            // Letting firing finish
-            openBlockers(shooter.getFiringState());
-            CommandScheduler.getInstance().run();
-            sleep(800);
-
-            if(motifIndex == 2 || !hadCorrectColor) {
-                return;
-            }
-
-            // Recharging as necessary
-            if(shooter.getStatus() == Status.UNCHARGING) {
-                shooter.charge(inchesPerSec, true);
-            }
-        } 
-    }
-
     private void shootPattern(MotifGetter.Motif motif) {
-        if(motif == null) {
-            emptyClip();
-            return;
-        }
-
+        
         // Firing the artifacts we have, using the motif from the april tag
         int motifIndex = -1;
         boolean hasFiredPurple = false;
-        
+
+
         shootingLoop:
         for(final ArtifactColor color : motif) {
             motifIndex++;
+            runUntilCompleted(shooter.chargeCommand());
 
-            // Reloading any empty side
-            // Skip if this is index 0.
-            if(motifIndex != 0) {
+            // if(shooter.getStatus() != Status.EMPTY_CHARGED && shooter.getStatus() != Status.RELOADED_CHARGED) {
+            //     CommandScheduler.getInstance().reset();
+            //     requestOpModeStop();
+            // }
+
+            if(motifIndex == 0) {
+                sleep(500); // AWait for correct power
+            }
+
+
+            // Firing the indicated color
+            switch(color) {
+                case GREEN: 
+                    shooter.fireGreen();
+                    break;
+                case PURPLE:
+                    hasFiredPurple = true;
+                    shooter.firePurple();
+                    break;
+                default:
+                    throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
+            }
+
+            // Waiting for the firing to end
+            // The shooter is likely to charge after this, but we want to wait until after reloading
+            // to do any extra charging (for saving time).
+            runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.FIRING));
+
+            if(motifIndex == 2) {
+                break shootingLoop;
+            }
+
+            // Getting ready for reloading by cycling the next artifact into position
+            // and taking note of what colors are already reloaded.
+            ArtifactColor rightColor = null;
+            ArtifactColor leftColor = null;
+
+            if(hasFiredPurple) {
                 intake.intakeGamePieces();
-                shooter.reloadEmpty();
-                // closeBlockers(shooter.getReloadingState());
-                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.RELOADING));
-            }
-            
-            // Sending the commands to fire the correct color
-            intake.holdGamePieces();
-            final boolean hadCorrectColor = fireColor(color);
-
-            // If the color could not be loaded, give up trying to fire the pattern
-            // Rather than trying to reload, we just assume that it is reloaded
-            if(!hadCorrectColor && motifIndex == 0) {
-                // Because we still have all three artifacts, give up and shoot everything
-                emptyClip();
-                return;
-            } else if(!hadCorrectColor && motifIndex > 0) {
-                shooter.fire();
             }
 
-            // Letting firing finish
-            openBlockers(shooter.getFiringState());
-            CommandScheduler.getInstance().run();
-            sleep(800);
+            for(
+                int retries = 0; 
+                hasFiredPurple && retries < 3 
+                    && (rightColor = rightReload.getColor()) != PURPLE 
+                    && (leftColor = leftReload.getColor()) != PURPLE; 
+                retries++
+            ) {
+                // Reload both sides if both are empty
+                // We do this to ensure *something* is reloaded
+                if(hasFiredPurple && leftColor == ArtifactColor.UNKNOWN && rightColor == ArtifactColor.UNKNOWN) {
+                    shooter.reload();
+                }
 
-            if(motifIndex == 2 || !hadCorrectColor) {
-                return;
+                // Reload the left if it is empty and the other is green
+                if(hasFiredPurple && leftColor == ArtifactColor.UNKNOWN && rightColor == ArtifactColor.GREEN ) {
+                    shooter.reloadLeft();
+                }
+                
+                // Reload the right if it is empty and the other is green
+                if(hasFiredPurple && leftColor == ArtifactColor.GREEN && rightColor == ArtifactColor.UNKNOWN) {
+                    shooter.reloadRight();
+                }
+
+                // Wait for the shooter to finish reloading and become charged again
+                // Reloading naturally will cause the shooter to charge again, so this 
+                // covers in case enough shooter velocity was lost when shooting
+                runUntilCompleted(new WaitUntilCommand(() -> shooter.getStatus() != Status.CHARGING
+                        && shooter.getStatus() != Status.RELOADING));
             }
 
-            // Recharging as necessary
+            // If the charging failed, just tell it that it is charged, and move on
             if(shooter.getStatus() == Status.UNCHARGING) {
-                shooter.charge();
+                shooter.forceCharged();
             }
         } 
-    }
-
-    private boolean fireColor(ArtifactColor color) {
-        switch(color) {
-            case GREEN: 
-                return shooter.fireGreen();
-            case PURPLE:
-                return shooter.firePurple();
-            default:
-                throw new RuntimeException("Encountered unfirable ArtifactColor: " + color.name());
-        }
-    }
-
-    private boolean openBlockers(FlywheelTubeShooter.FiringState firingState) {
-        switch(firingState) {
-            case FIRING_BOTH:
-                leftBlocker.open();
-                rightBlocker.open();
-                return true;
-
-            case FIRING_LEFT:
-                leftBlocker.open();
-                rightBlocker.close();
-                return true;
-
-            case FIRING_RIGHT:
-                leftBlocker.close();
-                rightBlocker.open();
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private boolean closeBlockers(FlywheelTubeShooter.ReloadingState reloadingState) {
-        switch(reloadingState) {
-            case RELOADING_BOTH:
-                leftBlocker.close();
-                rightBlocker.close();
-                return true;
-
-            case RELOADING_LEFT:
-                leftBlocker.close();
-                rightBlocker.open();
-                return true;
-
-            case RELOADING_RIGHT:
-                leftBlocker.open();
-                rightBlocker.close();
-                return true;
-
-            default:
-                return false;
-        }
     }
 
     /**
@@ -852,35 +825,23 @@ public class RippleyColorBlind extends LinearOpMode {
         }
     }
     
-    private ArtifactColor nullSafeColor(ArtifactColorRangeSensor nullableSensor) {
-        if(nullableSensor == null) {
-            return null;
-        }
-
-        return nullableSensor.getColor();
-    }
-    
-    
-    private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);
-
-    private Motif captureMotif(MotifLimelight motifGetter, Follower follower) {
-        // Snapping a photo of the motif if we are facing it
-        // The camera sees 60 degrees, but we subtract a bit to fully see the motif
-        final double F_O_V = Math.toRadians(40); 
-        final Pose currentPose = follower.getPose();
-        final double targetAngle = Math.atan2(
-            OBELISK.pedroPose().getY() - currentPose.getY(), 
-            OBELISK.pedroPose().getX() - currentPose.getX()
+    /**
+     * Calculates the x so that the point (x, y) is along the edge of the goal.
+     * This is used to find the x-coordinate a robot resting against the goal.
+     * 
+     * @param y The y coordinate that is along the edge of the goal.
+     * @return The x coordinate so that (x, y) is along the edge of the goal.
+     */
+    private static double goalEdgeXFromY(double y) {
+        final double RAMP_WIDTH = 6.75; // Inches
+        final double GOAL_LENGTH_Y = 21.75; // Inches along the field y axis, up to the archway
+        final double GOAL_LENGTH_X = 22.75; // Inches along the field x axis
+        return Util.lerp(
+            RAMP_WIDTH, 
+            Util.invLerp(72 - GOAL_LENGTH_Y, y, 72), 
+            RAMP_WIDTH + GOAL_LENGTH_X
         );
-
-        if(Util.near(currentPose.getHeading(), targetAngle, 0.5 * F_O_V)) { 
-            motifGetter.setGlobalRobotYaw(currentPose.getHeading());
-            final Motif result = motifGetter.getMotif();
-            duckSpinner.setPower(1.0);
-            motifGetter.disable(); // Save bandwidth and performance by not accessing the camera
-            return result;
-        }
-
-        return null;
     }
+
+    private final TimeInjectionUtil timeUtil = new TimeInjectionUtil(this);
 }
