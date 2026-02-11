@@ -54,7 +54,7 @@ import org.firstinspires.ftc.teamcode.util.KeyPoses;
 import org.firstinspires.ftc.teamcode.util.MotifGetter;
 import org.firstinspires.ftc.teamcode.util.MotifGetter.Motif;
 import org.firstinspires.ftc.teamcode.util.OpModeData;
-import org.firstinspires.ftc.teamcode.util.RrCoordinates;
+// import org.firstinspires.ftc.teamcode.util.RrCoordinates;
 import org.firstinspires.ftc.teamcode.util.Util;
 import org.firstinspires.ftc.teamcode.util.WrapConcurrentCommand;
 import org.firstinspires.ftc.vision.VisionPortal;
@@ -104,7 +104,7 @@ public class RippleyColorBlind extends LinearOpMode {
     );
 
     public static final double SECOND_SHOT_SPEED = 220;
-    public static final double THIRD_SHOT_SPEED = Robot.ticksToInches(1500);
+    public static final double THIRD_SHOT_SPEED = Robot.ticksToInches(1600);
     
     private ArtifactColorRangeSensor rightReload = null;
     private ArtifactColorRangeSensor leftReload = null;
@@ -237,11 +237,12 @@ public class RippleyColorBlind extends LinearOpMode {
         final Path openGate = new Path(new BezierCurve( //#region
             // Little Tap form
             () -> follower.getPose(),
-            mirror(new Pose(21.315, 74.207), isRed),
-            mirror(new Pose(16.133, 73.035), isRed)
+            mirror(new Pose(21.315, 4 + 74.207), isRed),
+            mirror(new Pose(16.133, 4 + 73.035), isRed)
         )); //#endregion
 
-        final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
+        // final Pose secondGrabStart = mirror(new Pose(43.839, 61.500), isRed);
+        final Pose secondGrabStart = mirror(new Pose(50.839, 64.500), isRed);
         final Pose secondShooting = minTravelDist( // #region
             new BezierLine(
                 mirror(new Pose(    -ROBOT_RADIUS * Math.sqrt(0.5), 144 - ROBOT_RADIUS * Math.sqrt(0.5)), isRed), 
@@ -255,12 +256,17 @@ public class RippleyColorBlind extends LinearOpMode {
             () -> follower.getPose(),
             secondShooting
         )); //#endregion
+        final Path goBackToShootAfterGate = new Path(new BezierLine( //#region
+            () -> follower.getPose(),
+            secondShooting
+        )); //#endregion
         final PathChain grabArtifactsAgain =  follower //#region
             .pathBuilder()
             .addPath(new BezierCurve(
                 () -> follower.getPose(),
+                secondGrabStart,
                 mirror(new Pose(48.611, 61.500), isRed),
-                mirror(new Pose(48.611, 67.675), isRed),
+                // mirror(new Pose(48.611, 67.675), isRed),
                 secondGrabStart
             ))
             .setLinearHeadingInterpolation(shooting.getHeading(), grabHeading)
@@ -300,17 +306,18 @@ public class RippleyColorBlind extends LinearOpMode {
             )))
             .build(); //#endregion
 
-        grabArtifacts.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
+        grabArtifacts.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
         grabArtifacts.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifacts.getPath(2).setConstantHeadingInterpolation(grabHeading);
-        grabArtifactsAgain.getPath(0).setConstantHeadingInterpolation(/* shooting.getHeading(),  */grabHeading);
+        grabArtifactsAgain.getPath(0).setLinearHeadingInterpolation(shooting.getHeading(), grabHeading);
         grabArtifactsAgain.getPath(1).setConstantHeadingInterpolation(grabHeading);
         grabArtifactsAgain.getPath(2).setConstantHeadingInterpolation(grabHeading);
         openGateAndGoToShooting.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
-        openGate.setConstantHeadingInterpolation(Math.toRadians(-90));
-        goBackToShoot.setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
+        openGate.setConstantHeadingInterpolation(Math.toRadians(90));
+        goBackToShoot.setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
+        goBackToShootAfterGate.setLinearHeadingInterpolation(Math.toRadians(90), shooting.getHeading());
         goBackToShootAgain.getPath(0).setConstantHeadingInterpolation(grabHeading);
-        goBackToShootAgain.getPath(1).setConstantHeadingInterpolation(/* grabHeading,  */shooting.getHeading());
+        goBackToShootAgain.getPath(1).setLinearHeadingInterpolation(grabHeading, shooting.getHeading());
 
         result.put("grabArtifactsAndShoot", follower //#region
             .pathBuilder()
@@ -328,7 +335,7 @@ public class RippleyColorBlind extends LinearOpMode {
             .addPath(grabArtifacts.getPath(2))
             // .addPath(openGateAndGoToShooting)
             .addPath(openGate)
-            .addPath(goBackToShoot)
+            .addPath(goBackToShootAfterGate)
             .build()
         ); //#endregion
 
@@ -380,7 +387,8 @@ public class RippleyColorBlind extends LinearOpMode {
         duckSpinner  = robot.getDuckSpinner(); // Trust me, this serves a purpose... it's an indicator for the motif
         final LinearHingePivot rampPivot = robot.getRampPivot();
         final MotifLimelight motifGetter = robot.getMotifLimelight();
-        CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
+        // CommandScheduler.getInstance().registerSubsystem(robot.getAllSubsystems());
+        CommandScheduler.getInstance().registerSubsystem(shooter,intake,leftBlocker,rightBlocker,rampPivot);
         shooter.setTelemetry(telemetry);
 
         // Bulk caching
