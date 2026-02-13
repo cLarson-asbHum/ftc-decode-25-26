@@ -76,6 +76,7 @@ public class CompetitionTeleop extends OpMode {
     private CarwashIntake intake = null;
     private BasicMecanumDrive drivetrain = null;
     private LinearHingePivot rampPivot = null;
+    private ActuatorSubsystem actuator = null;
 
     private Follower follower = null;
     private AimbotManager aimbot = null;
@@ -115,6 +116,7 @@ public class CompetitionTeleop extends OpMode {
     private boolean wasPressingA = false;
     private boolean wasPressingPark = false;
     private boolean autoFiringWasFeasible = false;
+    private boolean wasUpdatingActuatorSpeed = false;
 
     private boolean updateStartPosition = false;
     private Pose startPosition = null;
@@ -356,7 +358,7 @@ public class CompetitionTeleop extends OpMode {
 
         if(deltaTime > MAX_DELTATIME) {
             System.out.printf(
-                "CompetitionTeleop: Encountered delta time %.0f ms (>%.0f ms):\n%s" + 
+                "CompetitionTeleop: Encountered delta time %.0f ms (>%.0f ms):\n%s", 
                 deltaTime * 1000,
                 MAX_DELTATIME * 1000,
                 Util.header("Delta times by Section") + "\n" + this.lastText
@@ -470,6 +472,13 @@ public class CompetitionTeleop extends OpMode {
         if(shooter.getFiringState() == FlywheelTubeShooter.FiringState.UNKNOWN) {
             closeBlockers();
         }
+
+        // ACTUATING
+        wasUpdatingActuatorSpeed = engageActuators(
+            gamepad1.left_stick_button, 
+            gamepad1.right_stick_button,
+            (gamepad1.left_stick_button && gamepad1.right_stick_button) && wasUpdatingActuatorSpeed
+        );
 
         // LEDs
         timeSection("LEDs", timer);
@@ -751,6 +760,8 @@ public class CompetitionTeleop extends OpMode {
         }
         
         if((doStart || doFollow) && follower != null) {
+            final Pose currentPose = follower.getPose();
+            follower.turnTo(shootingAngleToGoal(currentPose));
             follower.update();
             return true;
         }
@@ -1136,6 +1147,30 @@ public class CompetitionTeleop extends OpMode {
             return true;
         }
 
+        return false;
+    }
+
+    public boolean engageActuators(boolean doRaise, boolean doLower, boolean doHold) {
+        if(actuator == null) {
+            return false;
+        }
+
+        if(doRaise && !doLower && !doHold) {
+            actuator.extend();
+            return true;
+        }
+
+        if(!doRaise && doLower && !doHold) {
+            actuator.lower();
+            return true;
+        }
+
+        if(doHold || (doRaise && doLower)) {
+            actuator.hold();
+            return true;
+        }
+
+        // Combination was invalid
         return false;
     }
 

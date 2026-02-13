@@ -12,6 +12,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.MotorControlAlgorithm;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.PwmControl.PwmRange;
+
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.DoubleUnaryOperator;
 
+import org.firstinspires.ftc.teamcode.hardware.subsystem.ActuatorSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BasicMecanumDrive;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.hardware.subsystem.CarwashIntake;
@@ -65,6 +67,7 @@ public class Robot {
 
         MOTIF_WEBCAM          (robot -> robot.initMotifWebcam()),
         ULTIMATE_POINT_EARNER (robot -> robot.initDuckSpinner()),
+        ACTUATOR              (robot -> robot.initActuator()),
 
         LEFT_LED  (robot -> robot.initLeftLed()),
         RIGHT_LED (robot -> robot.initRightLed());
@@ -77,8 +80,6 @@ public class Robot {
         public void init(Robot robot) {
             this.init.run(robot);
         }
-    
-        public void requestHardware(HardwareMap hardwareMap) {}
     }
 
     public static final Set<Device> teleopDevices() {
@@ -104,6 +105,7 @@ public class Robot {
         result.remove(Device.DRIVETRAIN);
         result.remove(Device.LEFT_SHOOTER);
         result.remove(Device.RIGHT_SHOOTER);
+        result.remove(Device.ACTUATOR);
         return result;
     }
 
@@ -120,6 +122,7 @@ public class Robot {
     private ArtifactColorRangeSensor rightReload = null;
     private MotifWebcam motifWebcam = null;
     private CRServo duckSpinner = null;
+    private ActuatorSubsystem actuator = null;
     private ArtifactColorLed leftLed = null;
     private ArtifactColorLed rightLed = null;
 
@@ -524,6 +527,28 @@ public class Robot {
         return true;
     }
 
+    private boolean initActuator() {
+        if(actuator != null) {
+            return false;
+        }
+
+        // Getting the hardware
+        final CRServoImplEx leftActuatorServo = (CRServoImplEx) findHardware(CRServo.class, "leftActuator");
+        final CRServoImplEx rightActuatorServo = (CRServoImplEx) findHardware(CRServo.class, "rightActuator");
+        throwAFitIfAnyHardwareIsNotFound();
+
+        // Setting the necessary properties
+        leftActuatorServo.setDirection(DcMotor.Direction.FORWARD);
+        rightActuatorServo.setDirection(DcMotor.Direction.REVERSE);
+
+        leftActuatorServo.setPwmRange( new PwmRange(900, 2100));
+        rightActuatorServo.setPwmRange(new PwmRange(900, 2100));
+
+        // Creating the subsystem
+        this.actuator = new ActuatorSubsystem(leftActuatorServo, rightActuatorServo);
+        return true;
+    }
+
     private boolean initLeftLed() {
         if(leftLed != null) {
             return false;
@@ -615,6 +640,14 @@ public class Robot {
         return duckSpinner;
     }
     
+    public ActuatorSubsystem getActuator() {
+        if(actuator == null) {
+            initActuator();
+        }
+
+        return actuator;
+    }
+
     public ArtifactColorLed getLeftLed() {
         if(leftLed == null) initLeftLed();
         return leftLed;

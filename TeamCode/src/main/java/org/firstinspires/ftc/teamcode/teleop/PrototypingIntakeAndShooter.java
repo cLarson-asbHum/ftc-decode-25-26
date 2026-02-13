@@ -37,9 +37,14 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
         final CRServo leftFeeder = hardwareMap.get(CRServo.class, "leftFeeder");
         final ServoImplEx leftBlockerServo = (ServoImplEx) hardwareMap.get(Servo.class, "leftBlocker"); 
         final ServoImplEx rightBlockerServo = (ServoImplEx) hardwareMap.get(Servo.class, "rightBlocker"); 
+        final CRServo leftActuatorServo = (CRServo) hardwareMap.get(CRServo.class, "leftActuator"); 
+        final CRServo rightActuatorServo = (CRServo) hardwareMap.get(CRServo.class, "rightActuator"); 
 
         boolean closed = false;
         boolean rclosed = false;
+
+        rightActuatorServo.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftActuatorServo.setDirection(DcMotorSimple.Direction.FORWARD);
 
         leftBlockerServo.setPwmRange(new PwmRange(500, 2500));
         rightBlockerServo.setPwmRange(new PwmRange(500, 2500));
@@ -99,6 +104,14 @@ public class PrototypingIntakeAndShooter extends LinearOpMode {
                 rightFeeder.setPower(FEEDER_FULL);
             } else {
                 rightFeeder.setPower(0.0);
+            }
+
+            if(gamepad2.right_stick_button) {
+                rightActuatorServo.setPower(1.0);
+                leftActuatorServo.setPower(1.0);
+            } else {
+                rightActuatorServo.setPower(0);
+                leftActuatorServo.setPower(0);
             }
             
 
