@@ -7,11 +7,11 @@ import org.firstinspires.ftc.teamcode.util.Util;
 
 public class ActuatorSubsystem implements Subsystem {
     public static class Speeds {
-        public double extendLeft = 0.9;
+        public double extendLeft = 1.0;
         public double extendRight = 1.0;
 
-        public double holdLeft = 0.00;
-        public double holdRight = 0.00;
+        public double holdLeft = 0.05;
+        public double holdRight = 0.05;
         
         public double lowerLeft = -0.5 * extendLeft;
         public double lowerRight = -0.5 * extendRight;

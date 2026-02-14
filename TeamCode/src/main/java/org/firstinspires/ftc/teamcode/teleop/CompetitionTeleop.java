@@ -139,6 +139,7 @@ public class CompetitionTeleop extends OpMode {
         rightReload  = robot.getRightReload();
         leftLed      = robot.getLeftLed();
         rightLed     = robot.getRightLed();
+        actuator     = robot.getActuator();
 
         // Doing some work with the subsystems
         showExtraTelemetry = !OpModeData.inCompetitonMode;
@@ -477,7 +478,7 @@ public class CompetitionTeleop extends OpMode {
         wasUpdatingActuatorSpeed = engageActuators(
             gamepad1.left_stick_button, 
             gamepad1.right_stick_button,
-            (gamepad1.left_stick_button && gamepad1.right_stick_button) && wasUpdatingActuatorSpeed
+            !(gamepad1.left_stick_button && gamepad1.right_stick_button) && wasUpdatingActuatorSpeed
         );
 
         // LEDs
@@ -760,8 +761,8 @@ public class CompetitionTeleop extends OpMode {
         }
         
         if((doStart || doFollow) && follower != null) {
-            final Pose currentPose = follower.getPose();
-            follower.turnTo(shootingAngleToGoal(currentPose));
+            // final Pose currentPose = follower.getPose();
+            // follower.turnTo(shootingAngleToGoal(currentPose));
             follower.update();
             return true;
         }

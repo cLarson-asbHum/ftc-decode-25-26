@@ -87,8 +87,8 @@ public class FarSideAuto extends LinearOpMode {
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
-    public static double SHOT_SPEED = 310; // Determined using the ballistic arc text user interface
-    public static double SHOT_ANGLE = Math.toRadians(48); // Determined using the ballistic arc text user interface
+    public static double SHOT_SPEED = 300; // Determined using the ballistic arc text user interface
+    public static double SHOT_ANGLE = Math.toRadians(46); // Determined using the ballistic arc text user interface
 
     public static ConfigPose START_POS = new ConfigPose(
         56,

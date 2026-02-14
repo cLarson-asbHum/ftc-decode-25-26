@@ -674,6 +674,7 @@ public class Robot {
             add(shooter);
             add(leftBlocker);
             add(rightBlocker);
+            add(actuator);
         }};
 
         // Removing the null subsystems.

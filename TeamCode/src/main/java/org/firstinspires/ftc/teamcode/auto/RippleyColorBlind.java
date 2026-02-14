@@ -80,16 +80,16 @@ public class RippleyColorBlind extends LinearOpMode {
     // TODO: find the robot width and length
     public static double ROBOT_LENGTH = 17; // Inches parallel to the robot's forward-facing axis
     public static double ROBOT_WIDTH = 17; // Inches perpendicular to the robot's forward-facing axis 
-    public static double ROBOT_RADIUS = 7;
+    public static double ROBOT_RADIUS = 5;
 
     public static double CAMERA_YAW_OFFSET = 0; // In radians
 
     public static ConfigPose START_POS = new ConfigPose(
         // In Inches. Resting flat against the blue goal
-        20,
+        21,
 
         // In Inches. Is along the top-most grid edge
-        122,
+        120,
 
         // In Radians. Along the blue goal, facing the upper wall
         // Determined emperically
